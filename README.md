@@ -77,6 +77,20 @@ pio device monitor          # 115200 Baud (USB-CDC)
 - **Webseiten geändert?** Nach Änderungen in `data/` immer `uploadfs` ausführen –
   ein reiner Firmware-Upload überträgt die Webseiten **nicht**.
 
+## Build & Flash (Voltmeter)
+
+Das Voltmeter ist ein eigenes **PlatformIO-Projekt** (STM32F103 „Blue Pill", STM32duino).
+Alle Befehle im Ordner `tt_voltmeter/` ausführen. Geflasht wird per **ST-Link (SWD)**.
+
+```bash
+pio run                     # bauen
+pio run -t upload           # via ST-Link flashen
+pio device monitor          # Konsole/Kalibrierung (Serial = USART1, PA9/PA10)
+```
+
+Schnittstellen: **USART2** (PA2/PA3) ist die Datenleitung zum Controller, **USART1** (PA9/PA10)
+die serielle Konsole für Befehle und Kalibrierung.
+
 ## Lizenz
 
 MIT — siehe [`LICENSE`](LICENSE).

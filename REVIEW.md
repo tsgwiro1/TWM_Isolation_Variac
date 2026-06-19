@@ -3,7 +3,8 @@
 **Stand:** 2026-06-18
 **Umfang:** Firmware (`src/tt_esp32controller.ino`, `src/Action.{h,cpp}`), Web-Frontend (`data/`),
 Build-Konfiguration (`platformio.ini`, `partitions.csv`), Doku (`documentation/`).
-**Kontext:** Portierung der STM32-Version (`../tt_controller`) auf ESP32-S3 mit zusätzlicher
+Code-/Pfadangaben unten sind relativ zu `tt_esp32controller/`.
+**Kontext:** Portierung der STM32-Version (`tt_controller/`, altes Repo) auf ESP32-S3 mit zusätzlicher
 REST-/WebSocket-API und Web-Oberfläche. Code läuft grundsätzlich; es geht um Optimierung.
 
 Dieses Dokument ist die Befundaufnahme + priorisierter Plan. Bug-Fixes sind hier **nur geplant**,
@@ -60,8 +61,8 @@ noch nicht umgesetzt.
 - 16 MB Flash, aber Partitionen enden bei ~8,4 MB → ~7,5 MB ungenutzt.
 - `partitions.csv` nennt die FS-Partition `spiffs`, gemountet wird LittleFS darauf
   (`LittleFS.begin(true,"/littlefs",10,"spiffs")`) — funktioniert, ist aber irreführend benannt.
-- Top-Level `../libraries/` (alte Arduino-IDE-Libs) ist für das PIO-Projekt redundant
-  (Libs kommen via `lib_deps`).
+- Top-Level `libraries/` (alte Arduino-IDE-Libs, altes Repo) war für das PIO-Projekt redundant
+  (Libs kommen via `lib_deps`); im neuen Repo nicht mehr enthalten.
 - Kosmetik: durchgängige Typos `Whiper` (→ `Wiper`), `CORSE`/`corse` (→ `coarse`).
 
 ### 1.6 Web-Frontend / Doku
@@ -106,7 +107,7 @@ noch nicht umgesetzt.
       FS-Partition konsistent `littlefs`/`spiffs` benennen + Code-Kommentar.
 - [ ] **O-4 Doku-Single-Source** — API-Doku nur einmal pflegen (HTML in `data/` als Quelle,
       `.docx` daraus generieren oder umgekehrt); Drift vermeiden.
-- [ ] **O-5 Repo-Aufräumen** — redundantes `../libraries/` für das PIO-Projekt prüfen/entfernen,
+- [ ] **O-5 Repo-Aufräumen** — redundantes `libraries/` für das PIO-Projekt prüfen/entfernen,
       Top-Level-`README` mit Build-/Flash-Anleitung.
 - [ ] **O-6 Kosmetik** — Typos `Whiper`→`Wiper`, `corse`→`coarse` (konsistente Umbenennung).
 - [ ] **O-7 ArduinoJson v7** — Migration von `StaticJsonDocument` (optional, wenn Libs aktualisiert).

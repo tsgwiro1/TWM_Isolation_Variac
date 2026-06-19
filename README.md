@@ -17,13 +17,11 @@ Basis für die geschlossene Spannungsregelung.
 
 | Pfad | Inhalt |
 |------|--------|
-| `tt_esp32controller/` | Controller-Firmware (PlatformIO/Arduino), Web-Oberfläche (`data/`), projekteigene Doku |
-| `tt_voltmeter/` | Voltmeter-Firmware (STM32) und projekteigene Doku |
-| `documentation/` | Gemeinsame Dokumentation (z. B. Trinamic-Treiber, Hardware-Modifikationen) |
+| `tt_esp32controller/` | Controller-Firmware (PlatformIO/Arduino), Web-Oberfläche (`data/`), Controller-Doku (inkl. Trinamic-Treiber, Hardware-Modifikationen) |
+| `tt_voltmeter/` | Voltmeter-Firmware (STM32) und Voltmeter-Doku |
 
 Arbeitsstand und geplante Aufgaben:
-[`tt_esp32controller/REVIEW.md`](tt_esp32controller/REVIEW.md) (Analyse) und
-[`tt_esp32controller/BACKLOG.md`](tt_esp32controller/BACKLOG.md) (priorisierter Plan).
+[`REVIEW.md`](REVIEW.md) (Analyse) und [`BACKLOG.md`](BACKLOG.md) (priorisierter Plan).
 
 ## Build & Flash (Controller)
 

@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Paket-Reihenfolge (festgelegt)
 
-> Repo-Layout: **Mono-Repo** (`tt_esp32controller/` + `tt_voltmeter/` + gemeinsame Doku). Migration (#25) zuerst.
+> Repo-Layout: **Mono-Repo** (`tt_esp32controller/` + `tt_voltmeter/`; projektspezifische Doku im jeweiligen Projektordner). Plandateien (`REVIEW.md`, `BACKLOG.md`) im Repo-Root. Migration (#25) zuerst.
 
 
 | Reihenfolge | Paket | Ziel | enthält IDs |

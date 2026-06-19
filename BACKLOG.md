@@ -7,6 +7,70 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 - **Status:** `offen` · `in Arbeit` · `erledigt` · `verworfen`
 - IDs sind stabil; neue Punkte hinten anhängen, IDs nicht wiederverwenden.
 
+## Fortschritt
+
+**Stand:** 2026-06-19 · **Gesamt: 5 / 25 Punkte erledigt**
+
+| Paket | Status | Fortschritt |
+|-------|--------|-------------|
+| A — Projekt-Setup & Flash-Basis | ✅ erledigt | 5/5 |
+| B — Schnelle Bugfixes & Konsistenz | ⬜ offen | 0/3 |
+| C — Regelung „snappy" | ⬜ offen | 0/5 |
+| D — Robustheit / Nebenläufigkeit | ⬜ offen | 0/2 |
+| E — API-Vereinfachung | ⬜ offen | 0/1 |
+| F — Struktur & Modernisierung | ⬜ offen | 0/4 |
+| G — Web-Oberfläche | ⬜ offen | 0/2 |
+| H — Sicherheit (optional) | ⬜ offen | 0/1 |
+| I — Dokumentation | ⬜ offen | 0/2 |
+
+### Checkliste
+
+- [x] **A — Projekt-Setup & Flash-Basis**
+  - [x] #25 Migration ins Mono-Repo
+  - [x] #6 USB-/OTA-Environments + `uploadfs`
+  - [x] #7 README + Flash-Anleitung
+  - [x] #26 PlatformIO-Konfig Voltmeter
+  - [x] #8 alte `libraries/` (in #25 aufgegangen)
+- [ ] **B — Schnelle Bugfixes & Konsistenz**
+  - [ ] #1 P3-Validierung
+  - [ ] #16 Kommentar/Code-Drift
+  - [ ] #19 Spannungs-Limits vereinheitlichen
+- [ ] **C — Regelung „snappy"**
+  - [ ] #20 Simulationsmodus
+  - [ ] #21 RMS-Glättung Voltmeter
+  - [ ] #18 Voltmeter-Datenfrische
+  - [ ] #3 Positions-Offset
+  - [ ] #17 Spannungsregelung neu  _(#2 Anti-Windup entfällt damit)_
+- [ ] **D — Robustheit / Nebenläufigkeit**
+  - [ ] #4 Logging thread-safe
+  - [ ] #5 Geteilte Zustände schützen
+- [ ] **E — API-Vereinfachung & -Bereinigung**
+  - [ ] #22 API vereinfachen & bereinigen
+- [ ] **F — Struktur & Modernisierung**
+  - [ ] #10 Modularisierung
+  - [ ] #15 Typos (`Whiper`→`Wiper`, `corse`→`coarse`)
+  - [ ] #14 ArduinoJson v7
+  - [ ] #9 Partitionierung 16 MB
+- [ ] **G — Web-Oberfläche: neues Design**
+  - [ ] #23 Web-Oberfläche neu gestalten
+  - [ ] #13 Live-Daten über WebSocket
+- [ ] **H — Sicherheit (optional)**
+  - [ ] #11 Auth & REST-Hygiene
+- [ ] **I — Dokumentation aktualisieren**
+  - [ ] #24 Doku aktualisieren & vervollständigen
+  - [ ] #12 API-Doku Single-Source
+
+> Diese Checkliste ist die schnelle Abhak-Übersicht. Die Detailtabellen je Paket (unten)
+> tragen Beschreibung, Aufwand und denselben Status.
+
+### Protokoll
+
+- **2026-06-19 — Paket A abgeschlossen.** Migration ins saubere Mono-Repo;
+  USB-/OTA-Environments + Filesystem-Upload dokumentiert; eigenes PlatformIO-Projekt fürs
+  Voltmeter; **beide Firmwares compile-verifiziert** (Controller Flash 42,5 %, Voltmeter 32 %);
+  Doku-Struktur (Plandateien ins Root) und Cleanup veralteter Arduino-IDE-Dokumente.
+  Commits: `7805734`, `6e82224`, `eb4a691`, `ca28f80`, `825887b`, `f20b88b`, `9cafc73`.
+
 ## Paket-Reihenfolge (festgelegt)
 
 > Repo-Layout: **Mono-Repo** (`tt_esp32controller/` + `tt_voltmeter/`; projektspezifische Doku im jeweiligen Projektordner). Plandateien (`REVIEW.md`, `BACKLOG.md`) im Repo-Root. Migration (#25) zuerst.

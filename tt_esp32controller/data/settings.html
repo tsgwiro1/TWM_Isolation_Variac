@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variac - Einstellungen</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+		<a href="/doc_settings.html" target="_blank" class="help-link" title="Dokumentation">&#63;</a>
+        <h1>Einstellungen</h1>
+
+        <form id="settings-form">
+            <fieldset>
+                <legend>System</legend>
+                <div class="form-group">
+                    <label for="debug_enabled">Debug-Ausgaben aktivieren</label>
+                    <input type="checkbox" id="debug_enabled">
+                </div>
+                <div class="form-group">
+                    <label for="coarse_move_threshold">Grob-Anfahrt Schwellenwert (V)</label>
+                    <input type="number" step="0.1" id="coarse_move_threshold">
+                </div>
+            </fieldset>
+            
+            <fieldset>
+                <legend>Kalibrierung</legend>
+                <div class="form-group">
+                    <label for="min_pos">Min. Position (Schritte)</label>
+                    <input type="number" id="min_pos">
+                </div>
+                <div class="form-group">
+                    <label for="max_pos">Max. Position (Schritte)</label>
+                    <input type="number" id="max_pos">
+                </div>
+                <div class="form-group">
+                    <label for="min_voltage">Spannung bei Min. Pos. (V)</label>
+                    <input type="number" step="0.1" id="min_voltage">
+                </div>
+                <div class="form-group">
+                    <label for="max_voltage">Spannung bei Max. Pos. (V)</label>
+                    <input type="number" step="0.1" id="max_voltage">
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Presets</legend>
+                <div class="form-group">
+                    <label for="p1">Preset 1 (V)</label>
+                    <input type="number" id="p1">
+                </div>
+                <div class="form-group">
+                    <label for="p2">Preset 2 (V)</label>
+                    <input type="number" id="p2">
+                </div>
+                <div class="form-group">
+                    <label for="p3">Preset 3 (V)</label>
+                    <input type="number" id="p3">
+                </div>
+            </fieldset>
+
+			<div class="button-group">
+				<button type="submit" id="save-button" class="btn-light">Speichern & Anwenden</button>
+				<a href="/api/config?download=true" class="btn-light">Konfig. Herunterladen</a>
+				<button type="button" id="reboot-button" class="btn-light">Neustart</button>
+				<a href="/" class="btn-light">Zur&uuml;ck</a>
+                <a href="/log.html" target="_blank" class="btn-light">Live Log öffnen</a>
+			</div>
+            
+            <p id="status-message"></p>
+            
+            <div id="fwVersionDisplay" class="fw-version-footer"></div>
+        </form>
+    </div>
+    
+    <script src="settings.js"></script>
+    <script>
+        fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.fw_version) {
+                    document.getElementById('fwVersionDisplay').innerText = data.fw_version;
+                }
+            })
+            .catch(error => console.log("Konnte Status für FW-Version nicht laden:", error));
+    </script>
+</body>
+</html>

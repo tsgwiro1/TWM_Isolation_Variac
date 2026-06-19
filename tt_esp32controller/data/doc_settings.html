@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Variac Doku - Einstellungen</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="doc-body">
+	<div class="doc-container">
+		<div class="doc-nav">
+			<a href="doc_usage.html">1. Bedienung</a>
+			<a href="doc_api.html">2. API</a>
+			<a href="doc_settings.html" style="color:#bb86fc">3. Einstellungen</a>
+			<a href="/" style="float:right">X Schließen</a>
+		</div>
+
+		<h1>3. Systemeinstellungen & Kalibrierung</h1>
+		<p>Die gesamte Konfiguration wird in der Datei <code>/config.json</code> im LittleFS-Speicher verwaltet. Änderungen können über die Einstellungsseite im Webinterface oder direkt per API vorgenommen werden.</p>
+
+		<h2>Kalibrierungsprozess</h2>
+		<p>Damit die Software weiß, bei welcher physischen Motorposition welche Ausgangsspannung anliegt, müssen die Endanschläge kalibriert werden.</p>
+		
+		<ol>
+			<li><strong>Setup-Modus starten:</strong> 
+				<ul>
+					<li>Am Gerät: Gerät ausschalten, <strong>REG-Taste gedrückt halten</strong> und wieder einschalten.</li>
+					<li>Per Web: Den API-Befehl <code>/api/command?action=enter_settings</code> aufrufen.</li>
+				</ul>
+			</li>
+			<li><strong>Min-Position (Nullpunkt) kalibrieren:</strong> 
+				<ul>
+					<li>Drücke kurz die Taste <strong>P1</strong>.</li>
+					<li>Fahre den Motor mit dem Drehregler an den unteren mechanischen Anschlag (0V). *Tipp: Encoder drücken für x10 Geschwindigkeit.*</li>
+					<li>Halte die Taste <strong>P1 lange gedrückt</strong>. Die Position und die Spannung sind nun als Minimum gespeichert.</li>
+				</ul>
+			</li>
+			<li><strong>Max-Position kalibrieren:</strong> 
+				<ul>
+					<li>Drücke kurz die Taste <strong>P2</strong>.</li>
+					<li>Fahre den Motor an den oberen mechanischen Anschlag (Maximalspannung).</li>
+					<li>Halte die Taste <strong>P2 lange gedrückt</strong>. Die Position und die Spannung sind nun als Maximum gespeichert.</li>
+				</ul>
+			</li>
+			<li><strong>Abschluss:</strong> Führe einen Neustart des Geräts durch. Das System nutzt nun eine lineare Interpolation zwischen diesen beiden Punkten.</li>
+		</ol>
+
+		<h2>Systemparameter</h2>
+		<ul>
+			<li><strong>Grob-Anfahrt Schwellenwert (V):</strong> Ist die Differenz zwischen aktueller Spannung und neuem Sollwert größer als dieser Wert (z.B. 20V), fährt der Motor die Position zuerst grob mit voller Geschwindigkeit an, bevor die langsame PID-Feinregelung übernimmt.</li>
+			<li><strong>Debug-Ausgaben:</strong> Aktiviert erweiterte Statusmeldungen über den seriellen Port (USB) und das Live-Log im Webinterface.</li>
+		</ul>
+	</div>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variac Live Log</title>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 20px; 
+            font-family: -apple-system, sans-serif; 
+            background-color: #121212; 
+            color: #e0e0e0; 
+            text-align: center; 
+        }
+        .header { 
+            margin-bottom: 20px; 
+        }
+        .header h2 { 
+            color: #bb86fc; 
+            margin: 0 0 15px 0; 
+            font-size: 2em; 
+        }
+        .checkbox-label { 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            font-size: 1.1em; 
+            cursor: pointer; 
+            color: #03dac6; 
+        }
+        .checkbox-label input[type="checkbox"] { 
+            width: 18px; 
+            height: 18px; 
+            cursor: pointer; 
+            accent-color: #03dac6; 
+        }
+        .log-window { 
+            width: 100%; 
+            height: calc(100vh - 140px); 
+            background-color: #1e1e1e; 
+            color: #03dac6; 
+            font-family: 'Courier New', Courier, monospace; 
+            padding: 15px; 
+            border: 1px solid #555; 
+            border-radius: 8px; 
+            resize: none; 
+            box-sizing: border-box; 
+            overflow-y: auto; 
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>System Live Log</h2>
+        <label class="checkbox-label">
+            <input type="checkbox" id="autoScrollCheck" checked>
+            Auto-Scroll aktivieren
+        </label>
+    </div>
+    
+    <textarea id="liveLogWindow" class="log-window" readonly></textarea>
+
+    <script src="log.js"></script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Variac Doku - Bedienung</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="doc-body">
+	<div class="doc-container">
+    <div class="doc-nav">
+        <a href="doc_usage.html" style="color:#bb86fc">1. Bedienung</a>
+        <a href="doc_api.html">2. API</a>
+        <a href="doc_settings.html">3. Einstellungen</a>
+        <a href="/" style="float:right">X Schließen</a>
+    </div>
+
+    <h1>1. Bedienungsanleitung</h1>
+    <p>Der TWM Isolation Variac ist ein digital gesteuerter Trennstelltransformator. Die Steuerung erfolgt über einen ESP32-S3 Controller, der einen Schrittmotor zur mechanischen Verstellung des Schleifers nutzt.</p>
+
+    <h2>Bedienung am Gerät (Hardware)</h2>
+    <p>Das Gerät kann komplett ohne Webinterface über die Tasten und den Drehregler an der Frontplatte bedient werden:</p>
+    <ul>
+        <li><strong>Drehregler (Encoder):</strong> 
+            <ul>
+                <li><em>Drehen:</em> Verändert die Soll-Spannung manuell.</li>
+                <li><em>Drücken:</em> Schaltet die Drehgeschwindigkeit zwischen <strong>Fein (x1)</strong> und <strong>Grob (x10)</strong> um. Ideal für schnelle Spannungswechsel.</li>
+            </ul>
+        </li>
+        <li><strong>Tasten P1, P2, P3 (Presets):</strong>
+            <ul>
+                <li><em>Kurz drücken:</em> Fährt die gespeicherte Spannung (Sollwert) an.</li>
+                <li><em>Lang drücken (ca. 2 Sekunden):</em> Speichert die aktuell anliegende Spannung auf diesem Preset-Platz ab. Zur Bestätigung leuchtet die LED kurz auf.</li>
+            </ul>
+        </li>
+        <li><strong>Funktionstasten:</strong>
+            <ul>
+                <li><strong>ON/OFF:</strong> Schaltet das Haupt-Ausgangsrelais ein oder aus.</li>
+                <li><strong>LIMIT:</strong> Aktiviert oder deaktiviert die hardwareseitige Strombegrenzung.</li>
+                <li><strong>REG:</strong> Aktiviert oder deaktiviert die automatische PID-Spannungsregelung.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h2>Steuerung über das Webinterface</h2>
+    <p>Das Webinterface bietet eine gespiegelte Bedienung der Hardware-Tasten sowie eine detaillierte Echtzeit-Ansicht:</p>
+    <ul>
+        <li><strong>IST-Spannung:</strong> Zeigt den aktuell vom Voltmeter zurückgemeldeten RMS-Wert an.</li>
+        <li><strong>SOLL-Spannung:</strong> Der Zielwert, den die Regelung anstrebt. Über das Eingabefeld "Neuer Sollwert" kann eine exakte Zielspannung direkt übergeben werden.</li>
+        <li>Die Buttons im Webinterface verhalten sich identisch zu einem kurzen Tastendruck am Gerät.</li>
+    </ul>
+
+    <h2>Status-LED Blinkcodes</h2>
+    <p>Die LED auf dem Controller zeigt den aktuellen Systemzustand an:</p>
+    <ul>
+        <li><strong>Einzelner Puls (Herzschlag):</strong> Normalbetrieb, alles fehlerfrei.</li>
+        <li><strong>Gleichmäßiges Blinken (0,5s):</strong> Verbindet mit dem lokalen WLAN.</li>
+        <li><strong>Doppel-Blinken:</strong> Konfigurationsmodus (WiFiManager AP ist aktiv).</li>
+        <li><strong>Sehr schnelles Blinken:</strong> OTA-Firmware-Update läuft. Gerät nicht ausschalten!</li>
+        <li><strong>SOS-Morsesignal:</strong> Hardware-Fehler (z.B. MCP23017 Port-Expander nicht gefunden).</li>
+    </ul>
+	</div>
+</body>
+</html>

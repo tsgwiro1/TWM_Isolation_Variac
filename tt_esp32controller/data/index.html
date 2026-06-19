@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Variac Steuerung</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+		<a href="/settings.html" class="settings-link" title="Einstellungen">&#9881;</a>
+		<a href="/doc_usage.html" target="_blank" class="help-link" title="Dokumentation">&#63;</a>
+        <h1>Variac Steuerung</h1>
+
+        <div class="display-container">
+			<div class="display-group" id="ist-group">
+				<h2>IST Spannung</h2>
+				<div class="gauge-container">
+					<div class="gauge">
+						<div class="needle" id="gauge-needle"></div>
+						<div class="gauge-center"></div>
+					</div>
+				</div>
+				<p><span id="ist-voltage">--.-</span> V</p>
+			</div>
+            <div class="display-group" id="soll-group">
+                <h2>SOLL Spannung</h2>
+                <p><span id="soll-voltage">--.-</span> V</p>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label for="new-soll">Neuer Sollwert:</label>
+            <input type="number" id="new-soll" step="0.1" placeholder="z.B. 12.5">
+            <button id="set-button">Setzen</button>
+        </div>
+		
+		<div class="button-grid">
+            <button id="btn-onoff">ON / OFF</button>
+            <button id="btn-limit">LIMIT</button>
+            <button id="btn-reg">REG</button>
+            <button id="btn-p1">P1</button>
+            <button id="btn-p2">P2</button>
+            <button id="btn-p3">P3</button>
+        </div>
+		        
+        <p id="status-message"></p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -47,6 +47,10 @@ pio run -e esp32s3_usb -t upload      # Firmware
 pio run -e esp32s3_usb -t uploadfs    # Webseiten (data/)
 ```
 
+> **Download-Mode** (falls der USB-Port nicht gefunden wird): **BOOT** gedrückt halten,
+> kurz **RESET** drücken und loslassen, dann **BOOT** loslassen. Details:
+> [`tt_esp32controller/documentation/USB CDC.md`](tt_esp32controller/documentation/USB%20CDC.md).
+
 Danach WLAN einrichten: Das Gerät öffnet beim ersten Start den Access Point
 `TWM_IsolationVariac` (WiFiManager). Dort das Heim-WLAN hinterlegen. Anschließend ist es
 unter `http://twm_variac.local/` erreichbar.

@@ -14,7 +14,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 | Reihenfolge | Paket | Ziel | enthält IDs |
 |:-:|------|------|-------------|
-| **A** | Projekt-Setup: Neues Repo & Flash-Basis | Sauberer Start, zuverlässig bauen/flashen | 25, 6, 7, (8) |
+| **A** | Projekt-Setup: Neues Repo & Flash-Basis | Sauberer Start, zuverlässig bauen/flashen | 25, 6, 7, 26, (8) |
 | **B** | Schnelle Bugfixes & Konsistenz | Quick Wins, geringes Risiko | 1, 16, 19 |
 | **C** | Regelung „snappy" (Kernanliegen) | Schnelles, präzises Anfahren ohne Pendeln | 20, 21, 18, 3, 17 (+2 erledigt sich) |
 | **D** | Robustheit / Nebenläufigkeit | Stabilität unter RTOS | 4, 5 |
@@ -36,6 +36,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | 6  | Build/Port | Upload-/Flash-Workflow | Getrennte Environments `esp32s3_usb` / `esp32s3_ota` statt Kommentar-Umschaltung; Filesystem-Upload (`buildfs`/`uploadfs`, auch via OTA) testen & dokumentieren. | M | **erledigt** *(Config geprüft via `pio project config`; voller Compile noch offen)* |
 | 7  | Build/Port | README + Flash-Anleitung | Build, USB-Erstflash, OTA-Update, Filesystem-Upload (im neuen Repo). | S | **erledigt** |
 | 8  | Cleanup | Redundante `libraries/` | Alte Arduino-IDE-Libs nicht ins neue Repo übernehmen. **Geht in #25 auf** — nur relevant, falls Migration verschoben wird. | S | **erledigt** *(in #25 aufgegangen)* |
+| 26 | Build/Port | PlatformIO-Konfig Voltmeter | Eigenes PIO-Projekt `tt_voltmeter/` (Plattform `ststm32`, `genericSTM32F103CB`, ST-Link). Quelle nach `src/`; Portierungsfix `extern "C"` für `DMA1_Channel1_IRQHandler`. Build erfolgreich (Flash 32 %/128 KB). | M | **erledigt** *(Compile verifiziert; Flash/ST-Link am Gerät noch offen)* |
 
 ## Paket B — Schnelle Bugfixes & Konsistenz
 

@@ -108,6 +108,9 @@ void MX_TIM_Trigger_Init(void); // Timer für ADC-Triggerung
 void Error_Handler_Intern(void);
 void performAutoZeroCalibration(void);
 void MX_USART2_Init(void);
+// ISR mit C-Linkage vordeklarieren, damit der .ino-Präprozessor keinen
+// kollidierenden C++-Prototyp erzeugt (PlatformIO-Build).
+extern "C" void DMA1_Channel1_IRQHandler(void);
 
 void loadConfigFromEEPROM() {
   if (EEPROM.read(EEPROM_ADDR_START) == EEPROM_MAGIC_NUMBER) {

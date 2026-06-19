@@ -25,10 +25,57 @@ Arbeitsstand und geplante Aufgaben:
 [`tt_esp32controller/REVIEW.md`](tt_esp32controller/REVIEW.md) (Analyse) und
 [`tt_esp32controller/BACKLOG.md`](tt_esp32controller/BACKLOG.md) (priorisierter Plan).
 
-## Build & Flash
+## Build & Flash (Controller)
 
-Der Controller wird mit **PlatformIO** (VS Code) gebaut. Eine ausführliche Build-/Flash-Anleitung
-(USB-Erstflash, OTA-Update, Filesystem-Upload) folgt — siehe Backlog-Paket A.
+Der Controller wird mit **PlatformIO** (VS Code, Erweiterung „PlatformIO IDE") gebaut.
+Alle Befehle im Ordner `tt_esp32controller/` ausführen.
+
+Es gibt zwei Environments – kein Umkommentieren mehr nötig:
+
+| Environment | Zweck |
+|-------------|-------|
+| `esp32s3_usb` | Upload/Monitor über **USB** – erster Flash eines neuen Boards, Recovery |
+| `esp32s3_ota` | Upload über **WLAN (OTA)** – täglicher Gebrauch (Default) |
+
+Das Gerät besteht aus **zwei Teilen**, die getrennt geflasht werden:
+1. **Firmware** (der Programmcode)
+2. **Filesystem** (die Webseiten aus `data/`, als LittleFS-Image)
+
+### Erster Flash (neues Board, nur USB)
+
+```bash
+# Board per USB anschließen
+pio run -e esp32s3_usb -t upload      # Firmware
+pio run -e esp32s3_usb -t uploadfs    # Webseiten (data/)
+```
+
+Danach WLAN einrichten: Das Gerät öffnet beim ersten Start den Access Point
+`TWM_IsolationVariac` (WiFiManager). Dort das Heim-WLAN hinterlegen. Anschließend ist es
+unter `http://twm_variac.local/` erreichbar.
+
+### Updates über OTA (Standard)
+
+```bash
+pio run -e esp32s3_ota -t upload      # Firmware via WLAN
+pio run -e esp32s3_ota -t uploadfs    # Webseiten via WLAN
+```
+
+Wird `-e` weggelassen, gilt das Default-Environment `esp32s3_ota`.
+
+### Serieller Monitor
+
+```bash
+pio device monitor          # 115200 Baud (USB-CDC)
+```
+
+### Hinweise
+
+- **Hostname/IP:** Findet dein Rechner `twm_variac.local` nicht (häufig unter Windows),
+  in `platformio.ini` unter `[env:esp32s3_ota]` die feste IP als `upload_port` eintragen.
+- **OTA-Passwort:** Optional in der Firmware aktivierbar; dann in `[env:esp32s3_ota]`
+  `upload_flags = --auth=...` setzen.
+- **Webseiten geändert?** Nach Änderungen in `data/` immer `uploadfs` ausführen –
+  ein reiner Firmware-Upload überträgt die Webseiten **nicht**.
 
 ## Lizenz
 

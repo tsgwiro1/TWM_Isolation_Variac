@@ -19,6 +19,14 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
   `voltage_fresh` (`/api/status`). (#18)
 
 ### Geändert
+- **Spannungsregelung neu** (#17): PID-Regler und Preset-Zustandsmaschine ersetzt durch
+  modellbasierte **Vorsteuerung** (`estimatePositionForVoltage`) + **gain-gerechte Einzelkorrektur**
+  (`voltsPerStep()`, Deadband ±1 V, Damping 0,8, Settle 150 ms, Korrektur-Klemme ±150 Schritte)
+  + **Drift-Trim** im Halten. Die Vorsteuerung stoppt bewusst **kurz vor dem Ziel in Fahrtrichtung**
+  (`REG_FEEDFORWARD_UNDERSHOOT_V`, ~3 V), sodass der Sollwert von einer Seite angefahren wird
+  (kein Überschießen). REG-Taste: EIN = Sollwert schnell anfahren und halten,
+  AUS = nach Erreichen stoppen. Nutzt `isVoltageDataFresh()` (#18). Damit entfällt der
+  PID-Anti-Windup-Fix (#2). `coarse_move_threshold` wird nicht mehr verwendet (Config-Feld bleibt vorerst).
 - WiFi-Modem-Sleep deaktiviert (`WiFi.setSleep(false)` nach erfolgreichem WLAN-Connect)
   → schnelleres OTA und reaktiveres Web-Interface.
 - Spannungs-Limits vereinheitlicht: Sollwert und Presets überall `0 … kalibriertes Max`

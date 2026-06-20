@@ -177,15 +177,16 @@ volatile uint32_t last_encoder_change_time = 0;
 // MAX_VOLTAGE_TARGET ist die absolute Sicherheits-Obergrenze (Schutz bei defekter Kalibrierung).
 #define MIN_VOLTAGE_TARGET  0
 #define MAX_VOLTAGE_TARGET  260
-#define TEMP_REGULATION_TIME 5000
-volatile bool isRecallPreset = false;
+volatile bool isRecallPreset = false;   // löst eine Vorsteuer-Anfahrt auf setpoint_voltage aus
 
-enum PresetState {
-  WAIT_FOR_PRESET,
-  CORSE_SETTING,
-  TEMPORARY_REGULATION
+// Phasen der neuen Spannungsregelung (Vorsteuerung + gain-Korrektur + Halten)
+enum RegPhase {
+  RP_IDLE,         // keine automatische Regelung
+  RP_FEEDFORWARD,  // beschleunigte Anfahrt auf die geschätzte Zielposition
+  RP_CORRECT,      // gain-gerechte Einzelkorrektur(en) bis im Deadband
+  RP_HOLD          // Ziel erreicht, Sollwert halten (Drift-Trim)
 };
-volatile PresetState currenPresetState = WAIT_FOR_PRESET;
+volatile RegPhase regPhase = RP_IDLE;
 
 // Voltage regulation
 volatile bool is_regulation_active = false; 
@@ -194,17 +195,14 @@ volatile float minVoltageAtMinPos = 3.0f;
 volatile float maxVoltageAtMaxPos = 255.0f;
 volatile float voltageThresholdCoarseMove = 20.0f;  // Abstand SOLL / IST damit grob angefahren wird vor der Regelung - Verwendet im Zusammenhang mit Presets
 
-// Die PID-Konstanten müssen neu abgestimmt werden! Starte mit kleinen Werten.
-const float KP = 1.50f;  // z.B. 10 Schritte pro Volt Fehler
-const float KI = 0.05f;   // z.B. 2 Schritte pro (Volt * Sekunde) Fehler
-const float KD = 0.0f;   // D kann oft auf 0 bleiben
-
-// PID-Zustandsvariablen (bleiben gleich)
-float integral_error = 0.0f;
-float previous_error = 0.0f;
-
-// Die Ausgabe ist jetzt keine Position mehr, sondern eine Bewegung!
-int motor_steps_to_move = 0; 
+// --- Parameter der Spannungsregelung (#17) ---
+#define REG_DEADBAND_V           1.0f   // innerhalb +/- dieses Fehlers wird nicht korrigiert
+#define REG_CORRECTION_DAMPING   0.8f    // Anteil der berechneten Korrektur (Schutz vor Überschwingen)
+#define REG_SETTLE_MS            150    // Wartezeit nach Stepper-Stopp, bis gemessen wird
+#define REG_DRIFT_PERSIST_MS     800    // im Halten: so lange außerhalb Deadband, bevor nachkorrigiert wird
+#define REG_MAX_CORRECTION_STEPS 150    // Klemme je Einzelkorrektur (Schutz gegen Ausreißer-Messung)
+#define REG_MAX_CORRECTIONS      5      // max. Korrekturiterationen pro Anfahrt
+#define REG_FEEDFORWARD_UNDERSHOOT_V 5.0f // Vorsteuerung stoppt um diese Spannung kurz vor dem Ziel (in Fahrtrichtung)
 
 // Periodizität für Regelung und Preset Handling
 #define REGULATION_LOOP_PERIOD 100
@@ -869,29 +867,14 @@ bool isVoltageDataFresh() {
 }
 
 /**
- * @brief Führt einen Durchlauf des PID-Regelalgorithmus aus.
- * Berechnet die notwendige Motorbewegung, um die IST- an die SOLL-Spannung anzugleichen.
+ * @brief Liefert die Prozess-Verstärkung in Volt pro Schritt aus der Kalibrierung.
+ * Kehrwert dient als Umrechnung Spannungsfehler -> Korrekturschritte.
+ * @return float Volt pro Schritt, oder 0 wenn die Kalibrierung ungültig ist.
  */
-void updateRegulation() {
-    const float delta_time = 0.040f; 
-
-    float error = setpoint_voltage - received_rms_value;
-
-    integral_error += error * delta_time;
-    // Anti-Windup: Begrenze den Integral-Anteil, z.B. auf eine maximale Bewegung von +/- 100 Schritten
-    float max_integral_contribution = 100.0f;
-    if (integral_error * KI > max_integral_contribution) integral_error = max_integral_contribution / KI;
-    if (integral_error * KI < -max_integral_contribution) integral_error = -max_integral_contribution / -KI;
-
-    float derivative_error = (error - previous_error) / delta_time;
-
-    // PID-Formel berechnet die nötige Korrektur
-    float correction = (KP * error) + (KI * integral_error) + (KD * derivative_error);
-    
-    // Das Ergebnis ist jetzt die Anzahl der zu fahrenden Schritte
-    motor_steps_to_move = (int)round(correction);
-
-    previous_error = error;
+float voltsPerStep() {
+  int span = maxWhiperPos - minWhiperPos;
+  if (span == 0) return 0.0f;
+  return (maxVoltageAtMaxPos - minVoltageAtMinPos) / (float)span;
 }
 
 /**
@@ -1681,7 +1664,15 @@ void cb_x10Action(Action* act, ButtonEvent event) {
 void cb_RegAction(Action* act, ButtonEvent event) {
     if (event == ButtonEvent::PRESSED) {
           act->toggle();
-          logMessage(LOG_INFO, "HARDWARE: PID Regulation -> %s", act->getState() ? "ON" : "OFF");
+          if (act->getState()) {
+              // REG ein: schnelle Anfahrt auf den aktuellen Sollwert, danach Halten
+              isRecallPreset = true;
+          } else {
+              // REG aus: automatische Regelung stoppen (Position halten)
+              is_regulation_active = false;
+              regPhase = RP_IDLE;
+          }
+          logMessage(LOG_INFO, "HARDWARE: Voltage Regulation -> %s", act->getState() ? "ON" : "OFF");
     }
 }
 
@@ -1801,81 +1792,102 @@ void motorControlTask(void *parameter) {
       continue; // Schleife überspringen, wenn Hardware fehlt
     }
 
-    // 1. Neuer Preset-Befehl kam rein (Unterbricht alles, was gerade läuft)
+    // Neuer Sollwert (Preset / API / REG-ein): Vorsteuerung auf die geschätzte Zielposition
+    static uint32_t settleStart = 0;
+    static uint32_t driftStart = 0;
+    static int      correctionCount = 0;
+
     if (isRecallPreset) {
-      isRecallPreset = false; // Flag sofort quittieren
-      
-      float deltaV = abs(setpoint_voltage - received_rms_value);
-      
-      if (deltaV > voltageThresholdCoarseMove) {
-        // Muss weit fahren -> Grobe Rampe
-        is_regulation_active = false;
-        int p2 = estimatePositionForVoltage(setpoint_voltage);
-        setWhiperAbsolut(p2);
-        currenPresetState = CORSE_SETTING;
-        
-        logMessage(LOG_INFO, "MOTOR: Preset approach COARSE (Delta %.1fV > Threshold) -> Target: %d steps", deltaV, p2);
-      } else {
-        // Schon nah dran -> Direkt in die Regelung
-        is_regulation_active = true;
-        
-        if (A_reg->getState()) {
-          logMessage(LOG_INFO, "MOTOR: Preset target near. Continuous PID regulation already active.");
-          currenPresetState = WAIT_FOR_PRESET;
-        } else {
-          A_reg->on();
-          A_reg->setTimeout(TEMP_REGULATION_TIME);
-          logMessage(LOG_INFO, "MOTOR: Preset target near. Starting temporary PID regulation (%d ms).", TEMP_REGULATION_TIME);
-          currenPresetState = TEMPORARY_REGULATION;
-        }
-      }
-    } 
-    
-    // 2. Laufende Grob-Anfahrt überwachen
-    else if (currenPresetState == CORSE_SETTING) {
-        if (abs(stepper.distanceToGo()) < 2) {
-          is_regulation_active = true; // Grobfahrt am Ende, erlaube PID
-          
-          if (A_reg->getState()) {
-              logMessage(LOG_INFO, "MOTOR: Coarse approach finished. Preset target reached, continuous PID active.");
-              currenPresetState = WAIT_FOR_PRESET;
+      isRecallPreset = false;
+      int targetPos = estimatePositionForVoltage(setpoint_voltage);
+
+      // Vorsteuerung bewusst kurz vor dem Ziel stoppen (in Fahrtrichtung), damit die
+      // anschließende gedämpfte Korrektur den Sollwert von EINER Seite anfährt -> kein
+      // Überschießen. Bei kleinen Fahrten wird die Richtung nie umgekehrt (clamp auf curPos).
+      float gain = voltsPerStep();
+      int margin = (gain > 0.0f) ? (int)(REG_FEEDFORWARD_UNDERSHOOT_V / gain) : 0;
+      int curPos = stepper.currentPosition();
+      if (targetPos > curPos)      targetPos = max(curPos, targetPos - margin); // hoch -> tiefer stoppen
+      else if (targetPos < curPos) targetPos = min(curPos, targetPos + margin); // runter -> höher stoppen
+
+      setWhiperAbsolut(targetPos);
+      is_regulation_active = true;
+      regPhase = RP_FEEDFORWARD;
+      settleStart = 0;
+      correctionCount = 0;
+      logMessage(LOG_INFO, "MOTOR: Feedforward -> %d steps (Soll %.1f V, Marge %d Schritte)", targetPos, setpoint_voltage, margin);
+    }
+
+    if (is_regulation_active) {
+      float gain = voltsPerStep();
+
+      switch (regPhase) {
+
+        // Anfahrt/Korrektur: warten bis Stepper steht + frischer Messwert, dann messen & korrigieren
+        case RP_FEEDFORWARD:
+        case RP_CORRECT: {
+          if (stepper.distanceToGo() != 0) { settleStart = 0; break; }
+          if (settleStart == 0) settleStart = millis();
+          if (millis() - settleStart < REG_SETTLE_MS || !isVoltageDataFresh()) break;
+
+          float error = setpoint_voltage - received_rms_value;
+          if (fabs(error) <= REG_DEADBAND_V || correctionCount >= REG_MAX_CORRECTIONS || gain <= 0.0f) {
+            logMessage(LOG_INFO, "MOTOR: Target reached (Ist %.1f V, Soll %.1f V, %d Korrektur(en))",
+                       received_rms_value, setpoint_voltage, correctionCount);
+            if (A_reg->getState()) {
+              regPhase = RP_HOLD;
+              driftStart = 0;
+            } else {
+              is_regulation_active = false;   // REG aus -> One-shot, anhalten
+              regPhase = RP_IDLE;
+            }
           } else {
-              A_reg->on();
-              A_reg->setTimeout(TEMP_REGULATION_TIME);
-              logMessage(LOG_INFO, "MOTOR: Coarse approach finished. Starting temporary PID regulation (%d ms).", TEMP_REGULATION_TIME);
-              currenPresetState = TEMPORARY_REGULATION; // Wir warten im nächsten Status auf das Ende
+            int steps = constrain((int)(error / gain * REG_CORRECTION_DAMPING),
+                                  -REG_MAX_CORRECTION_STEPS, REG_MAX_CORRECTION_STEPS);
+            setWhiperRelativ(steps);
+            correctionCount++;
+            regPhase = RP_CORRECT;
+            settleStart = 0;
           }
-        } 
-    } 
-    
-    // 3. Laufende temporäre Regelung überwachen (Warten auf Timeout)
-    else if (currenPresetState == TEMPORARY_REGULATION) {
-        // Die Action-Klasse schaltet das Relais nach dem Timeout von selbst aus.
-        // Wir erkennen das exakt daran, dass getState() wieder false wird!
-        if (!A_reg->getState()) {
-            logMessage(LOG_INFO, "MOTOR: Temporary regulation finished. Preset target reached.");
-            currenPresetState = WAIT_FOR_PRESET;
+          break;
         }
-    }
 
-    // --- DIE EIGENTLICHE REGELUNG ---
-    if (is_regulation_active && A_reg->getState()) {
-      if (isVoltageDataFresh()) {
-        updateRegulation(); // PID berechnet die nötige Korrektur
+        // Halten: nur bei REG ein; korrigiert erst nach anhaltender Abweichung (Drift)
+        case RP_HOLD: {
+          if (!A_reg->getState()) { regPhase = RP_IDLE; break; }
+          if (!isVoltageDataFresh()) { driftStart = 0; break; }
 
-        if (motor_steps_to_move != 0) {
-          setWhiperRelativ(motor_steps_to_move);
+          float error = setpoint_voltage - received_rms_value;
+          if (fabs(error) > REG_DEADBAND_V && gain > 0.0f) {
+            if (driftStart == 0) {
+              driftStart = millis();
+            } else if (millis() - driftStart >= REG_DRIFT_PERSIST_MS) {
+              int steps = constrain((int)(error / gain * REG_CORRECTION_DAMPING),
+                                    -REG_MAX_CORRECTION_STEPS, REG_MAX_CORRECTION_STEPS);
+              setWhiperRelativ(steps);
+              logMessage(LOG_INFO, "MOTOR: Drift correction %d steps (Ist %.1f V, Soll %.1f V)",
+                         steps, received_rms_value, setpoint_voltage);
+              correctionCount = 0;
+              regPhase = RP_CORRECT;   // nach Korrektur neu settlen
+              settleStart = 0;
+              driftStart = 0;
+            }
+          } else {
+            driftStart = 0;
+          }
+          break;
         }
-      } else {
-        // Keine frischen Voltmeter-Daten -> Regelung pausiert, Position wird gehalten.
-        static uint32_t lastStaleWarn = 0;
-        if (millis() - lastStaleWarn > 5000) {
-          lastStaleWarn = millis();
-          logMessage(LOG_WARN, "MOTOR: Regulation paused - no fresh voltmeter data");
-        }
+
+        // Leerlauf: wird REG eingeschaltet, aktuellen Sollwert halten
+        case RP_IDLE:
+        default:
+          if (A_reg->getState()) { regPhase = RP_HOLD; driftStart = 0; }
+          break;
       }
+    } else {
+      regPhase = RP_IDLE;   // manuelle Bedienung -> keine automatische Bewegung
     }
-    
+
     vTaskDelay(pdMS_TO_TICKS(REGULATION_LOOP_PERIOD)); 
   }
 }
@@ -2005,11 +2017,7 @@ void communicationTask(void *parameter) {
         
         // SYNCHRONISIERUNG: Der Sollwert folgt dem realen Istwert.
         setpoint_voltage = received_rms_value;
-        
-        // PID-Zustand zurücksetzen, damit er beim Start der Regelung sauber ist
-        integral_error = 0.0f;
-        previous_error = 0.0f;
-        
+
         if (!was_manual) {
             logMessage(LOG_INFO, "MOTOR: Mode MANUAL (Encoder active)");
             was_manual = true;

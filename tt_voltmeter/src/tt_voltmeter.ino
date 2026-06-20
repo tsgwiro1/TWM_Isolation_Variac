@@ -70,13 +70,13 @@ THE SOFTWARE.
 float g_scaling_factor = 478.278f; // Standardwert, falls EEPROM leer ist
 float g_voltage_offset = 0.0f; // NEU: Korrektur-Offset, Standardwert 0.0
 
-// Glättungsfaktor ALPHA. Typische Werte sind zwischen 0.01 und 0.2.
-// Kleinerer Wert = stärkere Glättung, langsamere Reaktion.
-// Grösserer Wert = schwächere Glättung, schnellere Reaktion.
-#define ALPHA 0.1f 
+// Glättungsfaktor ALPHA der EMA. Wird seit V1.1.0 NUR noch für die lokale
+// Live-Anzeige verwendet – an den Controller geht der ungeglättete 2-Zyklen-RMS
+// (geringere Latenz für die Regelung). Kleiner = ruhigere Anzeige, träger.
+#define ALPHA 0.1f
 
-// Pin für Kommunikation mit Variac Conrtoller definieren
-#define UART_COM_TX_PIN PA2
+// Pin für Kommunikation mit Variac Controller definieren (USART1 TX)
+#define UART_COM_TX_PIN PA9
 
 // Pin für on-board LED
 #define LED PC13
@@ -85,7 +85,7 @@ float g_voltage_offset = 0.0f; // NEU: Korrektur-Offset, Standardwert 0.0
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 TIM_HandleTypeDef htim_trigger; // Timer für ADC-Trigger
-UART_HandleTypeDef huart2;      // Kommunikation mit Variac Controller
+UART_HandleTypeDef huart1;      // USART1 (PA9/PA10) – Kommunikation mit Variac Controller
 
 bool is_live_display_active = false;
 
@@ -107,7 +107,7 @@ void MX_ADC1_Init(void);
 void MX_TIM_Trigger_Init(void); // Timer für ADC-Triggerung
 void Error_Handler_Intern(void);
 void performAutoZeroCalibration(void);
-void MX_USART2_Init(void);
+void MX_USART1_Init(void);
 // ISR mit C-Linkage vordeklarieren, damit der .ino-Präprozessor keinen
 // kollidierenden C++-Prototyp erzeugt (PlatformIO-Build).
 extern "C" void DMA1_Channel1_IRQHandler(void);
@@ -320,7 +320,7 @@ void setup() {
   MX_DMA_Init();          // DMA vor ADC initialisieren
   MX_ADC1_Init();
   MX_TIM_Trigger_Init();  // Timer initialisieren
-  MX_USART2_Init();       // Kommunikations-Schnittstelle initialisieren
+  MX_USART1_Init();       // Kommunikations-Schnittstelle initialisieren
 
   // ADC Kalibrierung (wichtig für genaue Ergebnisse)
   if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK) {
@@ -397,7 +397,9 @@ void loop() {
       smoothed_rms_value = (ALPHA * last_rms_value) + ((1.0f - ALPHA) * smoothed_rms_value);
     }
 
-    sendRMSValue(smoothed_rms_value);
+    // An den Controller den ungeglätteten 2-Zyklen-RMS senden (~40 ms Latenz).
+    // Die EMA (smoothed_rms_value) dient nur noch der lokalen Live-Anzeige.
+    sendRMSValue(last_rms_value);
 
     if (is_live_display_active) {
       char live_buffer[80];
@@ -561,26 +563,26 @@ void MX_TIM_Trigger_Init(void) {
   }
 }
 
-void MX_USART2_Init(void) {
-  __HAL_RCC_USART2_CLK_ENABLE();
+void MX_USART1_Init(void) {
+  __HAL_RCC_USART1_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE(); // Takt für GPIOA ist wahrscheinlich schon an
 
-  // PA2 als UART TX konfigurieren
+  // PA9 als UART TX (USART1) konfigurieren
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  GPIO_InitStruct.Pin = GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP; // Alternate Function Push-Pull
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200; // Hohe Baudrate für schnelle Übertragung
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX; // Wir senden nur
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart2) != HAL_OK) {
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200; // Hohe Baudrate für schnelle Übertragung
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX; // Wir senden nur
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK) {
     Error_Handler();
   }
 }
@@ -698,5 +700,5 @@ void sendRMSValue(float rms_value) {
 
   // 3. Paket senden. HAL_MAX_DELAY wartet, bis es gesendet wurde.
   //    Da die Übertragung bei 115200 Baud nur ca. 0.4ms dauert, ist das unproblematisch.
-  HAL_UART_Transmit(&huart2, tx_buffer, sizeof(tx_buffer), HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart1, tx_buffer, sizeof(tx_buffer), HAL_MAX_DELAY);
 }

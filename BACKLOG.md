@@ -9,13 +9,13 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-06-20 · **Gesamt: 8 / 25 Punkte erledigt**
+**Stand:** 2026-06-20 · **Gesamt: 9 / 25 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
 | A — Projekt-Setup & Flash-Basis | ✅ erledigt | 5/5 |
 | B — Schnelle Bugfixes & Konsistenz | ✅ erledigt | 3/3 |
-| C — Regelung „snappy" | ⬜ offen | 0/5 |
+| C — Regelung „snappy" | 🔄 in Arbeit | 1/5 |
 | D — Robustheit / Nebenläufigkeit | ⬜ offen | 0/2 |
 | E — API-Vereinfachung | ⬜ offen | 0/1 |
 | F — Struktur & Modernisierung | ⬜ offen | 0/4 |
@@ -36,7 +36,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [x] #16 Kommentar/Code-Drift
   - [x] #19 Spannungs-Limits vereinheitlichen
 - [ ] **C — Regelung „snappy"**
-  - [ ] #20 Simulationsmodus
+  - [x] #20 Simulationsmodus
   - [ ] #21 RMS-Glättung Voltmeter
   - [ ] #18 Voltmeter-Datenfrische
   - [ ] #3 Positions-Offset
@@ -76,6 +76,10 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   Firmware angelegt. Bugfixes: P3-Validierung (#1, inkl. `String`-Basis-Bug), Kommentar/Code-Drift (#16);
   Spannungs-Limits via zentraler `maxVoltageTarget()` vereinheitlicht (#19, „0 … kalibriertes Max").
   Kompiliert (Controller).
+- **2026-06-20 — SemVer + Paket C gestartet (#20).** Umstellung auf Semantic Versioning
+  (Controller V3.2.0, Voltmeter V1.1.0). Simulationsmodus umgesetzt: Env `esp32s3_sim` / `-D SIM`,
+  Voltmeter-Quelle durch Streckenmodell ersetzt (linear + Lag + Abweichung/Rauschen). Normal- und
+  Sim-Build kompilieren.
 
 ## Paket-Reihenfolge (festgelegt)
 
@@ -122,7 +126,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
-| 20 | Test | Simulationsmodus | Build-Flag `SIM`: Voltmeter-Input durch einfaches Streckenmodell (Spannung = Modell(Position) + Lag) ersetzen, MCP/TFT stubben → Web-API & Regelung **ohne Hardware** test-/abstimmbar. Vorgezogen, weil es #17 stark vereinfacht. | M | offen |
+| 20 | Test | Simulationsmodus | Build-Flag `SIM` (Env `esp32s3_sim`): läuft auf dem **echten Board**, ersetzt nur die Voltmeter-Quelle durch ein Streckenmodell (linear + Lag + Abweichung/Rauschen, Spannung aus Stepper-Position). FW meldet „(SIM)". | M | **erledigt** |
 | 21 | Voltmeter | RMS-Glättung reduzieren | In `tt_voltmeter`: EMA `ALPHA=0.1` @40 ms (≈0,4 s τ, ~0,9 s Settling) dominiert die Latenz. 2‑Zyklen‑Rohwert senden oder α erhöhen; EMA nur fürs Display. **Voraussetzung für „snappy".** | S–M | offen |
 | 18 | Robustheit | Voltmeter-Datenfrische | `received_rms_value` nur nutzen, wenn frisch (Timeout auf Serial1). Betrifft Kalibrierung (`min/max_voltage` aus Messwert) **und** Regelung. | M | offen |
 | 3  | Bug | Positions-Offset Grob-Anfahrt | `estimatePositionForVoltage()` `:834` um `minWhiperPos`-Offset ergänzen (bestätigt; `minWhiperPos` ist kalibrierungsbedingt negativ). Teil der neuen Vorsteuerung. | S | offen |

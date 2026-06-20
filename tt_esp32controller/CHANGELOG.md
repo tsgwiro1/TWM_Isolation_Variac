@@ -8,6 +8,12 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
 
 ## [V3.2.0] – in Entwicklung
 
+### Hinzugefügt
+- Simulationsmodus (`SIM`, PlatformIO-Env `esp32s3_sim`): die „gemessene" Spannung wird aus der
+  Stepper-Position berechnet (lineares Streckenmodell + First-Order-Lag + leichte Abweichung +
+  Rauschen). Erlaubt das Abstimmen der Regelung ohne Variac/Voltmeter; die Firmware meldet sich
+  als „(SIM)". (#20)
+
 ### Geändert
 - WiFi-Modem-Sleep deaktiviert (`WiFi.setSleep(false)` nach erfolgreichem WLAN-Connect)
   → schnelleres OTA und reaktiveres Web-Interface.

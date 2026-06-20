@@ -27,7 +27,11 @@ THE SOFTWARE.
 */
 
 // version
+#ifdef SIM
+#define FW  "Firmware V3.2.0 (SIM)"
+#else
 #define FW  "Firmware V3.2.0"
+#endif
 
 // Includes for Libraries
 #include <Arduino.h>
@@ -1889,6 +1893,43 @@ void sensorAndFanTask(void *parameter) {
   }
 }
 
+#ifdef SIM
+// ---- Simulationsmodus: Voltmeter durch ein Streckenmodell ersetzen ----
+// Läuft auf dem echten Controller-Board (MCP/TFT/Encoder real), nur die
+// "gemessene" Spannung wird aus der Stepper-Position berechnet.
+#define SIM_PLANT_GAIN    1.03f   // Plant weicht bewusst leicht von der Kalibrierung ab
+#define SIM_PLANT_OFFSET  -2.0f   // ... damit die Vorsteuerung nicht "perfekt" trifft
+#define SIM_LAG_ALPHA     0.25f   // First-Order-Lag pro 40-ms-Schritt (~150 ms Zeitkonstante)
+#define SIM_NOISE_MV      300     // Mess-Rauschen: +/- in Millivolt
+
+/**
+ * @brief Berechnet im Simulationsmodus die "gemessene" RMS-Spannung aus der
+ * aktuellen Stepper-Position (lineares Modell + Lag + Abweichung + Rauschen).
+ */
+void simUpdateMeasuredVoltage() {
+  static float sim_voltage = -1.0f;
+
+  int pos = stepper.currentPosition();
+
+  // Ideale Spannung gemäss Kalibrierung (linear), auf den physikalischen Bereich begrenzt
+  float idealV = minVoltageAtMinPos;
+  if (maxWhiperPos != minWhiperPos) {
+    idealV = minVoltageAtMinPos + (float)(pos - minWhiperPos) *
+             (maxVoltageAtMaxPos - minVoltageAtMinPos) / (float)(maxWhiperPos - minWhiperPos);
+  }
+  idealV = constrain(idealV, minVoltageAtMinPos, maxVoltageAtMaxPos);
+
+  // Plant weicht leicht ab (Gain/Offset)
+  float plantV = idealV * SIM_PLANT_GAIN + SIM_PLANT_OFFSET;
+
+  if (sim_voltage < 0.0f) sim_voltage = plantV;            // Initialisierung
+  sim_voltage += (plantV - sim_voltage) * SIM_LAG_ALPHA;   // First-Order-Lag
+
+  float noise = (float)random(-SIM_NOISE_MV, SIM_NOISE_MV + 1) / 1000.0f;
+  received_rms_value = sim_voltage + noise;
+}
+#endif
+
 /**
  * @brief FreeRTOS Task zur Verarbeitung der seriellen Kommunikation.
  * Parst eingehende Daten und aktualisiert den Systemzustand entsprechend.
@@ -1896,10 +1937,20 @@ void sensorAndFanTask(void *parameter) {
  */
 void communicationTask(void *parameter) {
   for (;;) {
+#ifdef SIM
+    // Simulationsmodus: alle 40 ms (wie das echte Voltmeter) einen neuen Wert erzeugen
+    static uint32_t lastSimUpdate = 0;
+    if (millis() - lastSimUpdate >= 40) {
+      lastSimUpdate = millis();
+      simUpdateMeasuredVoltage();
+      new_value_available = true;
+    }
+#else
     while (Serial1.available() > 0) {
       byte newByte = Serial1.read();
       parseByte(newByte);
     }
+#endif
 
     if (new_value_available) {
       new_value_available = false; // Flag zurücksetzen
@@ -2174,8 +2225,12 @@ void setup() {
     logMessage(LOG_INFO, "SYSTEM: Starting system...");
 
   // Initialisiere die zweite serielle Schnittstelle (USART1 auf PA9/PA10)
-  Serial1.begin(115200, SERIAL_8N1, PIN_RX, PIN_TX); 
+  Serial1.begin(115200, SERIAL_8N1, PIN_RX, PIN_TX);
   logMessage(LOG_INFO, "SYSTEM: Serial1 activated - Connection to voltmeter");
+
+#ifdef SIM
+  logMessage(LOG_WARN, "SYSTEM: *** SIMULATION MODE - voltmeter input is simulated from stepper position ***");
+#endif
 
   // Setze den DHCP-Hostnamen
   // Dies ist der Name, der im Router angezeigt wird.

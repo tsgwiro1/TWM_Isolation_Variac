@@ -34,6 +34,7 @@ Es gibt zwei Environments – kein Umkommentieren mehr nötig:
 |-------------|-------|
 | `esp32s3_usb` | Upload/Monitor über **USB** – erster Flash eines neuen Boards, Recovery |
 | `esp32s3_ota` | Upload über **WLAN (OTA)** – täglicher Gebrauch (Default) |
+| `esp32s3_sim` | **Simulationsmodus** – Regelung ohne Variac/Voltmeter testen (Spannung wird aus der Stepper-Position simuliert), Upload via OTA wie Standard |
 
 Das Gerät besteht aus **zwei Teilen**, die getrennt geflasht werden:
 1. **Firmware** (der Programmcode)

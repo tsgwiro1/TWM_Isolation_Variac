@@ -9,13 +9,13 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-06-20 · **Gesamt: 11 / 29 Punkte erledigt**
+**Stand:** 2026-06-20 · **Gesamt: 12 / 29 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
 | A — Projekt-Setup & Flash-Basis | ✅ erledigt | 5/5 |
 | B — Schnelle Bugfixes & Konsistenz | ✅ erledigt | 3/3 |
-| C — Regelung „snappy" | 🔄 in Arbeit | 3/5 |
+| C — Regelung „snappy" | 🔄 in Arbeit | 4/5 |
 | D — Robustheit / Nebenläufigkeit | ⬜ offen | 0/2 |
 | E — API-Vereinfachung | ⬜ offen | 0/1 |
 | F — Struktur & Modernisierung | ⬜ offen | 0/4 |
@@ -40,7 +40,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [x] #20 Simulationsmodus
   - [x] #21 RMS-Glättung Voltmeter
   - [x] #18 Voltmeter-Datenfrische
-  - [ ] #3 Positions-Offset
+  - [x] #3 Positions-Offset
   - [ ] #17 Spannungsregelung neu  _(#2 Anti-Windup entfällt damit)_
 - [ ] **D — Robustheit / Nebenläufigkeit**
   - [ ] #4 Logging thread-safe
@@ -91,6 +91,9 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   EMA nur noch fürs lokale `?live`-Display. Rohwert schwankt am Gerät nur ~±0,2 V.
   Zusätzlich (Dev-Tooling): Konsole/Menü von USART1 auf native **USB-CDC** umgestellt (PA9/PA10
   nicht herausgeführt) und Float-`printf` aktiviert (`%f` war unter `nano.specs` leer). Verifiziert.
+- **2026-06-20 — #3 umgesetzt (Positions-Offset).** `estimatePositionForVoltage()` um
+  `minWhiperPos`-Offset ergänzt; Vorsteuer-Schätzung war systematisch um `|minWhiperPos|` zu hoch.
+  Kompiliert.
 - **2026-06-20 — #18 umgesetzt (Datenfrische).** `isVoltageDataFresh()` (Timeout 250 ms):
   Regelung pausiert ohne frische Werte (Position halten + Warnung), Kalibrier-/Preset-Übernahmen
   aus dem Messwert blockiert, API-Flags `ist_fresh`/`voltage_fresh`. Normal- und Sim-Build kompilieren.
@@ -149,7 +152,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | 20 | Test | Simulationsmodus | Build-Flag `SIM` (Env `esp32s3_sim`): läuft auf dem **echten Board**, ersetzt nur die Voltmeter-Quelle durch ein Streckenmodell (linear + Lag + Abweichung/Rauschen, Spannung aus Stepper-Position). FW meldet „(SIM)". | M | **erledigt** |
 | 21 | Voltmeter | RMS-Glättung reduzieren | `sendRMSValue(last_rms_value)` statt `smoothed_rms_value` → 2-Zyklen-Rohwert (~40 ms) an den Controller; EMA bleibt nur für die lokale `?live`-Anzeige. (Variante A) | S–M | **erledigt** *(Code fertig & kompiliert; FW V1.1.0 noch aufs Voltmeter zu flashen)* |
 | 18 | Robustheit | Voltmeter-Datenfrische | `isVoltageDataFresh()` (Timeout 250 ms): Regelung pausiert bei veralteten/fehlenden Werten; Kalibrier-/Preset-Übernahmen aus dem Messwert blockiert; API-Flags `ist_fresh`/`voltage_fresh`. | M | **erledigt** *(kompiliert; am Gerät noch zu testen)* |
-| 3  | Bug | Positions-Offset Grob-Anfahrt | `estimatePositionForVoltage()` `:834` um `minWhiperPos`-Offset ergänzen (bestätigt; `minWhiperPos` ist kalibrierungsbedingt negativ). Teil der neuen Vorsteuerung. | S | offen |
+| 3  | Bug | Positions-Offset Grob-Anfahrt | `estimatePositionForVoltage()` um `minWhiperPos`-Offset ergänzt (war um `|minWhiperPos|` zu hoch). Basis für die Vorsteuerung in #17. | S | **erledigt** *(kompiliert; am Gerät/SIM zu prüfen)* |
 | 17 | Regelung | **Spannungsregelung neu** | Dauer-PID + `currenPresetState`-Automat ersetzen durch: modellbasierte Vorsteuerung (inverses lineares Modell, gain = V/Schritt aus Kalibrierung), **eine** beschleunigte Anfahrt, Settle-Wait auf frischen/stabilen Messwert, **gain-gerechte Einzelkorrektur** (`err/gain·0,9`), Deadband (±~1 V) + langsamer Drift-Trim. Behebt grobes Anfahren **und** Pendeln; enthält Timestep-Fix (40 ms vs. 100 ms). | L | offen |
 | 2  | Bug | PID Anti-Windup Vorzeichen | `:852` `-max / -KI` → `-max / KI`. **Entfällt mit #17** (kein Integrator mehr) — nur fixen, falls #17 verschoben wird. | S | offen |
 

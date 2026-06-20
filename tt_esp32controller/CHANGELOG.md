@@ -30,6 +30,9 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
 - Preset-Validierung: P3 prüfte fälschlich `p1` statt `p3` → P3 wurde nicht korrekt validiert. (#1)
 - Fehlermeldungen der Preset-Validierung gaben durch `String((int)…, 1)` (Zahlenbasis 1)
   Müll statt der Grenze aus — korrigiert.
+- Vorsteuerung `estimatePositionForVoltage()`: fehlender `minWhiperPos`-Offset ergänzt — die
+  geschätzte Anfahrposition war (bei negativem `minWhiperPos`) systematisch um `|minWhiperPos|`
+  zu hoch. (#3)
 
 ### Infrastruktur
 - Migration in das neue Mono-Repo `TWM_Isolation_Variac` und auf PlatformIO / VS Code

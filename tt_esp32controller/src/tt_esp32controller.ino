@@ -841,8 +841,9 @@ int estimatePositionForVoltage(float target_voltage) {
   if (target_voltage < minVoltageAtMinPos) target_voltage = minVoltageAtMinPos;
   if (target_voltage > maxVoltageAtMaxPos) target_voltage = maxVoltageAtMaxPos;
   
-  // Lineare Konvertierung
-  int estimated_pos = (target_voltage - minVoltageAtMinPos) * (maxWhiperPos - minWhiperPos) / (maxVoltageAtMaxPos - minVoltageAtMinPos);
+  // Lineare Konvertierung (mit minWhiperPos als Offset: bei target = minVoltageAtMinPos
+  // ergibt sich minWhiperPos, nicht 0 — minWhiperPos ist kalibrierungsbedingt negativ).
+  int estimated_pos = minWhiperPos + (target_voltage - minVoltageAtMinPos) * (maxWhiperPos - minWhiperPos) / (maxVoltageAtMaxPos - minVoltageAtMinPos);
 
   return estimated_pos;
 }

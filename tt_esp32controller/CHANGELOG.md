@@ -2,9 +2,11 @@
 
 Nennenswerte Änderungen an der Controller-Firmware (ESP32-S3).
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
+Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MINOR.PATCH),
+ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.ino`.
 
-## [V3.14] – in Entwicklung
+## [V3.2.0] – in Entwicklung
 
 ### Geändert
 - WiFi-Modem-Sleep deaktiviert (`WiFi.setSleep(false)` nach erfolgreichem WLAN-Connect)

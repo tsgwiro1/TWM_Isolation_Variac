@@ -27,7 +27,7 @@ THE SOFTWARE.
 */
 
 // version
-#define FW  "Firmware V3.14"
+#define FW  "Firmware V3.2.0"
 
 // Includes for Libraries
 #include <Arduino.h>

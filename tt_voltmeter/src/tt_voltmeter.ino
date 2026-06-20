@@ -30,7 +30,7 @@ THE SOFTWARE.
 #define DEBUG 
 
 // version
-#define FW  "Firmware V1.00"
+#define FW  "Firmware V1.1.0"
 
 #include <Arduino.h>
 #include <stm32f1xx_hal.h>

@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-06-20 · **Gesamt: 13 / 30 Punkte erledigt**
+**Stand:** 2026-06-20 · **Gesamt: 14 / 30 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -21,7 +21,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | F — Struktur & Modernisierung | ⬜ offen | 0/5 |
 | G — Web-Oberfläche | ⬜ offen | 0/2 |
 | H — Sicherheit (optional) | ⬜ offen | 0/1 |
-| J — Voltmeter-Fernsteuerung via Controller | ⬜ offen | 0/4 |
+| J — Voltmeter-Fernsteuerung via Controller | 🔄 in Arbeit | 1/4 |
 | I — Dokumentation | ⬜ offen | 0/2 |
 
 ### Checkliste
@@ -59,7 +59,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 - [ ] **H — Sicherheit (optional)**
   - [ ] #11 Auth & REST-Hygiene
 - [ ] **J — Voltmeter-Fernsteuerung via Controller**
-  - [ ] #27 Bidirektionales Befehls-/Antwort-Protokoll (UART)
+  - [x] #27 Bidirektionales Befehls-/Antwort-Protokoll (UART)
   - [ ] #28 Voltmeter: Menüfunktionen über den Link
   - [ ] #29 Controller: API + Web-UI fürs Voltmeter
   - [ ] #30 Kür: Voltmeter-FW-Update via Controller
@@ -104,6 +104,10 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 - **2026-06-20 — #18 umgesetzt (Datenfrische).** `isVoltageDataFresh()` (Timeout 250 ms):
   Regelung pausiert ohne frische Werte (Position halten + Warnung), Kalibrier-/Preset-Übernahmen
   aus dem Messwert blockiert, API-Flags `ist_fresh`/`voltage_fresh`. Normal- und Sim-Build kompilieren.
+- **2026-06-20 — #27 Durchstich am Gerät verifiziert (Paket J).** Bidirektionaler Befehls-Link
+  Controller↔Voltmeter über `Serial1`/USART1: Frame-Protokoll (`0xA5`/`0xB5`) neben dem RMS-Stream,
+  `GET_VERSION` → `/api/voltmeter/version` liefert die Version über die Leitung. Voltmeter auf
+  **V1.2.0**. Bidirektionale Kommunikation (auch RX-Richtung/PA10) bestätigt; Normalbetrieb läuft weiter.
 - **2026-06-20 — Paket J aufgenommen + Link auf USART1 vorbereitet.** Neues Paket J
   (Voltmeter-Fernsteuerung via Controller: #27 Protokoll, #28 Menü über Link, #29 API/Web, #30 FW-Update
   via ROM-Bootloader). Routing-Entscheidung USART1 (ROM-Bootloader-Port). Voltmeter-Daten-Link
@@ -206,7 +210,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
-| 27 | Protokoll | Bidirektionales Befehls-/Antwort-Protokoll (UART) | Bestehendes `0xAA…0xBB`-Framing um einen **Nachrichtentyp** erweitern, sodass neben den streamenden RMS-Frames auch Befehle/Antworten laufen. Controller sendet auf `Serial1` (TX); Voltmeter empfängt auf dem Link-UART (aktuell nur TX genutzt) — **USART2/PA3 oder, empfohlen, USART1/PA10** (siehe Prerequisite, ermöglicht zudem #30). Enabler für #28/#29/#30. | M | offen |
+| 27 | Protokoll | Bidirektionales Befehls-/Antwort-Protokoll (UART) | Frame-Protokoll `0xA5 CMD LEN [payload] CHK 0xBB` (Befehl) / `0xB5 …` (Antwort), koexistiert mit dem RMS-Stream `0xAA…`. Voltmeter: `Serial1` (USART1) TX+RX (Core-IRQ/Ringpuffer). Controller: vereinheitlichter Parser + `sendVoltmeterCommand()`. Durchstich `GET_VERSION` / `/api/voltmeter/version` am Gerät verifiziert. | M | **erledigt** *(Durchstich am Gerät bestätigt)* |
 | 28 | Voltmeter | Menüfunktionen über den Link | Menülogik (Status, Version, Live, `setfactor`, Auto-Zero `recal`, 3-Punkt-`calibrate`) so umbauen, dass sie über das Protokoll (#27) ansprechbar ist; lokale USB-CDC-Konsole bleibt parallel. | M–L | offen |
 | 29 | Controller | API + Web-UI fürs Voltmeter | API-Endpunkte (Status/Version/Faktor lesen+setzen, Kalibrierung anstoßen/führen) + Web-Panel. Live-RMS ist bereits vorhanden. Baut auf der bereinigten API (#22) und dem Redesign (#23) auf. | M–L | offen |
 | 30 | Kür | Voltmeter-FW-Update via Controller | **Deutlich einfacher, wenn der Link auf USART1 (PA9/PA10) gelegt wird** (PCB-Mod): dann nutzbar über den eingebauten **ROM-UART-Bootloader** (AN3155). Voltmeter-App springt per Befehl ins System-Memory (`0x1FFFF000`), Controller flasht via Bootloader-Protokoll (Init/Erase/Write/Go) + FW-Binary per Web→LittleFS→Stream. Kein eigener Bootloader nötig; Recovery via BOOT0+Reset+ST-Link. *(Mit Link auf USART2 stattdessen nur via eigenem App-Bootloader — groß/riskant.)* | L–XL | offen *(Kür)* |

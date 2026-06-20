@@ -15,7 +15,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 |-------|--------|-------------|
 | A — Projekt-Setup & Flash-Basis | ✅ erledigt | 5/5 |
 | B — Schnelle Bugfixes & Konsistenz | ✅ erledigt | 3/3 |
-| C — Regelung „snappy" | ✅ erledigt (Code) | 5/5 |
+| C — Regelung „snappy" | ✅ erledigt | 5/5 |
 | D — Robustheit / Nebenläufigkeit | ⬜ offen | 0/2 |
 | E — API-Vereinfachung | ⬜ offen | 0/1 |
 | F — Struktur & Modernisierung | ⬜ offen | 0/5 |
@@ -36,7 +36,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [x] #1 P3-Validierung
   - [x] #16 Kommentar/Code-Drift
   - [x] #19 Spannungs-Limits vereinheitlichen
-- [ ] **C — Regelung „snappy"**
+- [x] **C — Regelung „snappy"**
   - [x] #20 Simulationsmodus
   - [x] #21 RMS-Glättung Voltmeter
   - [x] #18 Voltmeter-Datenfrische

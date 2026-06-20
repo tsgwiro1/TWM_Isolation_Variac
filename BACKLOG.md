@@ -104,6 +104,10 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 - **2026-06-20 — #18 umgesetzt (Datenfrische).** `isVoltageDataFresh()` (Timeout 250 ms):
   Regelung pausiert ohne frische Werte (Position halten + Warnung), Kalibrier-/Preset-Übernahmen
   aus dem Messwert blockiert, API-Flags `ist_fresh`/`voltage_fresh`. Normal- und Sim-Build kompilieren.
+- **2026-06-20 — Voltmeter REBOOT + RESET_DEFAULTS + Protokoll-Doku.** Fern-Rettungsleinen
+  (Soft-Reset, Kalibrierung auf Standard) ergänzt. Link-Protokoll + #30-Ablauf konsolidiert in
+  [`tt_voltmeter/documentation/Link-Protokoll.md`](tt_voltmeter/documentation/Link-Protokoll.md)
+  (Befehlssatz/CMD-Codes, Frame-Format, ROM-Bootloader-Plan). Nächster Schritt: #30 Schritt 1.
 - **2026-06-20 — #28/#29 abgeschlossen (Paket J 3/4).** Geführte 3-Punkt-Kalibrierung über den
   Link (`CAL3_MEASURE`/`CAL3_FINISH`, Referenzspannungen frei wählbar) + Web-Bedienfeld ergänzt;
   am Gerät verifiziert. Damit Voltmeter-Status/Faktor/Auto-Zero/Kalibrierung komplett via Web.

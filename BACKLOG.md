@@ -104,6 +104,10 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 - **2026-06-20 — #18 umgesetzt (Datenfrische).** `isVoltageDataFresh()` (Timeout 250 ms):
   Regelung pausiert ohne frische Werte (Position halten + Warnung), Kalibrier-/Preset-Übernahmen
   aus dem Messwert blockiert, API-Flags `ist_fresh`/`voltage_fresh`. Normal- und Sim-Build kompilieren.
+- **2026-06-20 — #28/#29 Batch 1 am Gerät verifiziert.** Link-Befehle `GET_STATUS`/`SET_FACTOR`/
+  `RECAL` + Controller-API `/api/voltmeter/{status,factor,autozero}` + schlichtes Voltmeter-Panel
+  in `settings.html`. Live-Wert ist bereits über den RMS-Stream da. Offen in #28/#29: geführte
+  3-Punkt-Kalibrierung (interaktiv).
 - **2026-06-20 — #27 Durchstich am Gerät verifiziert (Paket J).** Bidirektionaler Befehls-Link
   Controller↔Voltmeter über `Serial1`/USART1: Frame-Protokoll (`0xA5`/`0xB5`) neben dem RMS-Stream,
   `GET_VERSION` → `/api/voltmeter/version` liefert die Version über die Leitung. Voltmeter auf

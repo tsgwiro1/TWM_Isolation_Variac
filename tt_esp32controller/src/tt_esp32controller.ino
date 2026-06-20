@@ -276,6 +276,11 @@ byte payloadIndex = 0;
 volatile bool new_value_available = false;
 volatile float received_rms_value = 0.0;
 
+// Datenfrische: Zeitpunkt des letzten gültigen Messwerts vom Voltmeter.
+// received_rms_value wird nur verwendet, wenn er aktuell ist (Schutz bei Kabelbruch/Ausfall).
+volatile uint32_t last_rms_received_time = 0;
+#define RMS_TIMEOUT_MS 250   // Voltmeter sendet alle ~40 ms; nach 250 ms gilt der Wert als veraltet
+
 
 // Definition der möglichen Systemzustände für die Status-LED
 enum SystemState {
@@ -855,6 +860,14 @@ int maxVoltageTarget() {
 }
 
 /**
+ * @brief Prüft, ob ein aktueller (frischer) Messwert vom Voltmeter vorliegt.
+ * @return true, wenn innerhalb von RMS_TIMEOUT_MS ein gültiger RMS-Wert empfangen wurde.
+ */
+bool isVoltageDataFresh() {
+  return last_rms_received_time != 0 && (millis() - last_rms_received_time) < RMS_TIMEOUT_MS;
+}
+
+/**
  * @brief Führt einen Durchlauf des PID-Regelalgorithmus aus.
  * Berechnet die notwendige Motorbewegung, um die IST- an die SOLL-Spannung anzugleichen.
  */
@@ -893,6 +906,7 @@ void initWebServer() {
 
     doc["ist"] = received_rms_value;
     doc["soll"] = setpoint_voltage;
+    doc["ist_fresh"] = isVoltageDataFresh();
 
     // Zustände der Action-Objekte hinzufügen (benötigt Zeiger-Architektur)
     if (hardwareInitialized) {
@@ -959,6 +973,7 @@ void initWebServer() {
     StaticJsonDocument<512> doc; // Etwas mehr Platz für die zusätzlichen Daten
 
     doc["voltage_actual"] = received_rms_value;
+    doc["voltage_fresh"] = isVoltageDataFresh();
     doc["voltage_setpoint"] = setpoint_voltage;
     doc["temperature"] = whiperTemp;
     doc["stepper_position"] = whiperPos;
@@ -993,8 +1008,11 @@ void initWebServer() {
         // Prüfe, ob eine Spannung explizit mitgeliefert wurde
         if (request->hasParam("voltage")) {
             voltageToSave = request->getParam("voltage")->value().toFloat();
+        } else if (isVoltageDataFresh()) {
+            voltageToSave = received_rms_value; // Fallback auf aktuellen Messwert
         } else {
-            voltageToSave = received_rms_value; // Fallback auf aktuellen Wert
+            request->send(503, "application/json", "{\"status\":\"error\",\"message\":\"No fresh voltmeter data\"}");
+            return;
         }
 
         int v = constrain((int)round(voltageToSave), MIN_VOLTAGE_TARGET, maxVoltageTarget());
@@ -1605,6 +1623,10 @@ void cb_ValueAction(Action* act, ButtonEvent event) {
         logMessage(LOG_INFO, "BUTTON: Load Preset P%d -> %d V", presetNum, act->getValuePreset());
     }
     else if (event == ButtonEvent::LONGPRESSED) {
+        if (!isVoltageDataFresh()) {
+            logMessage(LOG_WARN, "BUTTON: Store Preset P%d skipped - no fresh voltmeter data", presetNum);
+            return;
+        }
         int v = constrain((int)round(received_rms_value), MIN_VOLTAGE_TARGET, maxVoltageTarget());
         act->setValuePreset(v);
         act->ledOn();
@@ -1750,12 +1772,12 @@ void userInputTask(void *parameter) {
           if (A_p1->getState()) {
               whiperPos = constrain(whiperPos, MINWHIPERLIMIT, 0);
               minWhiperPos = whiperPos;
-			        minVoltageAtMinPos = received_rms_value;
+			        if (isVoltageDataFresh()) minVoltageAtMinPos = received_rms_value;
           }
           if (A_p2->getState()) {
               whiperPos = constrain(whiperPos, minWhiperPos + 1, MAXWHIPERLIMIT);
               maxWhiperPos = whiperPos;
-			        maxVoltageAtMaxPos = received_rms_value;
+			        if (isVoltageDataFresh()) maxVoltageAtMaxPos = received_rms_value;
           }
           stepper.moveTo(whiperPos);
       }
@@ -1837,10 +1859,19 @@ void motorControlTask(void *parameter) {
 
     // --- DIE EIGENTLICHE REGELUNG ---
     if (is_regulation_active && A_reg->getState()) {
-      updateRegulation(); // PID berechnet die nötige Korrektur
-      
-      if (motor_steps_to_move != 0) {
-        setWhiperRelativ(motor_steps_to_move);
+      if (isVoltageDataFresh()) {
+        updateRegulation(); // PID berechnet die nötige Korrektur
+
+        if (motor_steps_to_move != 0) {
+          setWhiperRelativ(motor_steps_to_move);
+        }
+      } else {
+        // Keine frischen Voltmeter-Daten -> Regelung pausiert, Position wird gehalten.
+        static uint32_t lastStaleWarn = 0;
+        if (millis() - lastStaleWarn > 5000) {
+          lastStaleWarn = millis();
+          logMessage(LOG_WARN, "MOTOR: Regulation paused - no fresh voltmeter data");
+        }
       }
     }
     
@@ -1954,6 +1985,7 @@ void communicationTask(void *parameter) {
 
     if (new_value_available) {
       new_value_available = false; // Flag zurücksetzen
+      last_rms_received_time = millis(); // Datenfrische markieren (gilt für Real- und SIM-Pfad)
       static bool was_manual = false; // wird aktuell manuell am Encoder gedreht
 
       // Prüfen, ob der Benutzer gerade den Encoder bedient oder kurz zuvor bedient hat

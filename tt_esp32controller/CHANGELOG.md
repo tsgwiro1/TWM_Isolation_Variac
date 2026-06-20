@@ -13,6 +13,10 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
   Stepper-Position berechnet (lineares Streckenmodell + First-Order-Lag + leichte Abweichung +
   Rauschen). Erlaubt das Abstimmen der Regelung ohne Variac/Voltmeter; die Firmware meldet sich
   als „(SIM)". (#20)
+- Datenfrische-Prüfung der Voltmeter-Messwerte (`isVoltageDataFresh()`, Timeout 250 ms): die
+  Regelung pausiert bei veralteten/fehlenden Werten (Position wird gehalten), Kalibrier- und
+  Preset-Übernahmen aus dem Messwert werden blockiert. API liefert `ist_fresh` (`/data`) bzw.
+  `voltage_fresh` (`/api/status`). (#18)
 
 ### Geändert
 - WiFi-Modem-Sleep deaktiviert (`WiFi.setSleep(false)` nach erfolgreichem WLAN-Connect)

@@ -26,9 +26,6 @@ THE SOFTWARE.
     Author:   LONDON-WS\roger
 */
 
-// debug
-#define DEBUG 
-
 // version
 #define FW  "Firmware V1.2.0"
 

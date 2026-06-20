@@ -264,6 +264,9 @@ const byte RSP_SOF      = 0xB5;
 const byte LINK_CMD_SOF = 0xA5;
 const byte FRAME_EOF    = 0xBB;
 #define VM_CMD_GET_VERSION 0x01
+#define VM_CMD_GET_STATUS  0x02
+#define VM_CMD_SET_FACTOR  0x10
+#define VM_CMD_RECAL       0x20
 
 enum RxPhase {
   RXP_SOF,
@@ -870,6 +873,21 @@ void sendVoltmeterCommand(uint8_t cmd, const uint8_t* payload, uint8_t len) {
 }
 
 /**
+ * @brief Sendet einen Befehl ans Voltmeter und wartet auf die passende Antwort.
+ * Die Antwort wird vom communicationTask geparst (setzt voltmeterResponse*).
+ * @return true, wenn rechtzeitig eine Antwort mit demselben CMD kam.
+ */
+bool voltmeterRequest(uint8_t cmd, const uint8_t* payload, uint8_t len, uint32_t timeoutMs) {
+  voltmeterResponseReady = false;
+  sendVoltmeterCommand(cmd, payload, len);
+  uint32_t t0 = millis();
+  while (!voltmeterResponseReady && (millis() - t0) < timeoutMs) {
+    delay(5); // yieldet -> communicationTask verarbeitet den Antwort-Frame
+  }
+  return voltmeterResponseReady && voltmeterResponseCmd == cmd;
+}
+
+/**
  * @brief Schätzt die Stepper-Position für eine gegebene Zielspannung.
  * Verwendet eine lineare Interpolation zwischen den kalibrierten Minimal-/Maximalwerten.
  * @param target_voltage Die gewünschte Ausgangsspannung.
@@ -1017,18 +1035,9 @@ void initWebServer() {
     request->send(200, "application/json", jsonString);
   });
 
-  // API-Route: Voltmeter-Version über den seriellen Link abfragen (Durchstich Paket J)
+  // API-Route: Voltmeter-Version über den seriellen Link abfragen (Paket J)
   server.on("/api/voltmeter/version", HTTP_GET, [](AsyncWebServerRequest *request){
-    voltmeterResponseReady = false;
-    sendVoltmeterCommand(VM_CMD_GET_VERSION, nullptr, 0);
-
-    // Auf Antwort warten (communicationTask parst sie); kurzer Timeout.
-    uint32_t t0 = millis();
-    while (!voltmeterResponseReady && (millis() - t0) < 400) {
-      delay(5); // yieldet -> communicationTask kann den Antwort-Frame verarbeiten
-    }
-
-    if (voltmeterResponseReady && voltmeterResponseCmd == VM_CMD_GET_VERSION) {
+    if (voltmeterRequest(VM_CMD_GET_VERSION, nullptr, 0, 400)) {
       char ver[65];
       uint8_t n = voltmeterResponseLen < 64 ? voltmeterResponseLen : 64;
       memcpy(ver, voltmeterResponsePayload, n);
@@ -1036,9 +1045,57 @@ void initWebServer() {
       StaticJsonDocument<128> doc;
       doc["status"] = "success";
       doc["version"] = ver;
-      String out;
-      serializeJson(doc, out);
+      String out; serializeJson(doc, out);
       request->send(200, "application/json", out);
+    } else {
+      request->send(504, "application/json", "{\"status\":\"error\",\"message\":\"No response from voltmeter\"}");
+    }
+  });
+
+  // API-Route: Voltmeter-Status (Skalierungsfaktor, Spannungs-Offset, ADC-Nullpunkt)
+  server.on("/api/voltmeter/status", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (voltmeterRequest(VM_CMD_GET_STATUS, nullptr, 0, 400) && voltmeterResponseLen >= 12) {
+      float factor, voff, adcz;
+      memcpy(&factor, voltmeterResponsePayload + 0, 4);
+      memcpy(&voff,   voltmeterResponsePayload + 4, 4);
+      memcpy(&adcz,   voltmeterResponsePayload + 8, 4);
+      StaticJsonDocument<192> doc;
+      doc["status"] = "success";
+      doc["scaling_factor"] = factor;
+      doc["voltage_offset"] = voff;
+      doc["adc_zero_offset"] = adcz;
+      String out; serializeJson(doc, out);
+      request->send(200, "application/json", out);
+    } else {
+      request->send(504, "application/json", "{\"status\":\"error\",\"message\":\"No response from voltmeter\"}");
+    }
+  });
+
+  // API-Route: Skalierungsfaktor des Voltmeters setzen (+ EEPROM speichern)
+  server.on("/api/voltmeter/factor", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (!request->hasParam("value")) {
+      request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'value' parameter\"}");
+      return;
+    }
+    float v = request->getParam("value")->value().toFloat();
+    uint8_t b[4];
+    memcpy(b, &v, 4);
+    if (voltmeterRequest(VM_CMD_SET_FACTOR, b, 4, 400)) {
+      bool ok = (voltmeterResponseLen >= 1 && voltmeterResponsePayload[0] == 1);
+      if (ok) {
+        request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Factor set\"}");
+      } else {
+        request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Factor rejected (range 100..1000)\"}");
+      }
+    } else {
+      request->send(504, "application/json", "{\"status\":\"error\",\"message\":\"No response from voltmeter\"}");
+    }
+  });
+
+  // API-Route: Auto-Zero-Kalibrierung des Voltmeters starten (läuft danach mehrere Sekunden)
+  server.on("/api/voltmeter/autozero", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (voltmeterRequest(VM_CMD_RECAL, nullptr, 0, 400)) {
+      request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Auto-zero started (takes a few seconds)\"}");
     } else {
       request->send(504, "application/json", "{\"status\":\"error\",\"message\":\"No response from voltmeter\"}");
     }

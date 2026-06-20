@@ -109,6 +109,9 @@ uint8_t command_pos = 0;
 #define LINK_RSP_SOF         0xB5
 #define LINK_EOF             0xBB
 #define LINK_CMD_GET_VERSION 0x01
+#define LINK_CMD_GET_STATUS  0x02
+#define LINK_CMD_SET_FACTOR  0x10
+#define LINK_CMD_RECAL       0x20
 
 // --- Prototypen der Initialisierungsfunktionen ---
 void MX_GPIO_Init(void);
@@ -710,6 +713,41 @@ void handleControllerCommand(uint8_t cmd, const uint8_t* payload, uint8_t len) {
     case LINK_CMD_GET_VERSION: {
       const char* v = FW;
       sendControllerResponse(LINK_CMD_GET_VERSION, (const uint8_t*)v, (uint8_t)strlen(v));
+      break;
+    }
+    case LINK_CMD_GET_STATUS: {
+      // Antwort: 3 floats -> Skalierungsfaktor, Spannungs-Offset, ADC-Nullpunkt
+      uint8_t buf[12];
+      float f1 = g_scaling_factor;
+      float f2 = g_voltage_offset;
+      float f3 = (float)g_adc_zero_offset;
+      memcpy(buf + 0, &f1, 4);
+      memcpy(buf + 4, &f2, 4);
+      memcpy(buf + 8, &f3, 4);
+      sendControllerResponse(LINK_CMD_GET_STATUS, buf, sizeof(buf));
+      break;
+    }
+    case LINK_CMD_SET_FACTOR: {
+      // Payload: 1 float (Skalierungsfaktor). Antwort: 1 Byte (1=ok, 0=abgelehnt).
+      uint8_t ok = 0;
+      if (len == 4) {
+        float nf;
+        memcpy(&nf, payload, 4);
+        if (nf > 100.0f && nf < 1000.0f) {     // gleiche Plausibilität wie Konsole
+          g_scaling_factor = nf;
+          EEPROM.put(EEPROM_ADDR_SCALING_FACTOR, g_scaling_factor);
+          ok = 1;
+        }
+      }
+      sendControllerResponse(LINK_CMD_SET_FACTOR, &ok, 1);
+      break;
+    }
+    case LINK_CMD_RECAL: {
+      // ACK zuerst senden, dann die (blockierende) Auto-Zero-Kalibrierung ausführen.
+      uint8_t ok = 1;
+      sendControllerResponse(LINK_CMD_RECAL, &ok, 1);
+      is_live_display_active = false;
+      performAutoZeroCalibration();
       break;
     }
     default:

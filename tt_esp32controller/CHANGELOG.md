@@ -20,6 +20,9 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
 - **Bidirektionaler Befehls-Link zum Voltmeter** (Paket J, Durchstich): vereinheitlichter
   Serial1-Parser (RMS-Frames `0xAA` + Antwort-Frames `0xB5`), `sendVoltmeterCommand()`, neue
   Route `/api/voltmeter/version` (holt die Voltmeter-Version über die Leitung). (#27)
+- Voltmeter-Fernsteuerung: API `/api/voltmeter/status` (Faktor/Offsets), `/api/voltmeter/factor`
+  (Faktor setzen), `/api/voltmeter/autozero` (Auto-Zero) + schlichtes Voltmeter-Panel in
+  `settings.html` (finale UI in Paket G). (#29)
 
 ### Geändert
 - **Spannungsregelung neu** (#17): PID-Regler und Preset-Zustandsmaschine ersetzt durch

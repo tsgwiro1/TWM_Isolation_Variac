@@ -12,6 +12,8 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_voltmeter.ino`.
   über die Arduino-`HardwareSerial Serial1` (Core verwaltet IRQ/Ringpuffer). Frame-Protokoll
   `0xA5 CMD LEN [payload] CHK 0xBB` (Befehl) / `0xB5 …` (Antwort), koexistiert mit dem
   RMS-Stream. Implementiert: `GET_VERSION` → liefert den FW-String. (#27)
+- Link-Befehle `GET_STATUS` (Skalierungsfaktor, Spannungs-Offset, ADC-Nullpunkt),
+  `SET_FACTOR` (+ EEPROM) und `RECAL` (Auto-Zero-Kalibrierung). (#28)
 
 ### Geändert
 - Daten-/Befehlsleitung intern von Raw-HAL (`huart1`) auf `Serial1` umgestellt (robuster,

@@ -72,6 +72,25 @@
             
             <div id="fwVersionDisplay" class="fw-version-footer"></div>
         </form>
+
+        <!-- Voltmeter-Bedienfeld (Paket J, vorläufig / Test – finale UI in Paket G) -->
+        <fieldset id="voltmeter-panel">
+            <legend>Voltmeter (über Link)</legend>
+            <div class="form-group"><label>Version</label><span id="vm-version">&ndash;</span></div>
+            <div class="form-group"><label>Skalierungsfaktor</label><span id="vm-factor">&ndash;</span></div>
+            <div class="form-group"><label>Spannungs-Offset (V)</label><span id="vm-voffset">&ndash;</span></div>
+            <div class="form-group"><label>ADC-Nullpunkt</label><span id="vm-adczero">&ndash;</span></div>
+            <div class="form-group">
+                <label for="vm-new-factor">Faktor setzen</label>
+                <input type="number" step="0.001" id="vm-new-factor">
+            </div>
+            <div class="button-group">
+                <button type="button" id="vm-refresh" class="btn-light">Status aktualisieren</button>
+                <button type="button" id="vm-set-factor" class="btn-light">Faktor speichern</button>
+                <button type="button" id="vm-autozero" class="btn-light">Auto-Zero</button>
+            </div>
+            <p id="vm-status-message"></p>
+        </fieldset>
     </div>
     
     <script src="settings.js"></script>

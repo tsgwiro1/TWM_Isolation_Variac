@@ -117,4 +117,50 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Lade die Einstellungen, wenn die Seite geladen wird
     loadSettings();
+
+    // --- Voltmeter-Panel (Paket J, über den seriellen Link) ---
+    const vmMsg = (t) => { const e = document.getElementById('vm-status-message'); if (e) e.textContent = t; };
+
+    function loadVoltmeterStatus() {
+        fetch('/api/voltmeter/version')
+            .then(r => r.json())
+            .then(d => { if (d.version) document.getElementById('vm-version').textContent = d.version; })
+            .catch(() => {});
+        fetch('/api/voltmeter/status')
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'success') {
+                    document.getElementById('vm-factor').textContent = d.scaling_factor.toFixed(3);
+                    document.getElementById('vm-voffset').textContent = d.voltage_offset.toFixed(2);
+                    document.getElementById('vm-adczero').textContent = d.adc_zero_offset.toFixed(1);
+                }
+            })
+            .catch(() => {});
+    }
+
+    const vmRefresh = document.getElementById('vm-refresh');
+    if (vmRefresh) vmRefresh.addEventListener('click', loadVoltmeterStatus);
+
+    const vmSetFactor = document.getElementById('vm-set-factor');
+    if (vmSetFactor) vmSetFactor.addEventListener('click', () => {
+        const v = document.getElementById('vm-new-factor').value;
+        if (v === '' || isNaN(v)) { vmMsg('Bitte gültigen Faktor eingeben.'); return; }
+        vmMsg('Setze Faktor...');
+        fetch('/api/voltmeter/factor?value=' + encodeURIComponent(v))
+            .then(r => r.json())
+            .then(d => { vmMsg(d.message || d.status); loadVoltmeterStatus(); })
+            .catch(() => vmMsg('Kommunikationsfehler.'));
+    });
+
+    const vmAutozero = document.getElementById('vm-autozero');
+    if (vmAutozero) vmAutozero.addEventListener('click', () => {
+        if (!confirm('Auto-Zero-Kalibrierung starten? Dauert einige Sekunden.')) return;
+        vmMsg('Auto-Zero läuft...');
+        fetch('/api/voltmeter/autozero')
+            .then(r => r.json())
+            .then(d => { vmMsg(d.message || d.status); setTimeout(loadVoltmeterStatus, 8000); })
+            .catch(() => vmMsg('Kommunikationsfehler.'));
+    });
+
+    loadVoltmeterStatus();
 });

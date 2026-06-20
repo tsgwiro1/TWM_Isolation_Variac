@@ -168,7 +168,9 @@ volatile int minWhiperPos = 0;
 volatile int maxWhiperPos = 2000;
 volatile uint32_t last_encoder_change_time = 0;
 
-// Preset target range
+// Sollwert-/Preset-Grenzen. Untergrenze fix 0; effektive Obergrenze liefert
+// maxVoltageTarget() = min(kalibriertes Max, MAX_VOLTAGE_TARGET).
+// MAX_VOLTAGE_TARGET ist die absolute Sicherheits-Obergrenze (Schutz bei defekter Kalibrierung).
 #define MIN_VOLTAGE_TARGET  0
 #define MAX_VOLTAGE_TARGET  260
 #define TEMP_REGULATION_TIME 5000
@@ -410,21 +412,21 @@ String applyAndValidateConfig(JsonObject doc) {
       JsonObject presets = doc["presets"];
       if (presets.containsKey("p1") && presets["p1"].is<int>()) {
         if (presets["p1"] < 0 || presets["p1"] > (int)tempMaxVoltage) {
-          errors["preset_p1"] = "must be between 0 and " + String((int)tempMaxVoltage, 1);
+          errors["preset_p1"] = "must be between 0 and " + String((int)tempMaxVoltage);
         }
       } else {
         errors["preset_p1"] = "must be an integer";
       }
       if (presets.containsKey("p2") && presets["p2"].is<int>()) {
         if (presets["p2"] < 0 || presets["p2"] > (int)tempMaxVoltage) {
-          errors["preset_p2"] = "must be between 0 and " + String((int)tempMaxVoltage, 1);
+          errors["preset_p2"] = "must be between 0 and " + String((int)tempMaxVoltage);
         }
       } else {
         errors["preset_p2"] = "must be an integer";
       }
-      if (presets.containsKey("p3") && presets["p1"].is<int>()) {
+      if (presets.containsKey("p3") && presets["p3"].is<int>()) {
         if (presets["p3"] < 0 || presets["p3"] > (int)tempMaxVoltage) {
-          errors["preset_p3"] = "must be between 0 and " + String((int)tempMaxVoltage, 1);
+          errors["preset_p3"] = "must be between 0 and " + String((int)tempMaxVoltage);
         }
       } else {
         errors["preset_p3"] = "must be an integer";
@@ -837,6 +839,18 @@ int estimatePositionForVoltage(float target_voltage) {
 }
 
 /**
+ * @brief Liefert die effektive obere Sollwert-/Preset-Grenze in Volt.
+ * Einzige Quelle für das Spannungs-Maximum: der real erreichbare, kalibrierte Wert
+ * (maxVoltageAtMaxPos), zusätzlich durch die absolute Sicherheits-Obergrenze
+ * MAX_VOLTAGE_TARGET gedeckelt. Untergrenze ist überall MIN_VOLTAGE_TARGET (0).
+ * @return int Die maximal erlaubte Zielspannung.
+ */
+int maxVoltageTarget() {
+  int calMax = (int)lround(maxVoltageAtMaxPos);
+  return calMax < MAX_VOLTAGE_TARGET ? calMax : MAX_VOLTAGE_TARGET;
+}
+
+/**
  * @brief Führt einen Durchlauf des PID-Regelalgorithmus aus.
  * Berechnet die notwendige Motorbewegung, um die IST- an die SOLL-Spannung anzugleichen.
  */
@@ -901,7 +915,7 @@ void initWebServer() {
       float new_voltage = request->getParam("voltage")->value().toFloat();
       logMessage(LOG_INFO, "API: New setpoint received -> %.1f V", new_voltage);
       resetPresetActions();
-      setpoint_voltage = constrain(new_voltage, MIN_VOLTAGE_TARGET, MAX_VOLTAGE_TARGET);
+      setpoint_voltage = constrain(new_voltage, (float)MIN_VOLTAGE_TARGET, (float)maxVoltageTarget());
       isRecallPreset = true;
       request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Setpoint updated\"}");
     } else {
@@ -979,7 +993,7 @@ void initWebServer() {
             voltageToSave = received_rms_value; // Fallback auf aktuellen Wert
         }
 
-        int v = constrain((int)round(voltageToSave), MIN_VOLTAGE_TARGET, MAX_VOLTAGE_TARGET);
+        int v = constrain((int)round(voltageToSave), MIN_VOLTAGE_TARGET, maxVoltageTarget());
         Action* targetAction = nullptr;
 
         switch(presetNum) {
@@ -1587,7 +1601,7 @@ void cb_ValueAction(Action* act, ButtonEvent event) {
         logMessage(LOG_INFO, "BUTTON: Load Preset P%d -> %d V", presetNum, act->getValuePreset());
     }
     else if (event == ButtonEvent::LONGPRESSED) {
-        int v = constrain((int)round(received_rms_value), (int)round(minVoltageAtMinPos), (int)round(maxVoltageAtMaxPos));
+        int v = constrain((int)round(received_rms_value), MIN_VOLTAGE_TARGET, maxVoltageTarget());
         act->setValuePreset(v);
         act->ledOn();
         saveConfiguration();
@@ -1917,7 +1931,7 @@ void communicationTask(void *parameter) {
             was_manual = true;
         }      
       } else {
-        // Der Benutzer hat den Encoder seit >200ms nicht mehr berührt und der Stepper hat sein Ziel erreicht.
+        // Der Benutzer hat den Encoder seit mehr als 1 Sekunde (1000 ms) nicht mehr berührt und der Stepper hat sein Ziel erreicht.
         
         // Wenn die Regelung noch nicht aktiv war, ist dies der Moment, sie zu starten.
         if (!is_regulation_active && last_encoder_change_time != 0) {

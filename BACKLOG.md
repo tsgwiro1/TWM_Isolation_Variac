@@ -9,12 +9,12 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-06-19 · **Gesamt: 5 / 25 Punkte erledigt**
+**Stand:** 2026-06-20 · **Gesamt: 8 / 25 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
 | A — Projekt-Setup & Flash-Basis | ✅ erledigt | 5/5 |
-| B — Schnelle Bugfixes & Konsistenz | ⬜ offen | 0/3 |
+| B — Schnelle Bugfixes & Konsistenz | ✅ erledigt | 3/3 |
 | C — Regelung „snappy" | ⬜ offen | 0/5 |
 | D — Robustheit / Nebenläufigkeit | ⬜ offen | 0/2 |
 | E — API-Vereinfachung | ⬜ offen | 0/1 |
@@ -31,10 +31,10 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [x] #7 README + Flash-Anleitung
   - [x] #26 PlatformIO-Konfig Voltmeter
   - [x] #8 alte `libraries/` (in #25 aufgegangen)
-- [ ] **B — Schnelle Bugfixes & Konsistenz**
-  - [ ] #1 P3-Validierung
-  - [ ] #16 Kommentar/Code-Drift
-  - [ ] #19 Spannungs-Limits vereinheitlichen
+- [x] **B — Schnelle Bugfixes & Konsistenz**
+  - [x] #1 P3-Validierung
+  - [x] #16 Kommentar/Code-Drift
+  - [x] #19 Spannungs-Limits vereinheitlichen
 - [ ] **C — Regelung „snappy"**
   - [ ] #20 Simulationsmodus
   - [ ] #21 RMS-Glättung Voltmeter
@@ -72,6 +72,10 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   Commits: `7805734`, `6e82224`, `eb4a691`, `ca28f80`, `825887b`, `f20b88b`, `9cafc73`.
 - **2026-06-19 — Kleinfix:** `WiFi.setSleep(false)` im Controller (`setup()` nach WLAN-Connect)
   gegen langsames OTA / träges Web-UI (WiFi-Modem-Sleep). Kompiliert; Geschwindigkeit am Gerät zu testen.
+- **2026-06-20 — Version V3.14 + Paket B abgeschlossen.** Controller-FW V3.13→V3.14, CHANGELOG je
+  Firmware angelegt. Bugfixes: P3-Validierung (#1, inkl. `String`-Basis-Bug), Kommentar/Code-Drift (#16);
+  Spannungs-Limits via zentraler `maxVoltageTarget()` vereinheitlicht (#19, „0 … kalibriertes Max").
+  Kompiliert (Controller).
 
 ## Paket-Reihenfolge (festgelegt)
 
@@ -108,9 +112,9 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
-| 1  | Bug | P3-Validierung | `:425` prüft `p1` statt `p3`. Korrigieren. | S | offen |
-| 16 | Doc | Kommentar/Code-Drift | `communicationTask` Kommentar „>200ms" vs. Code `<1000ms` angleichen. | S | offen |
-| 19 | Konsistenz | Spannungs-Limits vereinheitlichen | `MIN/MAX_VOLTAGE_TARGET` (260) vs. `maxVoltageAtMaxPos`: ein einheitliches Limit-Konzept für API/Presets/Kalibrierung. | S | offen |
+| 1  | Bug | P3-Validierung | `:425` prüft `p1` statt `p3`. Korrigieren. (Dabei auch `String((int)…, 1)`-Basis-Bug in den Validierungsmeldungen behoben.) | S | **erledigt** |
+| 16 | Doc | Kommentar/Code-Drift | `communicationTask` Kommentar „>200ms" vs. Code `<1000ms` angleichen. | S | **erledigt** |
+| 19 | Konsistenz | Spannungs-Limits vereinheitlichen | Zentrale `maxVoltageTarget()` = min(kalibriertes Max, `MAX_VOLTAGE_TARGET`); Sollwert/Presets/Tasten-Speichern überall `0 … kalibriertes Max`. | S | **erledigt** |
 
 ## Paket C — Regelung „snappy" (Kernanliegen)
 

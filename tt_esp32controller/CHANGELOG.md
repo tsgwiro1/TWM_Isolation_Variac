@@ -9,6 +9,15 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
 ### Geändert
 - WiFi-Modem-Sleep deaktiviert (`WiFi.setSleep(false)` nach erfolgreichem WLAN-Connect)
   → schnelleres OTA und reaktiveres Web-Interface.
+- Spannungs-Limits vereinheitlicht: Sollwert und Presets überall `0 … kalibriertes Max`
+  über die zentrale Funktion `maxVoltageTarget()`. `MAX_VOLTAGE_TARGET` (260 V) ist jetzt
+  nur noch die absolute Sicherheits-Obergrenze (Schutz bei defekter Kalibrierung). (#19)
+- Kommentar in `communicationTask` an die tatsächliche Encoder-Ruhezeit (1000 ms) angepasst. (#16)
+
+### Behoben
+- Preset-Validierung: P3 prüfte fälschlich `p1` statt `p3` → P3 wurde nicht korrekt validiert. (#1)
+- Fehlermeldungen der Preset-Validierung gaben durch `String((int)…, 1)` (Zahlenbasis 1)
+  Müll statt der Grenze aus — korrigiert.
 
 ### Infrastruktur
 - Migration in das neue Mono-Repo `TWM_Isolation_Variac` und auf PlatformIO / VS Code

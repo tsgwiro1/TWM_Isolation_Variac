@@ -67,8 +67,10 @@ THE SOFTWARE.
 // einem eventuellen Spannungsteiler umzurechnen.
 // Beispiel: Wenn ein 10:1 Spannungsteiler verwendet wird, ist der Faktor 10.0.
 // Hier Annahme 1.0 (kein Teiler oder direkter Anschluss der aufbereiteten Spannung).
-float g_scaling_factor = 478.278f; // Standardwert, falls EEPROM leer ist
-float g_voltage_offset = 0.0f; // NEU: Korrektur-Offset, Standardwert 0.0
+#define DEFAULT_SCALING_FACTOR 478.278f // Standardwert, falls EEPROM leer ist
+#define DEFAULT_VOLTAGE_OFFSET 0.0f
+float g_scaling_factor = DEFAULT_SCALING_FACTOR;
+float g_voltage_offset = DEFAULT_VOLTAGE_OFFSET; // Korrektur-Offset
 
 // Glättungsfaktor ALPHA der EMA. Wird seit V1.1.0 NUR noch für die lokale
 // Live-Anzeige verwendet – an den Controller geht der ungeglättete 2-Zyklen-RMS
@@ -114,6 +116,8 @@ uint8_t command_pos = 0;
 #define LINK_CMD_RECAL        0x20
 #define LINK_CMD_CAL3_MEASURE 0x21
 #define LINK_CMD_CAL3_FINISH  0x22
+#define LINK_CMD_REBOOT       0x30
+#define LINK_CMD_RESET_DEFAULTS 0x31
 
 // Geführte 3-Punkt-Kalibrierung (über den Link): pro Punkt die anliegende Referenzspannung
 #define CAL3_POINTS 3
@@ -821,6 +825,23 @@ void handleControllerCommand(uint8_t cmd, const uint8_t* payload, uint8_t len) {
         memcpy(resp + 5, &g_voltage_offset, 4);
       }
       sendControllerResponse(LINK_CMD_CAL3_FINISH, resp, sizeof(resp));
+      break;
+    }
+    case LINK_CMD_REBOOT: {
+      uint8_t ok = 1;
+      sendControllerResponse(LINK_CMD_REBOOT, &ok, 1);
+      Serial1.flush();   // sicherstellen, dass der ACK rausgeht
+      delay(50);
+      NVIC_SystemReset();
+      break;
+    }
+    case LINK_CMD_RESET_DEFAULTS: {
+      g_scaling_factor = DEFAULT_SCALING_FACTOR;
+      g_voltage_offset = DEFAULT_VOLTAGE_OFFSET;
+      EEPROM.put(EEPROM_ADDR_SCALING_FACTOR, g_scaling_factor);
+      EEPROM.put(EEPROM_ADDR_VOLTAGE_OFFSET, g_voltage_offset);
+      uint8_t ok = 1;
+      sendControllerResponse(LINK_CMD_RESET_DEFAULTS, &ok, 1);
       break;
     }
     default:

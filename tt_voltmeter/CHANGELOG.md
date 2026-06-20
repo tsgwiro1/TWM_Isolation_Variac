@@ -16,6 +16,8 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_voltmeter.ino`.
   `SET_FACTOR` (+ EEPROM) und `RECAL` (Auto-Zero-Kalibrierung). (#28)
 - Link-Befehle `CAL3_MEASURE` / `CAL3_FINISH` für die geführte 3-Punkt-Kalibrierung über den
   Link (Referenzspannung pro Punkt frei wählbar, lineare Regression → Faktor/Offset + EEPROM). (#28)
+- Link-Befehle `REBOOT` (Soft-Reset `NVIC_SystemReset`) und `RESET_DEFAULTS` (Faktor/Offset auf
+  Standard + EEPROM) als Fern-Rettungsleinen. (#28)
 
 ### Geändert
 - Daten-/Befehlsleitung intern von Raw-HAL (`huart1`) auf `Serial1` umgestellt (robuster,

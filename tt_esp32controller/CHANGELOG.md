@@ -25,6 +25,8 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
   `settings.html` (finale UI in Paket G). (#29)
 - Geführte 3-Punkt-Kalibrierung über Web: API `/api/voltmeter/cal3/measure` (Punkt messen) und
   `/api/voltmeter/cal3/finish` (Regression + speichern), inkl. Bedienfeld in `settings.html`. (#29)
+- API `/api/voltmeter/reboot` und `/api/voltmeter/reset-defaults` + Buttons im Panel
+  (Voltmeter neu starten / Kalibrierung auf Standard). (#29)
 
 ### Geändert
 - **Spannungsregelung neu** (#17): PID-Regler und Preset-Zustandsmaschine ersetzt durch

@@ -162,6 +162,26 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(() => vmMsg('Kommunikationsfehler.'));
     });
 
+    const vmReboot = document.getElementById('vm-reboot');
+    if (vmReboot) vmReboot.addEventListener('click', () => {
+        if (!confirm('Voltmeter neu starten?')) return;
+        vmMsg('Voltmeter startet neu...');
+        fetch('/api/voltmeter/reboot')
+            .then(r => r.json())
+            .then(d => { vmMsg(d.message || d.status); setTimeout(loadVoltmeterStatus, 8000); })
+            .catch(() => vmMsg('Kommunikationsfehler.'));
+    });
+
+    const vmResetDefaults = document.getElementById('vm-reset-defaults');
+    if (vmResetDefaults) vmResetDefaults.addEventListener('click', () => {
+        if (!confirm('Voltmeter-Kalibrierung auf Werkseinstellungen zurücksetzen?')) return;
+        vmMsg('Setze zurück...');
+        fetch('/api/voltmeter/reset-defaults')
+            .then(r => r.json())
+            .then(d => { vmMsg(d.message || d.status); loadVoltmeterStatus(); })
+            .catch(() => vmMsg('Kommunikationsfehler.'));
+    });
+
     // 3-Punkt-Kalibrierung
     document.querySelectorAll('.cal3-measure').forEach(btn => {
         btn.addEventListener('click', () => {

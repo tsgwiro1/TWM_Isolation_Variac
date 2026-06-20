@@ -269,6 +269,8 @@ const byte FRAME_EOF    = 0xBB;
 #define VM_CMD_RECAL        0x20
 #define VM_CMD_CAL3_MEASURE 0x21
 #define VM_CMD_CAL3_FINISH  0x22
+#define VM_CMD_REBOOT       0x30
+#define VM_CMD_RESET_DEFAULTS 0x31
 
 enum RxPhase {
   RXP_SOF,
@@ -1119,6 +1121,24 @@ void initWebServer() {
       request->send(ok ? 200 : 400, "application/json",
                     ok ? "{\"status\":\"success\",\"message\":\"Point measured\"}"
                        : "{\"status\":\"error\",\"message\":\"Invalid point\"}");
+    } else {
+      request->send(504, "application/json", "{\"status\":\"error\",\"message\":\"No response from voltmeter\"}");
+    }
+  });
+
+  // API-Route: Voltmeter neu starten (Soft-Reset)
+  server.on("/api/voltmeter/reboot", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (voltmeterRequest(VM_CMD_REBOOT, nullptr, 0, 400)) {
+      request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Voltmeter rebooting\"}");
+    } else {
+      request->send(504, "application/json", "{\"status\":\"error\",\"message\":\"No response from voltmeter\"}");
+    }
+  });
+
+  // API-Route: Voltmeter-Kalibrierung auf Standardwerte zurücksetzen
+  server.on("/api/voltmeter/reset-defaults", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (voltmeterRequest(VM_CMD_RESET_DEFAULTS, nullptr, 0, 400)) {
+      request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Calibration reset to defaults\"}");
     } else {
       request->send(504, "application/json", "{\"status\":\"error\",\"message\":\"No response from voltmeter\"}");
     }

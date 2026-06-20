@@ -23,6 +23,8 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
 - Voltmeter-Fernsteuerung: API `/api/voltmeter/status` (Faktor/Offsets), `/api/voltmeter/factor`
   (Faktor setzen), `/api/voltmeter/autozero` (Auto-Zero) + schlichtes Voltmeter-Panel in
   `settings.html` (finale UI in Paket G). (#29)
+- Geführte 3-Punkt-Kalibrierung über Web: API `/api/voltmeter/cal3/measure` (Punkt messen) und
+  `/api/voltmeter/cal3/finish` (Regression + speichern), inkl. Bedienfeld in `settings.html`. (#29)
 
 ### Geändert
 - **Spannungsregelung neu** (#17): PID-Regler und Preset-Zustandsmaschine ersetzt durch

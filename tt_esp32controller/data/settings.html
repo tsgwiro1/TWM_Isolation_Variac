@@ -89,6 +89,28 @@
                 <button type="button" id="vm-set-factor" class="btn-light">Faktor speichern</button>
                 <button type="button" id="vm-autozero" class="btn-light">Auto-Zero</button>
             </div>
+
+            <hr>
+            <p><strong>3-Punkt-Kalibrierung</strong> (Referenzspannung anlegen, Wert eintragen, „Messen")</p>
+            <div class="form-group">
+                <label for="cal3-v0">Punkt 1: Referenz (V)</label>
+                <input type="number" step="0.1" id="cal3-v0">
+                <button type="button" class="btn-light cal3-measure" data-index="0">Messen</button>
+            </div>
+            <div class="form-group">
+                <label for="cal3-v1">Punkt 2: Referenz (V)</label>
+                <input type="number" step="0.1" id="cal3-v1">
+                <button type="button" class="btn-light cal3-measure" data-index="1">Messen</button>
+            </div>
+            <div class="form-group">
+                <label for="cal3-v2">Punkt 3: Referenz (V)</label>
+                <input type="number" step="0.1" id="cal3-v2">
+                <button type="button" class="btn-light cal3-measure" data-index="2">Messen</button>
+            </div>
+            <div class="button-group">
+                <button type="button" id="cal3-finish" class="btn-light">Kalibrierung abschließen</button>
+            </div>
+
             <p id="vm-status-message"></p>
         </fieldset>
     </div>

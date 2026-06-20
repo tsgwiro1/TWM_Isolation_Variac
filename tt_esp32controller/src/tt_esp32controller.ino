@@ -263,10 +263,12 @@ const byte RMS_SOF      = 0xAA;
 const byte RSP_SOF      = 0xB5;
 const byte LINK_CMD_SOF = 0xA5;
 const byte FRAME_EOF    = 0xBB;
-#define VM_CMD_GET_VERSION 0x01
-#define VM_CMD_GET_STATUS  0x02
-#define VM_CMD_SET_FACTOR  0x10
-#define VM_CMD_RECAL       0x20
+#define VM_CMD_GET_VERSION  0x01
+#define VM_CMD_GET_STATUS   0x02
+#define VM_CMD_SET_FACTOR   0x10
+#define VM_CMD_RECAL        0x20
+#define VM_CMD_CAL3_MEASURE 0x21
+#define VM_CMD_CAL3_FINISH  0x22
 
 enum RxPhase {
   RXP_SOF,
@@ -1096,6 +1098,49 @@ void initWebServer() {
   server.on("/api/voltmeter/autozero", HTTP_GET, [](AsyncWebServerRequest *request){
     if (voltmeterRequest(VM_CMD_RECAL, nullptr, 0, 400)) {
       request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Auto-zero started (takes a few seconds)\"}");
+    } else {
+      request->send(504, "application/json", "{\"status\":\"error\",\"message\":\"No response from voltmeter\"}");
+    }
+  });
+
+  // API-Route: 3-Punkt-Kalibrierung – einen Punkt messen (index + anliegende Referenzspannung)
+  server.on("/api/voltmeter/cal3/measure", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (!request->hasParam("index") || !request->hasParam("voltage")) {
+      request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'index' or 'voltage'\"}");
+      return;
+    }
+    uint8_t payload[5];
+    payload[0] = (uint8_t)request->getParam("index")->value().toInt();
+    float v = request->getParam("voltage")->value().toFloat();
+    memcpy(payload + 1, &v, 4);
+    // Messung mittelt ~2 s -> längerer Timeout.
+    if (voltmeterRequest(VM_CMD_CAL3_MEASURE, payload, 5, 3000)) {
+      bool ok = (voltmeterResponseLen >= 1 && voltmeterResponsePayload[0] == 1);
+      request->send(ok ? 200 : 400, "application/json",
+                    ok ? "{\"status\":\"success\",\"message\":\"Point measured\"}"
+                       : "{\"status\":\"error\",\"message\":\"Invalid point\"}");
+    } else {
+      request->send(504, "application/json", "{\"status\":\"error\",\"message\":\"No response from voltmeter\"}");
+    }
+  });
+
+  // API-Route: 3-Punkt-Kalibrierung abschließen – Regression rechnen + speichern
+  server.on("/api/voltmeter/cal3/finish", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (voltmeterRequest(VM_CMD_CAL3_FINISH, nullptr, 0, 600) && voltmeterResponseLen >= 9) {
+      bool ok = (voltmeterResponsePayload[0] == 1);
+      if (ok) {
+        float factor, voff;
+        memcpy(&factor, voltmeterResponsePayload + 1, 4);
+        memcpy(&voff,   voltmeterResponsePayload + 5, 4);
+        StaticJsonDocument<160> doc;
+        doc["status"] = "success";
+        doc["scaling_factor"] = factor;
+        doc["voltage_offset"] = voff;
+        String out; serializeJson(doc, out);
+        request->send(200, "application/json", out);
+      } else {
+        request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Need at least 2 measured points\"}");
+      }
     } else {
       request->send(504, "application/json", "{\"status\":\"error\",\"message\":\"No response from voltmeter\"}");
     }

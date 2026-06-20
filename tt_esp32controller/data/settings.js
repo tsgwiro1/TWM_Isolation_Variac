@@ -162,5 +162,36 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(() => vmMsg('Kommunikationsfehler.'));
     });
 
+    // 3-Punkt-Kalibrierung
+    document.querySelectorAll('.cal3-measure').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx = btn.getAttribute('data-index');
+            const n = parseInt(idx) + 1;
+            const v = document.getElementById('cal3-v' + idx).value;
+            if (v === '' || isNaN(v)) { vmMsg('Bitte Referenzspannung für Punkt ' + n + ' eingeben.'); return; }
+            vmMsg('Messe Punkt ' + n + ' … (~2 s)');
+            fetch('/api/voltmeter/cal3/measure?index=' + idx + '&voltage=' + encodeURIComponent(v))
+                .then(r => r.json())
+                .then(d => vmMsg(d.status === 'success' ? ('Punkt ' + n + ' gemessen.') : ('Fehler: ' + (d.message || ''))))
+                .catch(() => vmMsg('Kommunikationsfehler.'));
+        });
+    });
+
+    const cal3Finish = document.getElementById('cal3-finish');
+    if (cal3Finish) cal3Finish.addEventListener('click', () => {
+        vmMsg('Berechne Kalibrierung…');
+        fetch('/api/voltmeter/cal3/finish')
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'success') {
+                    vmMsg('Kalibriert: Faktor ' + d.scaling_factor.toFixed(3) + ', Offset ' + d.voltage_offset.toFixed(2) + ' V');
+                    loadVoltmeterStatus();
+                } else {
+                    vmMsg('Fehler: ' + (d.message || ''));
+                }
+            })
+            .catch(() => vmMsg('Kommunikationsfehler.'));
+    });
+
     loadVoltmeterStatus();
 });

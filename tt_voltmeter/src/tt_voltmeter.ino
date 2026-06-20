@@ -108,10 +108,18 @@ uint8_t command_pos = 0;
 #define LINK_CMD_SOF         0xA5
 #define LINK_RSP_SOF         0xB5
 #define LINK_EOF             0xBB
-#define LINK_CMD_GET_VERSION 0x01
-#define LINK_CMD_GET_STATUS  0x02
-#define LINK_CMD_SET_FACTOR  0x10
-#define LINK_CMD_RECAL       0x20
+#define LINK_CMD_GET_VERSION  0x01
+#define LINK_CMD_GET_STATUS   0x02
+#define LINK_CMD_SET_FACTOR   0x10
+#define LINK_CMD_RECAL        0x20
+#define LINK_CMD_CAL3_MEASURE 0x21
+#define LINK_CMD_CAL3_FINISH  0x22
+
+// Geführte 3-Punkt-Kalibrierung (über den Link): pro Punkt die anliegende Referenzspannung
+#define CAL3_POINTS 3
+float  cal3_actual[CAL3_POINTS]   = {0};
+double cal3_measured[CAL3_POINTS] = {0};
+bool   cal3_have[CAL3_POINTS]     = {false, false, false};
 
 // --- Prototypen der Initialisierungsfunktionen ---
 void MX_GPIO_Init(void);
@@ -707,6 +715,24 @@ void sendControllerResponse(uint8_t cmd, const uint8_t* data, uint8_t len) {
   Serial1.write(buf, i);
 }
 
+// Mittelt den unskalierten RMS-Wert (ADC-Volt) über N Messzyklen (~N*40 ms).
+// Blockierend – nur für die Kalibrierung gedacht.
+double measureAdcVolts(int samples) {
+  double accumulated = 0.0;
+  for (int s = 0; s < samples; s++) {
+    while (!new_rms_data_ready) { delay(1); }
+    new_rms_data_ready = false;
+    double sum_of_squares = 0.0;
+    for (int k = 0; k < DMA_BUFFER_SIZE; k++) {
+      double ac = (double)adc_buffer[k] - g_adc_zero_offset;
+      sum_of_squares += ac * ac;
+    }
+    double rms_counts = sqrt(sum_of_squares / DMA_BUFFER_SIZE);
+    accumulated += (rms_counts / ADC_MAX_VALUE) * ADC_REFERENCE_VOLTAGE;
+  }
+  return accumulated / samples;
+}
+
 // Reagiert auf einen vollständig empfangenen Befehl vom Controller.
 void handleControllerCommand(uint8_t cmd, const uint8_t* payload, uint8_t len) {
   switch (cmd) {
@@ -748,6 +774,53 @@ void handleControllerCommand(uint8_t cmd, const uint8_t* payload, uint8_t len) {
       sendControllerResponse(LINK_CMD_RECAL, &ok, 1);
       is_live_display_active = false;
       performAutoZeroCalibration();
+      break;
+    }
+    case LINK_CMD_CAL3_MEASURE: {
+      // Payload: [index(1)][actual_voltage(float,4)] -> Punkt messen & speichern.
+      uint8_t ok = 0;
+      if (len == 5) {
+        uint8_t idx = payload[0];
+        float actual;
+        memcpy(&actual, payload + 1, 4);
+        if (idx < CAL3_POINTS) {
+          is_live_display_active = false;
+          cal3_actual[idx]   = actual;
+          cal3_measured[idx] = measureAdcVolts(50);  // ~2 s Mittelung
+          cal3_have[idx]     = true;
+          ok = 1;
+        }
+      }
+      sendControllerResponse(LINK_CMD_CAL3_MEASURE, &ok, 1);
+      break;
+    }
+    case LINK_CMD_CAL3_FINISH: {
+      // Lineare Regression über alle gemessenen Punkte -> m (Faktor), b (Offset), speichern.
+      uint8_t resp[9] = {0};   // [ok(1)][m(float)][b(float)]
+      int n = 0;
+      double sum_x = 0, sum_y = 0, sum_xy = 0, sum_x2 = 0;
+      for (int i = 0; i < CAL3_POINTS; i++) {
+        if (!cal3_have[i]) continue;
+        n++;
+        sum_x  += cal3_measured[i];
+        sum_y  += cal3_actual[i];
+        sum_xy += cal3_measured[i] * cal3_actual[i];
+        sum_x2 += cal3_measured[i] * cal3_measured[i];
+      }
+      double denom = (double)n * sum_x2 - sum_x * sum_x;
+      if (n >= 2 && denom != 0.0) {
+        double m = ((double)n * sum_xy - sum_x * sum_y) / denom;
+        double b = (sum_y - m * sum_x) / n;
+        g_scaling_factor = (float)m;
+        g_voltage_offset = (float)b;
+        EEPROM.put(EEPROM_ADDR_SCALING_FACTOR, g_scaling_factor);
+        EEPROM.put(EEPROM_ADDR_VOLTAGE_OFFSET, g_voltage_offset);
+        for (int i = 0; i < CAL3_POINTS; i++) cal3_have[i] = false; // zurücksetzen
+        resp[0] = 1;
+        memcpy(resp + 1, &g_scaling_factor, 4);
+        memcpy(resp + 5, &g_voltage_offset, 4);
+      }
+      sendControllerResponse(LINK_CMD_CAL3_FINISH, resp, sizeof(resp));
       break;
     }
     default:

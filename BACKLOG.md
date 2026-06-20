@@ -9,16 +9,16 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-06-20 · **Gesamt: 12 / 29 Punkte erledigt**
+**Stand:** 2026-06-20 · **Gesamt: 13 / 30 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
 | A — Projekt-Setup & Flash-Basis | ✅ erledigt | 5/5 |
 | B — Schnelle Bugfixes & Konsistenz | ✅ erledigt | 3/3 |
-| C — Regelung „snappy" | 🔄 in Arbeit | 4/5 |
+| C — Regelung „snappy" | ✅ erledigt (Code) | 5/5 |
 | D — Robustheit / Nebenläufigkeit | ⬜ offen | 0/2 |
 | E — API-Vereinfachung | ⬜ offen | 0/1 |
-| F — Struktur & Modernisierung | ⬜ offen | 0/4 |
+| F — Struktur & Modernisierung | ⬜ offen | 0/5 |
 | G — Web-Oberfläche | ⬜ offen | 0/2 |
 | H — Sicherheit (optional) | ⬜ offen | 0/1 |
 | J — Voltmeter-Fernsteuerung via Controller | ⬜ offen | 0/4 |
@@ -41,7 +41,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [x] #21 RMS-Glättung Voltmeter
   - [x] #18 Voltmeter-Datenfrische
   - [x] #3 Positions-Offset
-  - [ ] #17 Spannungsregelung neu  _(#2 Anti-Windup entfällt damit)_
+  - [x] #17 Spannungsregelung neu  _(#2 Anti-Windup entfällt damit)_
 - [ ] **D — Robustheit / Nebenläufigkeit**
   - [ ] #4 Logging thread-safe
   - [ ] #5 Geteilte Zustände schützen
@@ -52,6 +52,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [ ] #15 Typos (`Whiper`→`Wiper`, `corse`→`coarse`)
   - [ ] #14 ArduinoJson v7
   - [ ] #9 Partitionierung 16 MB
+  - [ ] #31 Regelparameter konfigurierbar
 - [ ] **G — Web-Oberfläche: neues Design**
   - [ ] #23 Web-Oberfläche neu gestalten
   - [ ] #13 Live-Daten über WebSocket
@@ -94,6 +95,12 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 - **2026-06-20 — #3 umgesetzt (Positions-Offset).** `estimatePositionForVoltage()` um
   `minWhiperPos`-Offset ergänzt; Vorsteuer-Schätzung war systematisch um `|minWhiperPos|` zu hoch.
   Kompiliert.
+- **2026-06-20 — #17 umgesetzt (Spannungsregelung neu) → Paket C (Code) fertig.** PID + Preset-
+  Zustandsmaschine ersetzt durch Vorsteuerung + gain-gerechte Korrektur + Deadband/Drift-Trim
+  (`voltsPerStep()`, `RegPhase`-Statemachine). REG-Taste: ein=anfahren+halten, aus=One-shot.
+  #2 (Anti-Windup) hinfällig. Normal- und Sim-Build kompilieren. Am Gerät getestet: läuft gut.
+  Verfeinerung: Vorsteuerung stoppt richtungsabhängig kurz vor dem Ziel
+  (`REG_FEEDFORWARD_UNDERSHOOT_V`, ~3 V) → kein Überschießen, Sollwert wird einseitig angefahren.
 - **2026-06-20 — #18 umgesetzt (Datenfrische).** `isVoltageDataFresh()` (Timeout 250 ms):
   Regelung pausiert ohne frische Werte (Position halten + Warnung), Kalibrier-/Preset-Übernahmen
   aus dem Messwert blockiert, API-Flags `ist_fresh`/`voltage_fresh`. Normal- und Sim-Build kompilieren.
@@ -115,7 +122,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | **C** | Regelung „snappy" (Kernanliegen) | Schnelles, präzises Anfahren ohne Pendeln | 20, 21, 18, 3, 17 (+2 erledigt sich) |
 | **D** | Robustheit / Nebenläufigkeit | Stabilität unter RTOS | 4, 5 |
 | **E** | API-Vereinfachung & -Bereinigung | Klare, schlanke, konsistente API | 22 |
-| **F** | Struktur & Modernisierung | Wartbarkeit | 10, 15, 14, 9 |
+| **F** | Struktur & Modernisierung | Wartbarkeit | 10, 15, 14, 9, 31 |
 | **G** | Web-Oberfläche: neues Design | Frisch, professionell, responsiv | 23, 13 |
 | **H** | Sicherheit (optional) | Absicherung API/OTA | 11 |
 | **J** | Voltmeter-Fernsteuerung via Controller | Menü/Kalibrierung/Status des Voltmeters über Web/API | 27, 28, 29, 30 |
@@ -153,8 +160,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | 21 | Voltmeter | RMS-Glättung reduzieren | `sendRMSValue(last_rms_value)` statt `smoothed_rms_value` → 2-Zyklen-Rohwert (~40 ms) an den Controller; EMA bleibt nur für die lokale `?live`-Anzeige. (Variante A) | S–M | **erledigt** *(Code fertig & kompiliert; FW V1.1.0 noch aufs Voltmeter zu flashen)* |
 | 18 | Robustheit | Voltmeter-Datenfrische | `isVoltageDataFresh()` (Timeout 250 ms): Regelung pausiert bei veralteten/fehlenden Werten; Kalibrier-/Preset-Übernahmen aus dem Messwert blockiert; API-Flags `ist_fresh`/`voltage_fresh`. | M | **erledigt** *(kompiliert; am Gerät noch zu testen)* |
 | 3  | Bug | Positions-Offset Grob-Anfahrt | `estimatePositionForVoltage()` um `minWhiperPos`-Offset ergänzt (war um `|minWhiperPos|` zu hoch). Basis für die Vorsteuerung in #17. | S | **erledigt** *(kompiliert; am Gerät/SIM zu prüfen)* |
-| 17 | Regelung | **Spannungsregelung neu** | Dauer-PID + `currenPresetState`-Automat ersetzen durch: modellbasierte Vorsteuerung (inverses lineares Modell, gain = V/Schritt aus Kalibrierung), **eine** beschleunigte Anfahrt, Settle-Wait auf frischen/stabilen Messwert, **gain-gerechte Einzelkorrektur** (`err/gain·0,9`), Deadband (±~1 V) + langsamer Drift-Trim. Behebt grobes Anfahren **und** Pendeln; enthält Timestep-Fix (40 ms vs. 100 ms). | L | offen |
-| 2  | Bug | PID Anti-Windup Vorzeichen | `:852` `-max / -KI` → `-max / KI`. **Entfällt mit #17** (kein Integrator mehr) — nur fixen, falls #17 verschoben wird. | S | offen |
+| 17 | Regelung | **Spannungsregelung neu** | Dauer-PID + `currenPresetState`-Automat ersetzt durch: Vorsteuerung (`estimatePositionForVoltage`), Settle-Wait, gain-gerechte Einzelkorrektur (`voltsPerStep()`, Deadband ±1 V, Damping 0,8, Settle 150 ms, Klemme ±150 Schritte), Drift-Trim. REG-Taste: ein=anfahren+halten, aus=One-shot. Nutzt `isVoltageDataFresh()`. | L | **erledigt** *(kompiliert; im SIM/am Gerät abzustimmen)* |
+| 2  | Bug | PID Anti-Windup Vorzeichen | **Entfallen** — Integrator mit #17 entfernt. | S | **erledigt** *(hinfällig durch #17)* |
 
 ## Paket D — Robustheit / Nebenläufigkeit
 
@@ -177,6 +184,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | 15 | Cosmetic | Typos | `Whiper`→`Wiper`, `CORSE`/`corse`→`coarse` konsistent umbenennen (zusammen mit #10, da gleiche Dateien). | S | offen |
 | 14 | Refactor | ArduinoJson v7 | Migration von `StaticJsonDocument` auf v7-API. | M | offen |
 | 9  | Build | Partitionierung 16 MB | ~7,5 MB ungenutzt: LittleFS/OTA vergrößern; FS-Partitionslabel konsistent benennen + Code-Kommentar. | M | offen |
+| 31 | Konfig | Regelparameter konfigurierbar | Regelparameter (`REG_FEEDFORWARD_UNDERSHOOT_V`, Damping, Deadband, Settle) statt `#define` über config.json/Settings einstellbar machen → Tuning pro Gerät ohne Code-Änderung (z. B. richtungsabhängige Hysterese). Dabei ungenutztes `coarse_move_threshold` aufräumen/umwidmen. | M | offen |
 
 ## Paket G — Web-Oberfläche: neues Design
 

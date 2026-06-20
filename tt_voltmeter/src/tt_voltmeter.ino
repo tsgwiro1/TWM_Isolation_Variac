@@ -30,7 +30,7 @@ THE SOFTWARE.
 #define DEBUG 
 
 // version
-#define FW  "Firmware V1.1.0"
+#define FW  "Firmware V1.2.0"
 
 #include <Arduino.h>
 #include <stm32f1xx_hal.h>
@@ -85,7 +85,8 @@ float g_voltage_offset = 0.0f; // NEU: Korrektur-Offset, Standardwert 0.0
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 TIM_HandleTypeDef htim_trigger; // Timer für ADC-Trigger
-UART_HandleTypeDef huart1;      // USART1 (PA9/PA10) – Kommunikation mit Variac Controller
+// Kommunikation mit dem Variac-Controller läuft über die Arduino-HardwareSerial "Serial1"
+// (USART1, PA9/PA10). Der STM32-Core verwaltet IRQ und RX-Ringpuffer.
 
 bool is_live_display_active = false;
 
@@ -97,8 +98,17 @@ bool is_first_measurement = true; // Hilfsvariable für den ersten Wert
 volatile float g_adc_zero_offset = 3071.0f; // Globaler Offset, der dem Nullpunkt der AC-Schwingung entspricht, mit einem Standardwert initialisiert
 
 // Puffer zum Sammeln eines Befehls vom Serial Monitor
-char command_buffer[50];    
+char command_buffer[50];
 uint8_t command_pos = 0;
+
+// --- Befehls-Link zum Controller über Serial1 (USART1, PA9/PA10), bidirektional ---
+// Befehls-Frame  (Controller -> Voltmeter): 0xA5 CMD LEN [payload] CHK 0xBB
+// Antwort-Frame  (Voltmeter -> Controller): 0xB5 CMD LEN [payload] CHK 0xBB
+// CHK = (CMD + LEN + sum(payload)) & 0xFF  (Ringpuffer/IRQ übernimmt der Arduino-Core via Serial1)
+#define LINK_CMD_SOF         0xA5
+#define LINK_RSP_SOF         0xB5
+#define LINK_EOF             0xBB
+#define LINK_CMD_GET_VERSION 0x01
 
 // --- Prototypen der Initialisierungsfunktionen ---
 void MX_GPIO_Init(void);
@@ -107,7 +117,6 @@ void MX_ADC1_Init(void);
 void MX_TIM_Trigger_Init(void); // Timer für ADC-Triggerung
 void Error_Handler_Intern(void);
 void performAutoZeroCalibration(void);
-void MX_USART1_Init(void);
 // ISR mit C-Linkage vordeklarieren, damit der .ino-Präprozessor keinen
 // kollidierenden C++-Prototyp erzeugt (PlatformIO-Build).
 extern "C" void DMA1_Channel1_IRQHandler(void);
@@ -320,7 +329,7 @@ void setup() {
   MX_DMA_Init();          // DMA vor ADC initialisieren
   MX_ADC1_Init();
   MX_TIM_Trigger_Init();  // Timer initialisieren
-  MX_USART1_Init();       // Kommunikations-Schnittstelle initialisieren
+  Serial1.begin(115200);  // Link zum Controller (USART1, PA9/PA10)
 
   // ADC Kalibrierung (wichtig für genaue Ergebnisse)
   if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK) {
@@ -348,7 +357,10 @@ void setup() {
 }
 
 void loop() {
-  
+
+  // Befehle vom Controller (USART1) verarbeiten (Ringpuffer aus dem RX-Interrupt)
+  processControllerLink();
+
   if (new_rms_data_ready) {
     new_rms_data_ready = false; // Flag zurücksetzen
 
@@ -563,30 +575,6 @@ void MX_TIM_Trigger_Init(void) {
   }
 }
 
-void MX_USART1_Init(void) {
-  __HAL_RCC_USART1_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE(); // Takt für GPIOA ist wahrscheinlich schon an
-
-  // PA9 als UART TX (USART1) konfigurieren
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  GPIO_InitStruct.Pin = GPIO_PIN_9;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP; // Alternate Function Push-Pull
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200; // Hohe Baudrate für schnelle Übertragung
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX; // Wir senden nur
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart1) != HAL_OK) {
-    Error_Handler();
-  }
-}
-
 // --- Interrupt Service Routinen (ISRs) ---
 #ifdef __cplusplus
 extern "C" {
@@ -698,7 +686,56 @@ void sendRMSValue(float rms_value) {
   tx_buffer[3] = tx_buffer[1] + tx_buffer[2]; // Checksum (simple Addition)
   tx_buffer[4] = 0xBB; // End of Frame
 
-  // 3. Paket senden. HAL_MAX_DELAY wartet, bis es gesendet wurde.
-  //    Da die Übertragung bei 115200 Baud nur ca. 0.4ms dauert, ist das unproblematisch.
-  HAL_UART_Transmit(&huart1, tx_buffer, sizeof(tx_buffer), HAL_MAX_DELAY);
+  // 3. Paket über Serial1 (USART1) an den Controller senden.
+  Serial1.write(tx_buffer, sizeof(tx_buffer));
+}
+
+// Sendet einen Antwort-Frame an den Controller: 0xB5 CMD LEN [data] CHK 0xBB
+void sendControllerResponse(uint8_t cmd, const uint8_t* data, uint8_t len) {
+  uint8_t buf[5 + 255];
+  uint8_t chk = cmd + len;
+  uint8_t i = 0;
+  buf[i++] = LINK_RSP_SOF;
+  buf[i++] = cmd;
+  buf[i++] = len;
+  for (uint8_t k = 0; k < len; k++) { buf[i++] = data[k]; chk += data[k]; }
+  buf[i++] = chk;
+  buf[i++] = LINK_EOF;
+  Serial1.write(buf, i);
+}
+
+// Reagiert auf einen vollständig empfangenen Befehl vom Controller.
+void handleControllerCommand(uint8_t cmd, const uint8_t* payload, uint8_t len) {
+  switch (cmd) {
+    case LINK_CMD_GET_VERSION: {
+      const char* v = FW;
+      sendControllerResponse(LINK_CMD_GET_VERSION, (const uint8_t*)v, (uint8_t)strlen(v));
+      break;
+    }
+    default:
+      break; // unbekannter Befehl -> vorerst ignorieren
+  }
+}
+
+// Liest den RX-Ringpuffer und parst Befehls-Frames (0xA5 CMD LEN [payload] CHK 0xBB).
+void processControllerLink() {
+  static uint8_t st = 0;            // 0=SOF,1=CMD,2=LEN,3=DATA,4=CHK,5=EOF
+  static uint8_t cmd, len, idx, chk;
+  static uint8_t payload[64];
+
+  while (Serial1.available() > 0) {
+    uint8_t b = (uint8_t)Serial1.read();
+
+    switch (st) {
+      case 0: if (b == LINK_CMD_SOF) st = 1; break;
+      case 1: cmd = b; chk = b; st = 2; break;
+      case 2: len = b; chk += b; idx = 0;
+              if (len > sizeof(payload)) st = 0;          // ungültige Länge -> verwerfen
+              else st = (len > 0) ? 3 : 4;
+              break;
+      case 3: payload[idx++] = b; chk += b; if (idx >= len) st = 4; break;
+      case 4: st = (b == chk) ? 5 : 0; break;             // Checksumme prüfen
+      case 5: if (b == LINK_EOF) handleControllerCommand(cmd, payload, len); st = 0; break;
+    }
+  }
 }

@@ -255,20 +255,31 @@ struct displayValues {
 
 displayValues actDispValues;
 
-// Kommunikation
-const byte StartOF = 0xAA;
-const byte EndOF = 0xBB;
+// Kommunikation mit dem Voltmeter über Serial1 (USART1-Link)
+// RMS-Frame     (Voltmeter -> Controller): 0xAA HI LO CHK 0xBB        (Spannung*10)
+// Antwort-Frame (Voltmeter -> Controller): 0xB5 CMD LEN [payload] CHK 0xBB
+// Befehl-Frame  (Controller -> Voltmeter): 0xA5 CMD LEN [payload] CHK 0xBB
+const byte RMS_SOF      = 0xAA;
+const byte RSP_SOF      = 0xB5;
+const byte LINK_CMD_SOF = 0xA5;
+const byte FRAME_EOF    = 0xBB;
+#define VM_CMD_GET_VERSION 0x01
 
-enum ParserState {
-  WAITING_FOR_SOF,
-  READING_PAYLOAD,
-  WAITING_FOR_CHECKSUM,
-  WAITING_FOR_EOF
+enum RxPhase {
+  RXP_SOF,
+  RXP_RMS_PAYLOAD, RXP_RMS_CHK, RXP_RMS_EOF,        // RMS-Frame
+  RXP_RSP_CMD, RXP_RSP_LEN, RXP_RSP_DATA, RXP_RSP_CHK, RXP_RSP_EOF  // Antwort-Frame
 };
-
-ParserState currentState = WAITING_FOR_SOF;
-byte payloadBuffer[2];
-byte payloadIndex = 0;
+RxPhase rxPhase = RXP_SOF;
+byte rmsBuf[2];
+byte rmsIdx = 0;
+uint8_t rspCmd = 0, rspLen = 0, rspIdx = 0, rspChk = 0;
+uint8_t rspBuf[64];
+// Vom Voltmeter empfangene Antwort (für den Befehls-Link)
+volatile bool    voltmeterResponseReady = false;
+volatile uint8_t voltmeterResponseCmd   = 0;
+volatile uint8_t voltmeterResponseLen   = 0;
+uint8_t          voltmeterResponsePayload[64];
 
 // 'volatile', weil diese Variablen in der loop() und im Interrupt-Kontext verwendet werden
 volatile bool new_value_available = false;
@@ -794,38 +805,68 @@ int getEncoderCount() {
  * @param b Das zu verarbeitende Byte.
  */
 void parseByte(byte b) {
-  switch (currentState) {
-    case WAITING_FOR_SOF:
-      if (b == StartOF) {
-        currentState = READING_PAYLOAD;
-        payloadIndex = 0;
-      }
+  switch (rxPhase) {
+    case RXP_SOF:
+      if (b == RMS_SOF)      { rmsIdx = 0; rxPhase = RXP_RMS_PAYLOAD; }
+      else if (b == RSP_SOF) { rspIdx = 0; rspChk = 0; rxPhase = RXP_RSP_CMD; }
       break;
-    case READING_PAYLOAD:
-      payloadBuffer[payloadIndex++] = b;
-      if (payloadIndex >= 2) {
-        currentState = WAITING_FOR_CHECKSUM;
-      }
+
+    // --- RMS-Frame (Spannungswert) ---
+    case RXP_RMS_PAYLOAD:
+      rmsBuf[rmsIdx++] = b;
+      if (rmsIdx >= 2) rxPhase = RXP_RMS_CHK;
       break;
-    case WAITING_FOR_CHECKSUM:
-      {
-        byte calculatedChecksum = payloadBuffer[0] + payloadBuffer[1];
-        if (b == calculatedChecksum) {
-          currentState = WAITING_FOR_EOF;
-        } else {
-          currentState = WAITING_FOR_SOF;
-        }
-      }
+    case RXP_RMS_CHK:
+      rxPhase = (b == (byte)(rmsBuf[0] + rmsBuf[1])) ? RXP_RMS_EOF : RXP_SOF;
       break;
-    case WAITING_FOR_EOF:
-      if (b == EndOF) {
-        uint16_t int_value = ((uint16_t)payloadBuffer[0] << 8) | payloadBuffer[1];
+    case RXP_RMS_EOF:
+      if (b == FRAME_EOF) {
+        uint16_t int_value = ((uint16_t)rmsBuf[0] << 8) | rmsBuf[1];
         received_rms_value = (float)int_value / 10.0f;
         new_value_available = true;
       }
-      currentState = WAITING_FOR_SOF;
+      rxPhase = RXP_SOF;
+      break;
+
+    // --- Antwort-Frame (Voltmeter -> Controller) ---
+    case RXP_RSP_CMD:
+      rspCmd = b; rspChk = b; rxPhase = RXP_RSP_LEN;
+      break;
+    case RXP_RSP_LEN:
+      rspLen = b; rspChk += b; rspIdx = 0;
+      if (rspLen > sizeof(rspBuf)) rxPhase = RXP_SOF;              // ungültige Länge
+      else rxPhase = (rspLen > 0) ? RXP_RSP_DATA : RXP_RSP_CHK;
+      break;
+    case RXP_RSP_DATA:
+      rspBuf[rspIdx++] = b; rspChk += b;
+      if (rspIdx >= rspLen) rxPhase = RXP_RSP_CHK;
+      break;
+    case RXP_RSP_CHK:
+      rxPhase = (b == rspChk) ? RXP_RSP_EOF : RXP_SOF;
+      break;
+    case RXP_RSP_EOF:
+      if (b == FRAME_EOF) {
+        voltmeterResponseCmd = rspCmd;
+        voltmeterResponseLen = rspLen;
+        memcpy(voltmeterResponsePayload, rspBuf, rspLen);
+        voltmeterResponseReady = true;
+      }
+      rxPhase = RXP_SOF;
       break;
   }
+}
+
+/**
+ * @brief Sendet einen Befehls-Frame an das Voltmeter: 0xA5 CMD LEN [payload] CHK 0xBB.
+ */
+void sendVoltmeterCommand(uint8_t cmd, const uint8_t* payload, uint8_t len) {
+  uint8_t chk = cmd + len;
+  Serial1.write(LINK_CMD_SOF);
+  Serial1.write(cmd);
+  Serial1.write(len);
+  for (uint8_t i = 0; i < len; i++) { Serial1.write(payload[i]); chk += payload[i]; }
+  Serial1.write((uint8_t)(chk & 0xFF));
+  Serial1.write(FRAME_EOF);
 }
 
 /**
@@ -974,6 +1015,33 @@ void initWebServer() {
     String jsonString;
     serializeJson(doc, jsonString);
     request->send(200, "application/json", jsonString);
+  });
+
+  // API-Route: Voltmeter-Version über den seriellen Link abfragen (Durchstich Paket J)
+  server.on("/api/voltmeter/version", HTTP_GET, [](AsyncWebServerRequest *request){
+    voltmeterResponseReady = false;
+    sendVoltmeterCommand(VM_CMD_GET_VERSION, nullptr, 0);
+
+    // Auf Antwort warten (communicationTask parst sie); kurzer Timeout.
+    uint32_t t0 = millis();
+    while (!voltmeterResponseReady && (millis() - t0) < 400) {
+      delay(5); // yieldet -> communicationTask kann den Antwort-Frame verarbeiten
+    }
+
+    if (voltmeterResponseReady && voltmeterResponseCmd == VM_CMD_GET_VERSION) {
+      char ver[65];
+      uint8_t n = voltmeterResponseLen < 64 ? voltmeterResponseLen : 64;
+      memcpy(ver, voltmeterResponsePayload, n);
+      ver[n] = '\0';
+      StaticJsonDocument<128> doc;
+      doc["status"] = "success";
+      doc["version"] = ver;
+      String out;
+      serializeJson(doc, out);
+      request->send(200, "application/json", out);
+    } else {
+      request->send(504, "application/json", "{\"status\":\"error\",\"message\":\"No response from voltmeter\"}");
+    }
   });
 
   // API-Route zum Speichern der aktuellen oder übergebenen Spannung auf einem Preset

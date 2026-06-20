@@ -5,7 +5,19 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MINOR.PATCH).
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_voltmeter.ino`.
 
-## [V1.1.0] – in Entwicklung
+## [V1.2.0] – in Entwicklung
+
+### Hinzugefügt
+- **Bidirektionaler Befehls-Link zum Controller** (Paket J, Durchstich): USART1 jetzt TX **+ RX**
+  über die Arduino-`HardwareSerial Serial1` (Core verwaltet IRQ/Ringpuffer). Frame-Protokoll
+  `0xA5 CMD LEN [payload] CHK 0xBB` (Befehl) / `0xB5 …` (Antwort), koexistiert mit dem
+  RMS-Stream. Implementiert: `GET_VERSION` → liefert den FW-String. (#27)
+
+### Geändert
+- Daten-/Befehlsleitung intern von Raw-HAL (`huart1`) auf `Serial1` umgestellt (robuster,
+  gepuffert); RMS-Versand unverändert im Format.
+
+## [V1.1.0]
 
 ### Geändert
 - An den Controller wird jetzt der ungeglättete 2-Zyklen-RMS gesendet (`last_rms_value`,

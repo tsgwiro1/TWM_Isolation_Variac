@@ -17,6 +17,9 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
   Regelung pausiert bei veralteten/fehlenden Werten (Position wird gehalten), Kalibrier- und
   Preset-Übernahmen aus dem Messwert werden blockiert. API liefert `ist_fresh` (`/data`) bzw.
   `voltage_fresh` (`/api/status`). (#18)
+- **Bidirektionaler Befehls-Link zum Voltmeter** (Paket J, Durchstich): vereinheitlichter
+  Serial1-Parser (RMS-Frames `0xAA` + Antwort-Frames `0xB5`), `sendVoltmeterCommand()`, neue
+  Route `/api/voltmeter/version` (holt die Voltmeter-Version über die Leitung). (#27)
 
 ### Geändert
 - **Spannungsregelung neu** (#17): PID-Regler und Preset-Zustandsmaschine ersetzt durch

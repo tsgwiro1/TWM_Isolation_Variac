@@ -115,6 +115,7 @@ uint8_t command_pos = 0;
 #define LINK_CMD_CAL3_FINISH  0x22
 #define LINK_CMD_REBOOT       0x30
 #define LINK_CMD_RESET_DEFAULTS 0x31
+#define LINK_CMD_ENTER_BOOTLOADER 0x40
 
 // Geführte 3-Punkt-Kalibrierung (über den Link): pro Punkt die anliegende Referenzspannung
 #define CAL3_POINTS 3
@@ -734,6 +735,47 @@ double measureAdcVolts(int samples) {
   return accumulated / samples;
 }
 
+// Springt in den eingebauten STM32-System-Bootloader (ROM, AN3155) bei 0x1FFFF000.
+// Danach kann der Controller die Voltmeter-FW über USART1 (8E1) neu flashen (#30).
+// Kehrt nicht zurück. Aufrufer hat den ACK bereits gesendet.
+void jumpToSystemBootloader(void) {
+  const uint32_t SYSMEM_BASE = 0x1FFFF000UL;
+
+  // 1) Restliche TX-Bytes (ACK) sicher rausschieben, bevor wir alles abschalten.
+  Serial1.flush();
+  delay(50);
+
+  // 2) Interrupts global aus, SysTick stilllegen.
+  __disable_irq();
+  SysTick->CTRL = 0;
+  SysTick->LOAD = 0;
+  SysTick->VAL  = 0;
+
+  // 3) Alle NVIC-Interrupts deaktivieren und Pending löschen (sauberer Übergang).
+  for (uint8_t i = 0; i < 8; i++) {
+    NVIC->ICER[i] = 0xFFFFFFFFUL;
+    NVIC->ICPR[i] = 0xFFFFFFFFUL;
+  }
+
+  // 4) Taktbaum auf Reset-Defaults zurücksetzen, damit der ROM-Loader sauber startet.
+  HAL_RCC_DeInit();
+
+  // 5) Stackpointer und Einsprung aus der System-Memory-Vektortabelle holen.
+  uint32_t bootStackPtr = *(volatile uint32_t*)(SYSMEM_BASE);
+  uint32_t bootEntry    = *(volatile uint32_t*)(SYSMEM_BASE + 4);
+
+  // 6) Vektortabelle auf System-Memory, MSP setzen, springen.
+  SCB->VTOR = SYSMEM_BASE;
+  __set_MSP(bootStackPtr);
+  __enable_irq();
+
+  void (*bootJump)(void) = (void (*)(void))bootEntry;
+  bootJump();
+
+  // Falls der Sprung wider Erwarten zurückkehrt: hängen lassen (Watchdog/Reset könnte greifen).
+  while (1) { }
+}
+
 // Reagiert auf einen vollständig empfangenen Befehl vom Controller.
 void handleControllerCommand(uint8_t cmd, const uint8_t* payload, uint8_t len) {
   switch (cmd) {
@@ -839,6 +881,12 @@ void handleControllerCommand(uint8_t cmd, const uint8_t* payload, uint8_t len) {
       EEPROM.put(EEPROM_ADDR_VOLTAGE_OFFSET, g_voltage_offset);
       uint8_t ok = 1;
       sendControllerResponse(LINK_CMD_RESET_DEFAULTS, &ok, 1);
+      break;
+    }
+    case LINK_CMD_ENTER_BOOTLOADER: {
+      uint8_t ok = 1;
+      sendControllerResponse(LINK_CMD_ENTER_BOOTLOADER, &ok, 1);
+      jumpToSystemBootloader();  // kehrt nicht zurück (flush + delay sind drin)
       break;
     }
     default:

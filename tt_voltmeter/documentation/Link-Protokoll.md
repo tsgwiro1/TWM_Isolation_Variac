@@ -37,7 +37,7 @@ Floats werden als rohe 4 Byte little-endian übertragen (ESP32 und STM32 sind be
 | 0x22 | CAL3_FINISH | – | `[ok(1)][m(float)][b(float)]` | Regression, EEPROM; min. 2 Punkte |
 | 0x30 | REBOOT | – | 1 Byte ACK | dann `NVIC_SystemReset()` |
 | 0x31 | RESET_DEFAULTS | – | 1 Byte ok | Faktor/Offset auf Standard + EEPROM |
-| 0x40 | ENTER_BOOTLOADER | – | 1 Byte ACK | **geplant (#30)**; danach Sprung ins ROM-System-Memory |
+| 0x40 | ENTER_BOOTLOADER | – | 1 Byte ACK | VM-Seite **umgesetzt** (#30 Schritt 1): ACK, dann Sprung ins ROM-System-Memory `0x1FFFF000`. Controller-Host (AN3155) noch offen. |
 
 Während blockierender Befehle (RECAL/CAL3_MEASURE) pausiert der RMS-Stream → der Controller
 erkennt das über `isVoltageDataFresh()` (Timeout 250 ms) und hält die Regelung an.

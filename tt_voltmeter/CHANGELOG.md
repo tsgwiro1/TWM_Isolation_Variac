@@ -18,6 +18,9 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_voltmeter.ino`.
   Link (Referenzspannung pro Punkt frei wählbar, lineare Regression → Faktor/Offset + EEPROM). (#28)
 - Link-Befehle `REBOOT` (Soft-Reset `NVIC_SystemReset`) und `RESET_DEFAULTS` (Faktor/Offset auf
   Standard + EEPROM) als Fern-Rettungsleinen. (#28)
+- Link-Befehl `ENTER_BOOTLOADER` (CMD 0x40): sendet ACK und springt anschließend in den
+  eingebauten STM32-System-Bootloader (ROM, `0x1FFFF000`) – Voraussetzung für das
+  FW-Update über den Controller (AN3155). Erster Baustein von #30 (Voltmeter-Seite). (#30)
 
 ### Geändert
 - Daten-/Befehlsleitung intern von Raw-HAL (`huart1`) auf `Serial1` umgestellt (robuster,

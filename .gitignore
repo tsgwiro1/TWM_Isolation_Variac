@@ -77,5 +77,8 @@ Testing/
 .vscode/
 .idea/
 
+# Claude Code (lokale Einstellungen)
+.claude/settings.local.json
+
 # macOS
 .DS_Store

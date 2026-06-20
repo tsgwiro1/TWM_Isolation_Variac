@@ -2193,6 +2193,10 @@ void setup() {
   // Wenn die Verbindung erfolgreich war:
   logMessage(LOG_INFO, "WLAN: Successfully connected to WiFi!");
 
+  // WiFi-Modem-Sleep deaktivieren: hält das Funkmodul wach -> schnelleres OTA
+  // und reaktiveres Web-Interface (geringfügig höhere Stromaufnahme).
+  WiFi.setSleep(false);
+
   // --- OTA (Over-the-Air) Konfiguration ---
   
   // Hostname für den Netzwerk-Port in der Arduino IDE und den Zugang via mDNS

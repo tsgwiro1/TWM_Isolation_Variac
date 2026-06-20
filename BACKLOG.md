@@ -70,6 +70,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   Voltmeter; **beide Firmwares compile-verifiziert** (Controller Flash 42,5 %, Voltmeter 32 %);
   Doku-Struktur (Plandateien ins Root) und Cleanup veralteter Arduino-IDE-Dokumente.
   Commits: `7805734`, `6e82224`, `eb4a691`, `ca28f80`, `825887b`, `f20b88b`, `9cafc73`.
+- **2026-06-19 — Kleinfix:** `WiFi.setSleep(false)` im Controller (`setup()` nach WLAN-Connect)
+  gegen langsames OTA / träges Web-UI (WiFi-Modem-Sleep). Kompiliert; Geschwindigkeit am Gerät zu testen.
 
 ## Paket-Reihenfolge (festgelegt)
 

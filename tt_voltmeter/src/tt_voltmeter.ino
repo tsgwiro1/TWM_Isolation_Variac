@@ -27,7 +27,7 @@ THE SOFTWARE.
 */
 
 // version
-#define FW  "Firmware V1.2.0"
+#define FW  "Firmware V1.2.2"
 
 #include <Arduino.h>
 #include <stm32f1xx_hal.h>
@@ -745,29 +745,26 @@ void jumpToSystemBootloader(void) {
   Serial1.flush();
   delay(50);
 
-  // 2) Interrupts global aus, SysTick stilllegen.
-  __disable_irq();
+  // 2) Peripherie + Takt auf Reset-Zustand bringen (wie nach einem echten Reset).
+  //    Entscheidend: unser ADC/DMA/Timer läuft sonst weiter und stört den ROM-Loader.
+  //    (Beim BOOT0-Reset ist genau diese Peripherie im Reset – darum klappt der Weg dort.)
+  HAL_DeInit();
+  HAL_RCC_DeInit();
+
+  // 3) SysTick stilllegen.
   SysTick->CTRL = 0;
   SysTick->LOAD = 0;
   SysTick->VAL  = 0;
 
-  // 3) Alle NVIC-Interrupts deaktivieren und Pending löschen (sauberer Übergang).
-  for (uint8_t i = 0; i < 8; i++) {
-    NVIC->ICER[i] = 0xFFFFFFFFUL;
-    NVIC->ICPR[i] = 0xFFFFFFFFUL;
-  }
+  // 4) Vektortabelle auf System-Memory. Der STM32F1 kann den Speicher nicht per
+  //    Software nach 0x00000000 spiegeln (kein SYSCFG), daher Cortex-M3-VTOR.
+  SCB->VTOR = SYSMEM_BASE;
 
-  // 4) Taktbaum auf Reset-Defaults zurücksetzen, damit der ROM-Loader sauber startet.
-  HAL_RCC_DeInit();
-
-  // 5) Stackpointer und Einsprung aus der System-Memory-Vektortabelle holen.
+  // 5) Stackpointer und Einsprung aus der System-Memory-Vektortabelle holen, springen.
+  //    Interrupts bleiben global aktiv – der F1-ROM-Loader nutzt die USART-IRQ.
   uint32_t bootStackPtr = *(volatile uint32_t*)(SYSMEM_BASE);
   uint32_t bootEntry    = *(volatile uint32_t*)(SYSMEM_BASE + 4);
-
-  // 6) Vektortabelle auf System-Memory, MSP setzen, springen.
-  SCB->VTOR = SYSMEM_BASE;
   __set_MSP(bootStackPtr);
-  __enable_irq();
 
   void (*bootJump)(void) = (void (*)(void))bootEntry;
   bootJump();

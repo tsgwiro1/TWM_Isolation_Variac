@@ -114,6 +114,23 @@
             </div>
 
             <p id="vm-status-message"></p>
+
+            <hr>
+            <p><strong>Firmware-Update</strong> (.bin via Link/ROM-Bootloader flashen – nur am offenen Gerät testen)</p>
+            <div class="form-group">
+                <label for="vm-fw-file">Firmware-Datei (.bin)</label>
+                <input type="file" id="vm-fw-file" accept=".bin">
+            </div>
+            <div class="button-group">
+                <button type="button" id="vm-fw-upload" class="btn-light">Hochladen</button>
+                <button type="button" id="vm-fw-start" class="btn-light">Update starten</button>
+            </div>
+            <p style="font-size:0.85em;opacity:0.8;">Diagnose: BOOT0=1 am Voltmeter setzen + Reset, dann „Bootloader-Test" (überspringt ENTER_BOOTLOADER).</p>
+            <div class="button-group">
+                <button type="button" id="vm-fw-test" class="btn-light">Bootloader-Test (BOOT0)</button>
+            </div>
+            <div class="form-group"><label>Fortschritt</label><span id="vm-fw-progress">&ndash;</span></div>
+            <p id="vm-fw-message"></p>
         </fieldset>
     </div>
     

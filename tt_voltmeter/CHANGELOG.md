@@ -5,7 +5,7 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MINOR.PATCH).
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_voltmeter.ino`.
 
-## [V1.2.0] – in Entwicklung
+## [V1.2.2] – in Entwicklung
 
 ### Hinzugefügt
 - **Bidirektionaler Befehls-Link zum Controller** (Paket J, Durchstich): USART1 jetzt TX **+ RX**
@@ -20,7 +20,15 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_voltmeter.ino`.
   Standard + EEPROM) als Fern-Rettungsleinen. (#28)
 - Link-Befehl `ENTER_BOOTLOADER` (CMD 0x40): sendet ACK und springt anschließend in den
   eingebauten STM32-System-Bootloader (ROM, `0x1FFFF000`) – Voraussetzung für das
-  FW-Update über den Controller (AN3155). Erster Baustein von #30 (Voltmeter-Seite). (#30)
+  FW-Update über den Controller (AN3155). #30 (Voltmeter-Seite). (#30)
+
+### Behoben
+- Sprung in den ROM-Bootloader (`jumpToSystemBootloader`): Die laufende Peripherie
+  (ADC/DMA/Timer) störte den Bootloader, der danach nicht auf den USART-Handshake reagierte.
+  Fix: vor dem Sprung `HAL_DeInit()` + `HAL_RCC_DeInit()` (Peripherie/Takt in Reset-Zustand),
+  `SCB->VTOR` auf System-Memory (F1 kann den Speicher nicht per Software spiegeln), Interrupts
+  bleiben für die USART-IRQ des ROM-Loaders aktiv. Damit funktioniert das FW-Update über den
+  Link end-to-end. (#30)
 
 ### Geändert
 - Daten-/Befehlsleitung intern von Raw-HAL (`huart1`) auf `Serial1` umgestellt (robuster,

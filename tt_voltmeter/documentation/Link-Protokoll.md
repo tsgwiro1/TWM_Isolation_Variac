@@ -65,17 +65,27 @@ Nutzt den **eingebauten STM32-UART-Bootloader** (AN3155) auf USART1. Recovery-St
 **App-Sprung-only** (keine BOOT0/NRST-Steuerung) → ein Fehlflash mit nicht reagierender App
 braucht Öffnen + ST-Link. Daher **am offenen Gerät entwickeln und verifizieren, erst danach versiegeln.**
 
-**Ablauf:**
-1. **FW-Binary hochladen** (Web, POST multipart) → LittleFS `/voltmeter_fw.bin` (~60 KB).
-2. **ENTER_BOOTLOADER** (CMD 0x40): VM sendet ACK, dann Sprung ins System-Memory `0x1FFFF000`
-   (IRQs aus, Peripherie/SysTick deinit, MSP = `*0x1FFFF000`, PC = `*0x1FFFF004`, springen).
-3. **Controller = AN3155-Host** auf `Serial1`:
+**Ablauf (Umsetzungsstand markiert):**
+1. ✅ **FW-Binary hochladen** (Web, POST multipart) → LittleFS `/voltmeter_fw.bin`
+   (`/api/voltmeter/update/upload`).
+2. ✅ **ENTER_BOOTLOADER** (CMD 0x40): VM sendet ACK, dann Sprung ins System-Memory `0x1FFFF000`
+   (IRQs aus, SysTick/NVIC deinit, `HAL_RCC_DeInit`, MSP = `*0x1FFFF000`, PC = `*0x1FFFF004`, springen).
+   → `jumpToSystemBootloader()` in der Voltmeter-FW.
+3. ✅ **Controller = AN3155-Host** auf `Serial1` (`voltmeterUpdateTask`, `communicationTask`
+   währenddessen suspendiert, Ausgang/Regelung aus):
    - Umschalten auf **8E1** (Bootloader nutzt gerade Parität!), 115200.
-   - `0x7F` → ACK `0x79` (Auto-Baud); optional Get/Get-ID.
-   - **(Extended/Mass) Erase** → **Write Memory** (0x31, 256-Byte-Blöcke ab `0x08000000`, je Checksumme + ACK) → **Go** (0x21, `0x08000000`).
-   - zurück auf **8N1**, RMS-Empfang läuft weiter.
-4. **Web-UI**: Upload → „Update starten" → Fortschritt → Erfolg/Fehler.
-5. **Schutz**: .bin vor dem Flashen plausibilisieren (Größe, Vektortabelle); Ausgang während Update aus.
+   - `0x7F` → ACK `0x79` (Auto-Baud); **Get (0x00)** zur Erkennung Standard- (0x43) vs. Extended-Erase (0x44).
+   - **Page-Erase nur der Programmpages** (Page 0 … `ceil(fwSize/1024)-1`) — **kein Mass-Erase**, damit
+     die letzte Flash-Page (Page 127 = emuliertes EEPROM = Kalibrierung) erhalten bleibt.
+   - **Write Memory** (0x31, 256-Byte-Blöcke ab `0x08000000`, 4-Byte-aligned, je Checksumme + ACK) → **Go** (0x21, `0x08000000`).
+   - zurück auf **8N1**, `communicationTask` resume, RMS-Empfang läuft weiter.
+4. ✅ **Web-UI** (`settings.html`): Upload → „Update starten" → Fortschritt-Polling
+   (`/api/voltmeter/update/status`) → Erfolg/Fehler.
+5. ✅ **Schutz**: .bin vor dem Flashen plausibilisiert (Größe ≤124 KB, MSP im RAM, Reset-Vektor im Flash);
+   Ausgang während Update aus.
+
+**Offen:** Ende-zu-Ende-Verifikation **am offenen Gerät** (ST-Link als Rettung). Die Sprung-Sequenz
+und der AN3155-Dialog sind ungetestet, bis das erste Mal real geflasht wurde.
 
 **Ende-zu-Ende-Test:** leicht geänderte Voltmeter-FW (Versions-String) per Web flashen →
 `GET_VERSION` muss danach die neue Version liefern.

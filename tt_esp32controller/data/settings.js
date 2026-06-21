@@ -214,4 +214,77 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     loadVoltmeterStatus();
+
+    // --- Voltmeter-Firmware-Update (#30) ---
+    const fwMsg = (t) => { const e = document.getElementById('vm-fw-message'); if (e) e.textContent = t; };
+    let fwPollTimer = null;
+
+    function pollUpdateStatus() {
+        fetch('/api/voltmeter/update/status')
+            .then(r => r.json())
+            .then(d => {
+                document.getElementById('vm-fw-progress').textContent = (d.progress || 0) + ' %';
+                fwMsg(d.message || '');
+                if (d.state === 'running') {
+                    fwPollTimer = setTimeout(pollUpdateStatus, 700);
+                } else {
+                    fwPollTimer = null;
+                    if (d.state === 'success') loadVoltmeterStatus();
+                }
+            })
+            .catch(() => { fwPollTimer = setTimeout(pollUpdateStatus, 1500); });
+    }
+
+    const fwUpload = document.getElementById('vm-fw-upload');
+    if (fwUpload) fwUpload.addEventListener('click', () => {
+        const fileInput = document.getElementById('vm-fw-file');
+        if (!fileInput.files || fileInput.files.length === 0) { fwMsg('Bitte zuerst eine .bin-Datei wählen.'); return; }
+        const progEl = document.getElementById('vm-fw-progress');
+        const fd = new FormData();
+        fd.append('firmware', fileInput.files[0]);
+        fwMsg('Lade hoch…');
+        // XMLHttpRequest statt fetch, damit wir den Upload-Fortschritt anzeigen können.
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/voltmeter/update/upload');
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable && progEl) {
+                progEl.textContent = 'Upload ' + Math.round((e.loaded / e.total) * 100) + ' %';
+            }
+        });
+        xhr.addEventListener('load', () => {
+            if (xhr.status === 200) {
+                let m = 'Upload abgeschlossen.';
+                try { m = JSON.parse(xhr.responseText).message || m; } catch (e) {}
+                if (progEl) progEl.textContent = 'Upload 100 %';
+                fwMsg(m);
+            } else {
+                fwMsg('Upload fehlgeschlagen (HTTP ' + xhr.status + ').');
+            }
+        });
+        xhr.addEventListener('error', () => fwMsg('Upload fehlgeschlagen.'));
+        xhr.send(fd);
+    });
+
+    function startUpdate(skipEnter) {
+        fwMsg('Starte Update…');
+        fetch('/api/voltmeter/update/start' + (skipEnter ? '?skipenter=1' : ''))
+            .then(r => r.json())
+            .then(d => {
+                fwMsg(d.message || d.status);
+                if (!fwPollTimer) pollUpdateStatus();
+            })
+            .catch(() => fwMsg('Start fehlgeschlagen.'));
+    }
+
+    const fwStart = document.getElementById('vm-fw-start');
+    if (fwStart) fwStart.addEventListener('click', () => {
+        if (!confirm('Voltmeter-Firmware jetzt flashen? Nur am offenen Gerät durchführen (ST-Link als Rettung).')) return;
+        startUpdate(false);
+    });
+
+    const fwTest = document.getElementById('vm-fw-test');
+    if (fwTest) fwTest.addEventListener('click', () => {
+        if (!confirm('Diagnose-Flash OHNE ENTER_BOOTLOADER. Vorher BOOT0=1 setzen und Voltmeter resetten!')) return;
+        startUpdate(true);
+    });
 });

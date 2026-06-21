@@ -271,6 +271,7 @@ const byte FRAME_EOF    = 0xBB;
 #define VM_CMD_CAL3_FINISH  0x22
 #define VM_CMD_REBOOT       0x30
 #define VM_CMD_RESET_DEFAULTS 0x31
+#define VM_CMD_ENTER_BOOTLOADER 0x40
 
 enum RxPhase {
   RXP_SOF,
@@ -287,6 +288,23 @@ volatile bool    voltmeterResponseReady = false;
 volatile uint8_t voltmeterResponseCmd   = 0;
 volatile uint8_t voltmeterResponseLen   = 0;
 uint8_t          voltmeterResponsePayload[64];
+
+// --- Voltmeter-FW-Update (#30, AN3155-Host) ---
+#define VM_FW_PATH      "/voltmeter_fw.bin"
+#define VM_FLASH_BASE   0x08000000UL
+#define VM_FW_MAX_SIZE  (124u * 1024u)   // F103CB hat 128 KB Flash, etwas Reserve
+#define VM_FLASH_PAGE   1024u            // F103CB: 1 KB Flash-Page
+#define VM_EEPROM_PAGE  127u             // letzte Page = emuliertes EEPROM (Kalibrierung) -> NICHT löschen
+#define BL_BLOCK        256              // AN3155 Write-Memory: max. 256 Byte/Block
+#define BL_ACK          0x79
+#define BL_NACK         0x1F
+#define BL_INIT         0x7F
+enum VmUpdateState { VMU_IDLE, VMU_RUNNING, VMU_SUCCESS, VMU_ERROR };
+volatile VmUpdateState vmUpdateState   = VMU_IDLE;
+volatile int           vmUpdateProgress = 0;     // 0..100 %
+volatile bool          vmUpdateRequested = false; // vom Web gesetzt, vom Update-Task abgearbeitet
+volatile bool          vmUpdateSkipEnter = false; // Diagnose: ENTER_BOOTLOADER überspringen (VM bereits via BOOT0 im ROM-Loader)
+char                   vmUpdateMessage[96] = "";  // letzte Status-/Fehlermeldung (Single-Writer: Update-Task)
 
 // 'volatile', weil diese Variablen in der loop() und im Interrupt-Kontext verwendet werden
 volatile bool new_value_available = false;
@@ -1166,6 +1184,50 @@ void initWebServer() {
     }
   });
 
+  // --- Voltmeter-FW-Update (#30) ---
+  // Upload der .bin nach LittleFS (POST multipart). Antwort kommt nach dem Upload.
+  server.on("/api/voltmeter/update/upload", HTTP_POST,
+    [](AsyncWebServerRequest *request){
+      request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Upload complete\"}");
+    },
+    [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final){
+      static File up;
+      if (vmUpdateState == VMU_RUNNING) return; // während eines laufenden Updates nichts annehmen
+      if (index == 0) up = LittleFS.open(VM_FW_PATH, "w");
+      if (up) up.write(data, len);
+      if (final && up) up.close();
+    });
+
+  // Update starten: prüft Datei, stößt den Update-Task an.
+  server.on("/api/voltmeter/update/start", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (vmUpdateState == VMU_RUNNING) {
+      request->send(409, "application/json", "{\"status\":\"error\",\"message\":\"Update already running\"}");
+      return;
+    }
+    if (!LittleFS.exists(VM_FW_PATH)) {
+      request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"No firmware uploaded\"}");
+      return;
+    }
+    // Diagnose: ?skipenter=1 überspringt ENTER_BOOTLOADER (VM bereits via BOOT0 im ROM-Loader).
+    vmUpdateSkipEnter = request->hasParam("skipenter") && request->getParam("skipenter")->value() == "1";
+    vmUpdSet(VMU_RUNNING, 0, "Update gestartet...");
+    vmUpdateRequested = true;
+    request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Update started\"}");
+  });
+
+  // Update-Fortschritt/Status abfragen (UI pollt diese Route).
+  server.on("/api/voltmeter/update/status", HTTP_GET, [](AsyncWebServerRequest *request){
+    const char* st = vmUpdateState == VMU_RUNNING ? "running"
+                   : vmUpdateState == VMU_SUCCESS ? "success"
+                   : vmUpdateState == VMU_ERROR   ? "error" : "idle";
+    StaticJsonDocument<192> doc;
+    doc["state"]    = st;
+    doc["progress"] = vmUpdateProgress;
+    doc["message"]  = vmUpdateMessage;
+    String out; serializeJson(doc, out);
+    request->send(200, "application/json", out);
+  });
+
   // API-Route zum Speichern der aktuellen oder übergebenen Spannung auf einem Preset
   server.on("/api/presets/save", HTTP_GET, [](AsyncWebServerRequest *request) {
     // 1. Zuerst prüfen, ob die Hardware überhaupt bereit ist
@@ -1900,6 +1962,7 @@ TaskHandle_t h_displayUpdateTask;
 TaskHandle_t h_sensorAndFanTask;
 TaskHandle_t h_communicationTask;
 TaskHandle_t h_stepperTask;
+TaskHandle_t h_voltmeterUpdateTask;
 
 /**
  * @brief FreeRTOS Task zur Verarbeitung aller Benutzereingaben (Encoder, Tasten).
@@ -2230,6 +2293,227 @@ void communicationTask(void *parameter) {
       }
     }
     vTaskDelay(pdMS_TO_TICKS(10)); // Sehr oft prüfen
+  }
+}
+
+// ********************************************************************************
+// Voltmeter-FW-Update über den ROM-UART-Bootloader (AN3155), #30
+// ********************************************************************************
+// Während dieser Sequenz ist der communicationTask suspendiert und Serial1 läuft
+// vorübergehend auf 8E1 (der STM32-Bootloader nutzt gerade Parität). Wir lesen die
+// Bootloader-Bytes hier roh (ohne den Frame-Parser). Recovery bei Fehlflash: ST-Link.
+
+// Liest ein einzelnes Byte direkt von Serial1 mit Timeout. -1 = Timeout.
+static int blReadByte(uint32_t timeoutMs) {
+  uint32_t t0 = millis();
+  while (Serial1.available() == 0) {
+    if (millis() - t0 >= timeoutMs) return -1;
+    delay(1); // yieldet
+  }
+  return Serial1.read();
+}
+
+// Wartet auf ein ACK (0x79) vom Bootloader.
+static bool blWaitAck(uint32_t timeoutMs) {
+  return blReadByte(timeoutMs) == BL_ACK;
+}
+
+// Sendet Befehlsbyte + Komplement und wartet auf ACK.
+static bool blCmd(uint8_t cmd, uint32_t timeoutMs) {
+  Serial1.write(cmd);
+  Serial1.write((uint8_t)(cmd ^ 0xFF));
+  Serial1.flush();
+  return blWaitAck(timeoutMs);
+}
+
+// Sendet eine 4-Byte-Adresse (MSB first) + XOR-Checksumme und wartet auf ACK.
+static bool blAddr(uint32_t addr, uint32_t timeoutMs) {
+  uint8_t a[4] = { (uint8_t)(addr >> 24), (uint8_t)(addr >> 16),
+                   (uint8_t)(addr >> 8),  (uint8_t)addr };
+  Serial1.write(a, 4);
+  Serial1.write((uint8_t)(a[0] ^ a[1] ^ a[2] ^ a[3]));
+  Serial1.flush();
+  return blWaitAck(timeoutMs);
+}
+
+// Setzt Status + Meldung (Single-Writer: Update-Task).
+static void vmUpdSet(VmUpdateState st, int prog, const char* msg) {
+  vmUpdateProgress = prog;
+  strncpy(vmUpdateMessage, msg, sizeof(vmUpdateMessage) - 1);
+  vmUpdateMessage[sizeof(vmUpdateMessage) - 1] = '\0';
+  vmUpdateState = st;
+}
+
+// Plausibilisiert die .bin (Größe + Vektortabelle: MSP im RAM, Reset-Vektor im Flash).
+static bool vmFwValidate(File& f, size_t& sizeOut) {
+  size_t sz = f.size();
+  if (sz < 0x100 || sz > VM_FW_MAX_SIZE) return false;
+  uint8_t hdr[8];
+  f.seek(0);
+  if (f.read(hdr, 8) != 8) return false;
+  uint32_t msp   = hdr[0] | (hdr[1] << 8) | (hdr[2] << 16) | ((uint32_t)hdr[3] << 24);
+  uint32_t reset = hdr[4] | (hdr[5] << 8) | (hdr[6] << 16) | ((uint32_t)hdr[7] << 24);
+  // F103CB: 20 KB RAM ab 0x20000000, 128 KB Flash ab 0x08000000.
+  if (msp < 0x20000000UL || msp > 0x20005000UL) return false;
+  if (reset < VM_FLASH_BASE || reset >= (VM_FLASH_BASE + 0x20000UL)) return false;
+  sizeOut = sz;
+  return true;
+}
+
+// Führt das komplette Flashen aus. Setzt vmUpdateState/-Progress/-Message.
+static void runVoltmeterFlash() {
+  vmUpdSet(VMU_RUNNING, 0, "Pruefe Firmware-Datei...");
+
+  // 1) Sicherheit: Ausgang aus, Regelung stoppen.
+  is_regulation_active = false;
+  if (A_onoff) A_onoff->off();
+
+  // 2) Datei öffnen + plausibilisieren.
+  File f = LittleFS.open(VM_FW_PATH, "r");
+  if (!f) { vmUpdSet(VMU_ERROR, 0, "Firmware-Datei nicht gefunden."); return; }
+  size_t fwSize = 0;
+  if (!vmFwValidate(f, fwSize)) {
+    f.close();
+    vmUpdSet(VMU_ERROR, 0, "Ungueltige .bin (Groesse/Vektortabelle).");
+    return;
+  }
+
+  // 3) Voltmeter in den Bootloader schicken (normaler Frame, communicationTask parst ACK).
+  //    Diagnose-Modus (skipEnter): VM wurde bereits per BOOT0+Reset in den ROM-Loader gebracht.
+  if (!vmUpdateSkipEnter) {
+    vmUpdSet(VMU_RUNNING, 2, "Voltmeter -> Bootloader...");
+    if (!voltmeterRequest(VM_CMD_ENTER_BOOTLOADER, nullptr, 0, 800)) {
+      f.close();
+      vmUpdSet(VMU_ERROR, 0, "Voltmeter antwortet nicht (ENTER_BOOTLOADER).");
+      return;
+    }
+  } else {
+    vmUpdSet(VMU_RUNNING, 2, "Diagnose: ENTER_BOOTLOADER uebersprungen (BOOT0).");
+  }
+
+  // 4) Ab hier gehört Serial1 uns: communicationTask suspendieren, auf 8E1 umstellen.
+  vTaskSuspend(h_communicationTask);
+  delay(150); // dem Voltmeter Zeit für den Sprung ins System-Memory lassen
+  Serial1.end();
+  Serial1.begin(115200, SERIAL_8E1, PIN_RX, PIN_TX);
+  while (Serial1.available()) Serial1.read(); // RX-Reste verwerfen
+
+  bool ok = false;
+  do {
+    // 5) Auto-Baud / Handshake: 0x7F -> ACK (einige Versuche).
+    vmUpdSet(VMU_RUNNING, 5, "Bootloader-Handshake...");
+    bool synced = false;
+    for (int i = 0; i < 5 && !synced; i++) {
+      Serial1.write((uint8_t)BL_INIT);
+      Serial1.flush();
+      int r = blReadByte(500);
+      if (r == BL_ACK || r == BL_NACK) synced = true; // NACK = schon initialisiert
+    }
+    if (!synced) { vmUpdSet(VMU_ERROR, 5, "Kein Bootloader-ACK (0x7F)."); break; }
+
+    // 6) Get-Befehl: unterstützte Kommandos abfragen (Standard- vs. Extended-Erase).
+    bool extErase = false;
+    Serial1.write((uint8_t)0x00); Serial1.write((uint8_t)0xFF); Serial1.flush();
+    if (!blWaitAck(1000)) { vmUpdSet(VMU_ERROR, 6, "Get-Befehl fehlgeschlagen."); break; }
+    int n = blReadByte(1000);                 // Anzahl folgender Kommando-Bytes
+    int ver = blReadByte(1000); (void)ver;    // Bootloader-Version
+    if (n < 0 || ver < 0) { vmUpdSet(VMU_ERROR, 6, "Get-Antwort unvollstaendig."); break; }
+    for (int i = 0; i < n; i++) {
+      int c = blReadByte(1000);
+      if (c == 0x44) extErase = true;         // Extended Erase unterstützt
+    }
+    if (!blWaitAck(1000)) { vmUpdSet(VMU_ERROR, 6, "Get-Abschluss-ACK fehlt."); break; }
+
+    // 7) NUR die Programmpages löschen (Page 0 .. nötige Pages). KEIN Mass-Erase, damit die
+    //    letzte Page (emuliertes EEPROM = Kalibrierung) erhalten bleibt.
+    vmUpdSet(VMU_RUNNING, 10, "Loesche Programm-Flash...");
+    uint16_t pages = (uint16_t)((fwSize + VM_FLASH_PAGE - 1) / VM_FLASH_PAGE);
+    if (pages == 0) pages = 1;
+    if (pages > VM_EEPROM_PAGE) { // würde die EEPROM-Page überschreiben
+      vmUpdSet(VMU_ERROR, 10, "Firmware zu gross (Kollision mit EEPROM-Page).");
+      break;
+    }
+    if (extErase) {
+      if (!blCmd(0x44, 2000)) { vmUpdSet(VMU_ERROR, 10, "Extended-Erase abgelehnt."); break; }
+      // N (Pages-1) als 2 Byte, dann je Page 2 Byte (MSB first), dann XOR-Checksumme.
+      uint16_t nm1 = pages - 1;
+      uint8_t chk = 0;
+      uint8_t b;
+      b = (uint8_t)(nm1 >> 8);  Serial1.write(b); chk ^= b;
+      b = (uint8_t)(nm1 & 0xFF); Serial1.write(b); chk ^= b;
+      for (uint16_t p = 0; p < pages; p++) {
+        b = (uint8_t)(p >> 8);  Serial1.write(b); chk ^= b;
+        b = (uint8_t)(p & 0xFF); Serial1.write(b); chk ^= b;
+      }
+      Serial1.write(chk); Serial1.flush();
+      if (!blWaitAck(30000)) { vmUpdSet(VMU_ERROR, 10, "Extended-Page-Erase Timeout."); break; }
+    } else {
+      if (!blCmd(0x43, 2000)) { vmUpdSet(VMU_ERROR, 10, "Erase abgelehnt."); break; }
+      // N (Pages-1) als 1 Byte, dann je Page 1 Byte, dann XOR-Checksumme.
+      uint8_t nm1 = (uint8_t)(pages - 1);
+      uint8_t chk = nm1;
+      Serial1.write(nm1);
+      for (uint16_t p = 0; p < pages; p++) { Serial1.write((uint8_t)p); chk ^= (uint8_t)p; }
+      Serial1.write(chk); Serial1.flush();
+      if (!blWaitAck(30000)) { vmUpdSet(VMU_ERROR, 10, "Page-Erase Timeout."); break; }
+    }
+
+    // 8) Schreiben in 256-Byte-Blöcken ab 0x08000000.
+    uint8_t buf[BL_BLOCK];
+    uint32_t addr = VM_FLASH_BASE;
+    size_t written = 0;
+    bool writeOk = true;
+    f.seek(0);
+    while (written < fwSize) {
+      int rd = f.read(buf, BL_BLOCK);
+      if (rd <= 0) { writeOk = false; vmUpdSet(VMU_ERROR, 0, "Datei-Lesefehler."); break; }
+      // auf 4-Byte-Grenze auffüllen (Bootloader schreibt wortweise)
+      while (rd & 0x03) buf[rd++] = 0xFF;
+
+      if (!blCmd(0x31, 1000)) { writeOk = false; vmUpdSet(VMU_ERROR, 0, "Write-Befehl abgelehnt."); break; }
+      if (!blAddr(addr, 1000)) { writeOk = false; vmUpdSet(VMU_ERROR, 0, "Write-Adresse abgelehnt."); break; }
+      Serial1.write((uint8_t)(rd - 1));
+      uint8_t chk = (uint8_t)(rd - 1);
+      for (int i = 0; i < rd; i++) { Serial1.write(buf[i]); chk ^= buf[i]; }
+      Serial1.write(chk);
+      Serial1.flush();
+      if (!blWaitAck(2000)) { writeOk = false; vmUpdSet(VMU_ERROR, 0, "Write-Block ohne ACK."); break; }
+
+      addr    += rd;
+      written += rd;
+      int prog = 10 + (int)((written * 85ULL) / fwSize); // 10..95 %
+      vmUpdSet(VMU_RUNNING, prog, "Schreibe Firmware...");
+    }
+    if (!writeOk) break;
+
+    // 9) Go: neue Anwendung ab 0x08000000 starten.
+    vmUpdSet(VMU_RUNNING, 97, "Starte neue Firmware...");
+    if (!blCmd(0x21, 1000) || !blAddr(VM_FLASH_BASE, 1000)) {
+      // Go fehlgeschlagen -> der nächste Voltmeter-Reset startet die FW trotzdem.
+      vmUpdSet(VMU_ERROR, 97, "Flash ok, aber 'Go' fehlte (Voltmeter neu starten).");
+      break;
+    }
+    ok = true;
+  } while (0);
+
+  // 10) Aufräumen: zurück auf 8N1, communicationTask wieder aktivieren.
+  f.close();
+  Serial1.end();
+  Serial1.begin(115200, SERIAL_8N1, PIN_RX, PIN_TX);
+  while (Serial1.available()) Serial1.read();
+  vTaskResume(h_communicationTask);
+
+  if (ok) vmUpdSet(VMU_SUCCESS, 100, "Update erfolgreich.");
+}
+
+// Persistenter Task: wartet auf den Trigger aus dem Web und flasht dann.
+void voltmeterUpdateTask(void *parameter) {
+  for (;;) {
+    if (vmUpdateRequested) {
+      vmUpdateRequested = false;
+      runVoltmeterFlash();
+    }
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
 
@@ -2711,6 +2995,15 @@ void setup() {
         2,
         &h_communicationTask,
         0);
+
+    xTaskCreatePinnedToCore(
+        voltmeterUpdateTask,
+        "VmUpdate",
+        4096,
+        NULL,
+        1,                    // niedrige Priorität, idlet meistens
+        &h_voltmeterUpdateTask,
+        1);                   // Core 1, damit der communicationTask auf Core 0 frei bleibt
 
     xTaskCreatePinnedToCore(
         stepperTask,

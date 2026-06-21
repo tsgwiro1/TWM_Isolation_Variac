@@ -27,6 +27,16 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
   `/api/voltmeter/cal3/finish` (Regression + speichern), inkl. Bedienfeld in `settings.html`. (#29)
 - API `/api/voltmeter/reboot` und `/api/voltmeter/reset-defaults` + Buttons im Panel
   (Voltmeter neu starten / Kalibrierung auf Standard). (#29)
+- **Voltmeter-Firmware-Update über den Link** (#30): AN3155-Host (`Serial1` auf 8E1,
+  `0x7F`-Handshake, `Get` zur Erase-Erkennung, Mass-Erase, Write-Memory in 256-Byte-Blöcken,
+  `Go`) in einem eigenen `voltmeterUpdateTask`; `communicationTask` wird während des Flashens
+  suspendiert, Ausgang/Regelung aus. `.bin`-Upload nach LittleFS + Trigger/Status über
+  `/api/voltmeter/update/upload`, `/start`, `/status`; Bedienfeld in `settings.html`.
+  Recovery bei Fehlflash: ST-Link (Entwicklung/Test nur am offenen Gerät).
+  **EEPROM-Erhalt:** statt Mass-Erase werden nur die Programmpages (0 … benötigte) gelöscht,
+  die letzte Flash-Page (emuliertes EEPROM = Voltmeter-Kalibrierung) bleibt erhalten.
+  Diagnose-Option `?skipenter=1` (ENTER_BOOTLOADER überspringen, VM via BOOT0 im ROM-Loader)
+  + „Bootloader-Test"-Button. Upload mit Fortschrittsanzeige (XHR). (#30)
 
 ### Geändert
 - **Spannungsregelung neu** (#17): PID-Regler und Preset-Zustandsmaschine ersetzt durch

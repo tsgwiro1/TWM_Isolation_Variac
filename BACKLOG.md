@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-06-20 · **Gesamt: 16 / 30 Punkte erledigt**
+**Stand:** 2026-06-21 · **Gesamt: 17 / 33 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -21,7 +21,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | F — Struktur & Modernisierung | ⬜ offen | 0/5 |
 | G — Web-Oberfläche | ⬜ offen | 0/2 |
 | H — Sicherheit (optional) | ⬜ offen | 0/1 |
-| J — Voltmeter-Fernsteuerung via Controller | 🔄 in Arbeit | 3/4 |
+| J — Voltmeter-Fernsteuerung via Controller | 🔄 in Arbeit | 4/7 |
 | I — Dokumentation | ⬜ offen | 0/2 |
 
 ### Checkliste
@@ -62,7 +62,10 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [x] #27 Bidirektionales Befehls-/Antwort-Protokoll (UART)
   - [x] #28 Voltmeter: Menüfunktionen über den Link
   - [x] #29 Controller: API + Web-UI fürs Voltmeter
-  - [ ] #30 Kür: Voltmeter-FW-Update via Controller
+  - [x] #30 Kür: Voltmeter-FW-Update via Controller
+  - [ ] #34 Spannungs-Offset über Web/API setzen
+  - [ ] #33 FW-Version aus .bin auslesen/anzeigen
+  - [ ] #32 LCD-Anzeige während Voltmeter-FW-Update
 - [ ] **I — Dokumentation aktualisieren**
   - [ ] #24 Doku aktualisieren & vervollständigen
   - [ ] #12 API-Doku Single-Source
@@ -108,6 +111,24 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   (Soft-Reset, Kalibrierung auf Standard) ergänzt. Link-Protokoll + #30-Ablauf konsolidiert in
   [`tt_voltmeter/documentation/Link-Protokoll.md`](tt_voltmeter/documentation/Link-Protokoll.md)
   (Befehlssatz/CMD-Codes, Frame-Format, ROM-Bootloader-Plan). Nächster Schritt: #30 Schritt 1.
+- **2026-06-21 — #30 abgeschlossen (Paket J 4/5), am Gerät end-to-end verifiziert.**
+  Voltmeter-FW-Update über den ROM-Bootloader (AN3155): Voltmeter `ENTER_BOOTLOADER` (0x40) +
+  Sprung-Fix (`HAL_DeInit`/`HAL_RCC_DeInit` vor dem Sprung, `VTOR`; ohne war ADC/DMA/Timer aktiv
+  und der ROM-Loader reagierte nicht). Controller = AN3155-Host (8E1, Init/Get/Erase/Write/Go),
+  eigener `voltmeterUpdateTask`, `communicationTask` suspendiert, Ausgang/Regelung aus.
+  Diagnose über BOOT0+`?skipenter=1` isoliert (Host ok → Sprung war schuld). **Page-Erase nur der
+  Programmpages** → letzte Flash-Page (emuliertes EEPROM = Kalibrierung) bleibt erhalten (verifiziert).
+  Upload mit Fortschrittsanzeige (XHR). Voltmeter auf **V1.2.2**. Commit `a11a7c7`.
+  Neu eingeplant: **#32** (LCD-Anzeige während des Updates) als Paket-J-Punkt.
+- **2026-06-21 — #34 umgesetzt (Spannungs-Offset über Web/API), Paket J 4/7.** Neuer Link-Befehl
+  `SET_OFFSET` (0x11, Plausi −50…+50 V, EEPROM) + API `/api/voltmeter/offset` + Eingabefeld/Button
+  im Panel. Voltmeter auf **V1.2.3**. Beide Builds kompilieren; Geräte-Test ausstehend.
+  Außerdem neu eingeplant: **#33** (FW-Version aus .bin auslesen, Magic-Tag).
+- **2026-06-21 — #33 umgesetzt (FW-Version aus .bin).** Magic-Tag `@@VMFW@@<FW>` im Voltmeter
+  (`used` + Start-Referenz, im Image verifiziert). Controller scannt die `.bin`
+  (`/api/voltmeter/update/fileversion`); UI zeigt die Datei-Version dauerhaft + nach Upload, und
+  vergleicht beim „Update starten" mit der laufenden Version (Warnung bei identischer Version).
+  Beide Builds kompilieren; Geräte-Test ausstehend.
 - **2026-06-20 — #28/#29 abgeschlossen (Paket J 3/4).** Geführte 3-Punkt-Kalibrierung über den
   Link (`CAL3_MEASURE`/`CAL3_FINISH`, Referenzspannungen frei wählbar) + Web-Bedienfeld ergänzt;
   am Gerät verifiziert. Damit Voltmeter-Status/Faktor/Auto-Zero/Kalibrierung komplett via Web.
@@ -217,14 +238,17 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 ## Paket J — Voltmeter-Fernsteuerung via Controller
 
 > Ziel: Voltmeter-Menüfunktionen (Status, Version, Live, Skalierungsfaktor, Auto-Zero & 3-Punkt-Kalibrierung) über die Web-Oberfläche/API des Controllers statt nur über die lokale USB-CDC-Konsole.
-> **Routing-Entscheidung: USART1 (PA9/PA10)** — Hardware-Mod am Voltmeter-Print umgesetzt; **Senderichtung am Gerät verifiziert** (Voltmeter PA9 → Controller, Spannung wird angezeigt). Empfangsrichtung (Controller-TX → Voltmeter PA10) + GND für #27 noch zu legen. Damit ist neben dem Befehls-Link (#27–#29) auch das **FW-Update über den ROM-Bootloader** (#30, AN3155) ohne eigenen Bootloader möglich. Konsole bleibt auf USB-CDC (PA11/PA12).
+> **Routing-Entscheidung: USART1 (PA9/PA10)** — Hardware-Mod am Voltmeter-Print umgesetzt; **beide Richtungen + GND am Gerät verifiziert**. Befehls-Link (#27–#29) und **FW-Update über den ROM-Bootloader** (#30, AN3155) laufen end-to-end. Konsole bleibt auf USB-CDC (PA11/PA12).
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
 | 27 | Protokoll | Bidirektionales Befehls-/Antwort-Protokoll (UART) | Frame-Protokoll `0xA5 CMD LEN [payload] CHK 0xBB` (Befehl) / `0xB5 …` (Antwort), koexistiert mit dem RMS-Stream `0xAA…`. Voltmeter: `Serial1` (USART1) TX+RX (Core-IRQ/Ringpuffer). Controller: vereinheitlichter Parser + `sendVoltmeterCommand()`. Durchstich `GET_VERSION` / `/api/voltmeter/version` am Gerät verifiziert. | M | **erledigt** *(Durchstich am Gerät bestätigt)* |
 | 28 | Voltmeter | Menüfunktionen über den Link | Link-Befehle `GET_VERSION`/`GET_STATUS`/`SET_FACTOR`/`RECAL` sowie `CAL3_MEASURE`/`CAL3_FINISH` (geführte 3-Punkt-Kalibrierung). Lokale USB-CDC-Konsole bleibt parallel. | M–L | **erledigt** *(am Gerät verifiziert)* |
 | 29 | Controller | API + Web-UI fürs Voltmeter | API `/api/voltmeter/{version,status,factor,autozero,cal3/measure,cal3/finish}` + schlichtes Panel in `settings.html` (finale UI in Paket G/#23). Live-RMS schon vorhanden. | M–L | **erledigt** *(am Gerät verifiziert)* |
-| 30 | Kür | Voltmeter-FW-Update via Controller | **Deutlich einfacher, wenn der Link auf USART1 (PA9/PA10) gelegt wird** (PCB-Mod): dann nutzbar über den eingebauten **ROM-UART-Bootloader** (AN3155). Voltmeter-App springt per Befehl ins System-Memory (`0x1FFFF000`), Controller flasht via Bootloader-Protokoll (Init/Erase/Write/Go) + FW-Binary per Web→LittleFS→Stream. Kein eigener Bootloader nötig; Recovery via BOOT0+Reset+ST-Link. *(Mit Link auf USART2 stattdessen nur via eigenem App-Bootloader — groß/riskant.)* | L–XL | offen *(Kür)* |
+| 30 | Kür | Voltmeter-FW-Update via Controller | Über den eingebauten **ROM-UART-Bootloader** (AN3155): Voltmeter-App springt per Befehl ins System-Memory (`0x1FFFF000`), Controller (AN3155-Host, 8E1) flasht via Init/Get/**Page-Erase nur der Programmpages** (EEPROM/Kalibrierung bleibt)/Write/Go. FW-Binary per Web→LittleFS, Fortschritt/Status + Diagnose-Option (skip-enter/BOOT0). Recovery via BOOT0+Reset+ST-Link. | L–XL | **erledigt** *(am Gerät end-to-end verifiziert, EEPROM bleibt erhalten)* |
+| 34 | Voltmeter | Spannungs-Offset über Web/API setzen | Gegenstück zu „Faktor setzen": Link-Befehl `SET_OFFSET` (0x11, Plausi −50…+50 V, EEPROM) + API `/api/voltmeter/offset?value=` + Eingabefeld/Button im Panel. Bisher war der Offset nur über die 3-Punkt-Kalibrierung änderbar. | S | offen |
+| 33 | Controller | FW-Version aus .bin auslesen/anzeigen | Magic-Tag im Voltmeter (`"@@VMFW@@" FW`, `__attribute__((used))`); Controller scannt die hochgeladene `.bin` nach dem Tag → zeigt Datei-Version vs. laufende Version (`GET_VERSION`) → „Update nötig?". Greift erst ab dem ersten getaggten Build. | M | offen |
+| 32 | LCD | Anzeige während Voltmeter-FW-Update | Während des Flashs eigener LCD-Screen „Voltmeter-Update läuft – Variac gesperrt" mit Fortschritt-% und Statusmeldung; Ausgang/Regelung aus (bereits umgesetzt). Nach Abschluss (Erfolg/Fehler) ~5 s Ergebnis anzeigen, dann zurück in den Normalbetrieb — **Ausgang bleibt aus** (kein Auto-Einschalten). | M | offen |
 
 ## Paket I — Dokumentation aktualisieren
 

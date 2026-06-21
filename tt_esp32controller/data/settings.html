@@ -84,9 +84,14 @@
                 <label for="vm-new-factor">Faktor setzen</label>
                 <input type="number" step="0.001" id="vm-new-factor">
             </div>
+            <div class="form-group">
+                <label for="vm-new-offset">Spannungs-Offset setzen (V)</label>
+                <input type="number" step="0.1" id="vm-new-offset">
+            </div>
             <div class="button-group">
                 <button type="button" id="vm-refresh" class="btn-light">Status aktualisieren</button>
                 <button type="button" id="vm-set-factor" class="btn-light">Faktor speichern</button>
+                <button type="button" id="vm-set-offset" class="btn-light">Offset speichern</button>
                 <button type="button" id="vm-autozero" class="btn-light">Auto-Zero</button>
                 <button type="button" id="vm-reboot" class="btn-light">Neustart</button>
                 <button type="button" id="vm-reset-defaults" class="btn-light">Werkseinstellungen</button>
@@ -121,6 +126,7 @@
                 <label for="vm-fw-file">Firmware-Datei (.bin)</label>
                 <input type="file" id="vm-fw-file" accept=".bin">
             </div>
+            <div class="form-group"><label>Version auf dem Gerät (LittleFS)</label><span id="vm-fw-fileversion">&ndash;</span></div>
             <div class="button-group">
                 <button type="button" id="vm-fw-upload" class="btn-light">Hochladen</button>
                 <button type="button" id="vm-fw-start" class="btn-light">Update starten</button>

@@ -32,6 +32,7 @@ Floats werden als rohe 4 Byte little-endian übertragen (ESP32 und STM32 sind be
 | 0x01 | GET_VERSION | – | FW-String | |
 | 0x02 | GET_STATUS | – | 3× float: scaling_factor, voltage_offset, adc_zero_offset | |
 | 0x10 | SET_FACTOR | float (Faktor) | 1 Byte (1=ok, 0=abgelehnt) | Plausi 100…1000; speichert EEPROM |
+| 0x11 | SET_OFFSET | float (Offset V) | 1 Byte (1=ok, 0=abgelehnt) | Plausi −50…+50 V; speichert EEPROM |
 | 0x20 | RECAL | – | 1 Byte ACK | Auto-Zero; **blockiert danach ~5 s** |
 | 0x21 | CAL3_MEASURE | u8 index + float U_ref | 1 Byte ok | mittelt **~2 s** |
 | 0x22 | CAL3_FINISH | – | `[ok(1)][m(float)][b(float)]` | Regression, EEPROM; min. 2 Punkte |
@@ -49,6 +50,7 @@ erkennt das über `isVoltageDataFresh()` (Timeout 250 ms) und hält die Regelung
 | `GET /api/voltmeter/version` | GET_VERSION |
 | `GET /api/voltmeter/status` | GET_STATUS |
 | `GET /api/voltmeter/factor?value=` | SET_FACTOR |
+| `GET /api/voltmeter/offset?value=` | SET_OFFSET |
 | `GET /api/voltmeter/autozero` | RECAL |
 | `GET /api/voltmeter/cal3/measure?index=&voltage=` | CAL3_MEASURE |
 | `GET /api/voltmeter/cal3/finish` | CAL3_FINISH |
@@ -81,6 +83,10 @@ braucht Öffnen + ST-Link. Daher **am offenen Gerät entwickeln und verifizieren
    - zurück auf **8N1**, `communicationTask` resume, RMS-Empfang läuft weiter.
 4. ✅ **Web-UI** (`settings.html`): Upload → „Update starten" → Fortschritt-Polling
    (`/api/voltmeter/update/status`) → Erfolg/Fehler.
+   - **Versionserkennung (#33):** Die Voltmeter-FW enthält den Magic-Tag `@@VMFW@@<FW-String>`
+     (`__attribute__((used))`). Der Controller scannt die hochgeladene `.bin`
+     (`/api/voltmeter/update/fileversion`) und zeigt die Datei-Version dauerhaft an; beim Start
+     wird gegen die laufende Version (`GET_VERSION`) verglichen.
 5. ✅ **Schutz**: .bin vor dem Flashen plausibilisiert (Größe ≤124 KB, MSP im RAM, Reset-Vektor im Flash);
    Ausgang während Update aus.
 

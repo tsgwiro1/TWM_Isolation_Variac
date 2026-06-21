@@ -266,6 +266,7 @@ const byte FRAME_EOF    = 0xBB;
 #define VM_CMD_GET_VERSION  0x01
 #define VM_CMD_GET_STATUS   0x02
 #define VM_CMD_SET_FACTOR   0x10
+#define VM_CMD_SET_OFFSET   0x11
 #define VM_CMD_RECAL        0x20
 #define VM_CMD_CAL3_MEASURE 0x21
 #define VM_CMD_CAL3_FINISH  0x22
@@ -1114,6 +1115,27 @@ void initWebServer() {
     }
   });
 
+  // API-Route: Spannungs-Offset des Voltmeters setzen (+ EEPROM speichern)
+  server.on("/api/voltmeter/offset", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (!request->hasParam("value")) {
+      request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'value' parameter\"}");
+      return;
+    }
+    float v = request->getParam("value")->value().toFloat();
+    uint8_t b[4];
+    memcpy(b, &v, 4);
+    if (voltmeterRequest(VM_CMD_SET_OFFSET, b, 4, 400)) {
+      bool ok = (voltmeterResponseLen >= 1 && voltmeterResponsePayload[0] == 1);
+      if (ok) {
+        request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Offset set\"}");
+      } else {
+        request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Offset rejected (range -50..50)\"}");
+      }
+    } else {
+      request->send(504, "application/json", "{\"status\":\"error\",\"message\":\"No response from voltmeter\"}");
+    }
+  });
+
   // API-Route: Auto-Zero-Kalibrierung des Voltmeters starten (läuft danach mehrere Sekunden)
   server.on("/api/voltmeter/autozero", HTTP_GET, [](AsyncWebServerRequest *request){
     if (voltmeterRequest(VM_CMD_RECAL, nullptr, 0, 400)) {
@@ -1224,6 +1246,20 @@ void initWebServer() {
     doc["state"]    = st;
     doc["progress"] = vmUpdateProgress;
     doc["message"]  = vmUpdateMessage;
+    String out; serializeJson(doc, out);
+    request->send(200, "application/json", out);
+  });
+
+  // Version der auf LittleFS liegenden .bin (aus dem Magic-Tag). (#33)
+  server.on("/api/voltmeter/update/fileversion", HTTP_GET, [](AsyncWebServerRequest *request){
+    StaticJsonDocument<128> doc;
+    char ver[48];
+    if (LittleFS.exists(VM_FW_PATH) && readVmFwFileVersion(ver, sizeof(ver))) {
+      doc["status"]  = "success";
+      doc["version"] = ver;
+    } else {
+      doc["status"] = "none"; // keine Datei oder kein Tag
+    }
     String out; serializeJson(doc, out);
     request->send(200, "application/json", out);
   });
@@ -2342,6 +2378,39 @@ static void vmUpdSet(VmUpdateState st, int prog, const char* msg) {
   strncpy(vmUpdateMessage, msg, sizeof(vmUpdateMessage) - 1);
   vmUpdateMessage[sizeof(vmUpdateMessage) - 1] = '\0';
   vmUpdateState = st;
+}
+
+// Liest die FW-Version aus der hochgeladenen .bin: scannt nach dem Magic-Tag "@@VMFW@@"
+// und kopiert den FW-String dahinter (bis NUL/nicht-druckbar). false = nicht gefunden. (#33)
+static bool readVmFwFileVersion(char* out, size_t outSize) {
+  if (outSize == 0) return false;
+  out[0] = '\0';
+  File f = LittleFS.open(VM_FW_PATH, "r");
+  if (!f) return false;
+  static const char MAGIC[] = "@@VMFW@@";
+  const size_t MAGLEN = 8;
+  size_t match = 0;
+  bool found = false;
+  while (f.available()) {
+    int c = f.read();
+    if (c < 0) break;
+    if ((char)c == MAGIC[match]) {
+      if (++match == MAGLEN) { found = true; break; }
+    } else {
+      match = ((char)c == MAGIC[0]) ? 1 : 0;
+    }
+  }
+  if (found) {
+    size_t i = 0;
+    while (f.available() && i < outSize - 1) {
+      int c = f.read();
+      if (c < 0x20 || c > 0x7E) break; // NUL/0xFF/nicht-druckbar -> Ende
+      out[i++] = (char)c;
+    }
+    out[i] = '\0';
+  }
+  f.close();
+  return found && out[0] != '\0';
 }
 
 // Plausibilisiert die .bin (Größe + Vektortabelle: MSP im RAM, Reset-Vektor im Flash).

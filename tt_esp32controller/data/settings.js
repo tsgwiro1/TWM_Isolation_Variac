@@ -152,6 +152,17 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(() => vmMsg('Kommunikationsfehler.'));
     });
 
+    const vmSetOffset = document.getElementById('vm-set-offset');
+    if (vmSetOffset) vmSetOffset.addEventListener('click', () => {
+        const v = document.getElementById('vm-new-offset').value;
+        if (v === '' || isNaN(v)) { vmMsg('Bitte gültigen Offset eingeben.'); return; }
+        vmMsg('Setze Offset...');
+        fetch('/api/voltmeter/offset?value=' + encodeURIComponent(v))
+            .then(r => r.json())
+            .then(d => { vmMsg(d.message || d.status); loadVoltmeterStatus(); })
+            .catch(() => vmMsg('Kommunikationsfehler.'));
+    });
+
     const vmAutozero = document.getElementById('vm-autozero');
     if (vmAutozero) vmAutozero.addEventListener('click', () => {
         if (!confirm('Auto-Zero-Kalibrierung starten? Dauert einige Sekunden.')) return;
@@ -235,6 +246,15 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(() => { fwPollTimer = setTimeout(pollUpdateStatus, 1500); });
     }
 
+    // Zeigt die Version der .bin, die aktuell auf dem LittleFS liegt (#33).
+    function loadFwFileVersion() {
+        const el = document.getElementById('vm-fw-fileversion');
+        fetch('/api/voltmeter/update/fileversion')
+            .then(r => r.json())
+            .then(d => { if (el) el.textContent = d.status === 'success' ? d.version : 'keine / ohne Tag'; })
+            .catch(() => { if (el) el.textContent = '–'; });
+    }
+
     const fwUpload = document.getElementById('vm-fw-upload');
     if (fwUpload) fwUpload.addEventListener('click', () => {
         const fileInput = document.getElementById('vm-fw-file');
@@ -257,6 +277,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 try { m = JSON.parse(xhr.responseText).message || m; } catch (e) {}
                 if (progEl) progEl.textContent = 'Upload 100 %';
                 fwMsg(m);
+                loadFwFileVersion(); // Datei-Version nach dem Upload aktualisieren
             } else {
                 fwMsg('Upload fehlgeschlagen (HTTP ' + xhr.status + ').');
             }
@@ -278,8 +299,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const fwStart = document.getElementById('vm-fw-start');
     if (fwStart) fwStart.addEventListener('click', () => {
-        if (!confirm('Voltmeter-Firmware jetzt flashen? Nur am offenen Gerät durchführen (ST-Link als Rettung).')) return;
-        startUpdate(false);
+        // Prüfung beim Start: Datei-Version vs. laufende Version vergleichen (#33).
+        const running = (document.getElementById('vm-version').textContent || '').trim();
+        fetch('/api/voltmeter/update/fileversion')
+            .then(r => r.json()).then(d => d.status === 'success' ? d.version : null)
+            .catch(() => null)
+            .then(fileV => {
+                let ok;
+                if (!fileV) {
+                    ok = confirm('Keine Version aus der Datei lesbar. Trotzdem flashen? Nur am offenen Gerät (ST-Link als Rettung).');
+                } else if (running && fileV === running) {
+                    ok = confirm('Auf dem Voltmeter läuft bereits ' + running + '. Update nicht nötig – trotzdem flashen?');
+                } else {
+                    ok = confirm('Flashen' + (running ? ' von ' + running : '') + ' auf ' + fileV + '? Nur am offenen Gerät (ST-Link als Rettung).');
+                }
+                if (ok) startUpdate(false);
+            });
     });
 
     const fwTest = document.getElementById('vm-fw-test');
@@ -287,4 +322,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!confirm('Diagnose-Flash OHNE ENTER_BOOTLOADER. Vorher BOOT0=1 setzen und Voltmeter resetten!')) return;
         startUpdate(true);
     });
+
+    loadFwFileVersion();
 });

@@ -23,6 +23,12 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
 - Voltmeter-Fernsteuerung: API `/api/voltmeter/status` (Faktor/Offsets), `/api/voltmeter/factor`
   (Faktor setzen), `/api/voltmeter/autozero` (Auto-Zero) + schlichtes Voltmeter-Panel in
   `settings.html` (finale UI in Paket G). (#29)
+- Voltmeter-Spannungs-Offset direkt setzbar: API `/api/voltmeter/offset?value=` (→ `SET_OFFSET`)
+  + Eingabefeld/Button im Voltmeter-Panel. (#34)
+- FW-Version der hochgeladenen `.bin` anzeigen: API `/api/voltmeter/update/fileversion` scannt die
+  Datei auf dem LittleFS nach dem Magic-Tag `@@VMFW@@` und liefert die Version. UI zeigt sie
+  dauerhaft an (auch nach Upload); beim „Update starten" wird Datei- vs. laufende Version
+  verglichen und gewarnt, wenn bereits dieselbe Version installiert ist. (#33)
 - Geführte 3-Punkt-Kalibrierung über Web: API `/api/voltmeter/cal3/measure` (Punkt messen) und
   `/api/voltmeter/cal3/finish` (Regression + speichern), inkl. Bedienfeld in `settings.html`. (#29)
 - API `/api/voltmeter/reboot` und `/api/voltmeter/reset-defaults` + Buttons im Panel

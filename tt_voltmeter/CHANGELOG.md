@@ -5,9 +5,14 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MINOR.PATCH).
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_voltmeter.ino`.
 
-## [V1.2.2] – in Entwicklung
+## [V1.2.3] – in Entwicklung
 
 ### Hinzugefügt
+- Link-Befehl `SET_OFFSET` (CMD 0x11): setzt den Spannungs-Offset direkt (Plausi −50…+50 V,
+  speichert EEPROM) – Gegenstück zu `SET_FACTOR`, damit auch der Offset über Web/API einstellbar
+  ist (bisher nur über die 3-Punkt-Kalibrierung). (#34)
+- Magic-getaggter Versions-String im Image (`"@@VMFW@@" FW`, `__attribute__((used))` + Referenz
+  beim Start), damit der Controller die FW-Version direkt aus der `.bin` lesen kann. (#33)
 - **Bidirektionaler Befehls-Link zum Controller** (Paket J, Durchstich): USART1 jetzt TX **+ RX**
   über die Arduino-`HardwareSerial Serial1` (Core verwaltet IRQ/Ringpuffer). Frame-Protokoll
   `0xA5 CMD LEN [payload] CHK 0xBB` (Befehl) / `0xB5 …` (Antwort), koexistiert mit dem

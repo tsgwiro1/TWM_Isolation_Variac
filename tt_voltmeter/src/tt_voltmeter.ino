@@ -27,12 +27,17 @@ THE SOFTWARE.
 */
 
 // version
-#define FW  "Firmware V1.2.2"
+#define FW  "Firmware V1.2.3"
 
 #include <Arduino.h>
 #include <stm32f1xx_hal.h>
 #include <math.h> // Für sqrt()
 #include <EEPROM.h>
+
+// Magic-getaggter Versions-String, damit der Controller die FW-Version direkt aus der .bin
+// lesen kann (#33). __attribute__((used)) hält ihn auch bei --gc-sections im Image.
+// Der Controller scannt die .bin nach "@@VMFW@@" und liest den FW-String dahinter.
+const char fw_version_tag[] __attribute__((used)) = "@@VMFW@@" FW;
 
 // --- Konfiguration basierend auf den Zielen ---
 #define AC_FREQUENCY_HZ             50.0f
@@ -110,6 +115,7 @@ uint8_t command_pos = 0;
 #define LINK_CMD_GET_VERSION  0x01
 #define LINK_CMD_GET_STATUS   0x02
 #define LINK_CMD_SET_FACTOR   0x10
+#define LINK_CMD_SET_OFFSET   0x11
 #define LINK_CMD_RECAL        0x20
 #define LINK_CMD_CAL3_MEASURE 0x21
 #define LINK_CMD_CAL3_FINISH  0x22
@@ -333,6 +339,8 @@ void setup() {
   digitalWrite(SYSLED_PIN, HIGH);
 
   Serial.println("STM32F103 AC RMS Voltmeter - Update alle 40ms");
+  // Referenziert fw_version_tag (sonst entfernt --gc-sections ihn) und zeigt die Version (#33).
+  Serial.print("Version: "); Serial.println(fw_version_tag + 8); // +8: "@@VMFW@@" überspringen
   Serial.print("Sampling Frequenz: "); Serial.print(SAMPLING_FREQUENCY_HZ); Serial.println(" Hz");
   Serial.print("DMA Buffer Groesse: "); Serial.println(DMA_BUFFER_SIZE);
 
@@ -806,6 +814,21 @@ void handleControllerCommand(uint8_t cmd, const uint8_t* payload, uint8_t len) {
         }
       }
       sendControllerResponse(LINK_CMD_SET_FACTOR, &ok, 1);
+      break;
+    }
+    case LINK_CMD_SET_OFFSET: {
+      // Payload: 1 float (Spannungs-Offset in V). Antwort: 1 Byte (1=ok, 0=abgelehnt).
+      uint8_t ok = 0;
+      if (len == 4) {
+        float no;
+        memcpy(&no, payload, 4);
+        if (no >= -50.0f && no <= 50.0f) {     // plausibler Korrektur-Offset
+          g_voltage_offset = no;
+          EEPROM.put(EEPROM_ADDR_VOLTAGE_OFFSET, g_voltage_offset);
+          ok = 1;
+        }
+      }
+      sendControllerResponse(LINK_CMD_SET_OFFSET, &ok, 1);
       break;
     }
     case LINK_CMD_RECAL: {

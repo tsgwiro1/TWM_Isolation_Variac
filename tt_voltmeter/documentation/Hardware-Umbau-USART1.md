@@ -46,12 +46,12 @@ Voltmeter: `huart1` auf `USART1`.)
 
 ## Layout
 
-Ausschnitt des Print-Layouts mit der USART1-Verdrahtung (PA9/PA10) und dem Controller-Stecker:
+Ausschnitt des Print-Layouts mit der beschriebenen Modifikation:
+1. Verbindungen zu PA2 und P3 unterbrechen
+2. Neue Verbindungen zu PA9 und PA10 legen
 
 ![Layout-Ausschnitt USART1-Umbau](Hardware-Umbau-USART1-Layout.png)
 
-> **TODO (Bild ablegen):** Screenshot als `Hardware-Umbau-USART1-Layout.png` in diesem Ordner
-> (`tt_voltmeter/documentation/`) speichern.
 
 ## Status
 

@@ -82,3 +82,4 @@ Testing/
 
 # macOS
 .DS_Store
+tt_esp32controller/tools/__pycache__

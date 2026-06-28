@@ -1,9 +1,9 @@
 # Variac Spannungs-Sequenz – PC-Tools
 
 Werkzeuge zum automatisierten Anfahren einer Spannungsreihe am **TWM Isolation
-Variac Controller** über dessen REST-API. Es gibt zwei Bedienwege:
+Variac Controller** über dessen REST-API. Es gibt drei Bedienwege:
 
-**A) Kommandozeile** – feste Reihe (20/50/75/100/150/200/230 V), interaktive Abfragen:
+**A) Kommandozeile, interaktiv** – feste Reihe (20/50/75/100/150/200/230 V), Abfragen im Dialog:
 
 | Datei | Plattform | Voraussetzung |
 |-------|-----------|---------------|
@@ -14,9 +14,15 @@ Variac Controller** über dessen REST-API. Es gibt zwei Bedienwege:
 
 | Datei | Rolle |
 |-------|-------|
-| [`variac_server.py`](variac_server.py) | Lokaler Webserver, der die Seite ausliefert und das Skript startet |
+| [`variac_server.py`](variac_server.py) | Lokaler Webserver, der die Seite ausliefert und das Lauf-Skript startet |
 | [`index.html`](index.html) | Bedienoberfläche (Vanilla-JavaScript) |
-| [`variac_run.py`](variac_run.py) | Parametriertes, nicht-interaktives Lauf-Skript (alle Werte als CLI-Parameter) |
+
+**C) Kommandozeile, parametriert** – alle Werte als CLI-Parameter, nicht-interaktiv
+(wird auch von der Weboberfläche genutzt):
+
+| Datei | Plattform | Voraussetzung |
+|-------|-----------|---------------|
+| [`variac_run.py`](variac_run.py) | plattformübergreifend | Python 3 (nur Standardbibliothek) |
 
 Alle Werkzeuge benötigen nur Python 3 (Standardbibliothek) bzw. PowerShell – keine
 zusätzlichen Pakete.
@@ -66,7 +72,9 @@ Ablauf:
 
 ---
 
-## Verwendung
+## A) Kommandozeile (interaktiv)
+
+Feste Spannungsreihe, alle Entscheidungen werden im Dialog abgefragt.
 
 ### Python
 
@@ -102,13 +110,13 @@ powershell -ExecutionPolicy Bypass -File .\variac_sequence.ps1 -Address 192.168.
 
 ---
 
-## Weboberfläche (lokal)
+## B) Weboberfläche (lokal)
 
 Komfortablere Variante mit Eingabemaske im Browser. Eine reine HTML-Seite darf aus
 Sicherheitsgründen kein lokales Programm starten – deshalb läuft ein **kleiner lokaler
 Python-Webserver** ([`variac_server.py`](variac_server.py)), der die Seite ausliefert
-und das parametrierte Skript [`variac_run.py`](variac_run.py) mit den eingegebenen
-Werten ausführt.
+und das parametrierte Skript [`variac_run.py`](variac_run.py) (siehe Abschnitt C) mit
+den eingegebenen Werten ausführt.
 
 ### Starten
 
@@ -131,10 +139,13 @@ Der Browser öffnet automatisch `http://127.0.0.1:8765`. Optionen:
   unten. Im manuellen Modus wird *Weiter ▶* aktiv, sobald das Skript wartet.
   *Not-Aus* schaltet jederzeit den Ausgang aus und stellt 0 V ein.
 
-### Skript direkt nutzen
+---
 
-[`variac_run.py`](variac_run.py) lässt sich auch ohne Weboberfläche aufrufen – es nimmt
-alle Einstellungen als Parameter entgegen:
+## C) Parametriertes Skript (`variac_run.py`)
+
+Nicht-interaktiver Lauf: **alle** Einstellungen und Spannungen werden als
+Kommandozeilen-Parameter übergeben. Eignet sich für Automatisierung/Skripting und ist
+zugleich das Skript, das die Weboberfläche (Abschnitt B) im Hintergrund startet.
 
 ```bash
 python variac_run.py --host 192.168.0.116 --mode auto --interval 10 \
@@ -156,9 +167,12 @@ Im Modus `manual` wartet das Skript vor jedem weiteren Schritt auf eine Zeile vo
 beiden Modi gewartet**, bis *Weiter* bestätigt wird – erst danach erfolgt der Abschluss
 (Strombegrenzung ausschalten / Ausgang aus + 0 V, je nach Einstellung).
 
+> Hinweis: Bei der Weboberfläche (Abschnitt B) müssen diese Parameter **nicht** von Hand
+> angegeben werden – sie werden aus den Formularfeldern erzeugt.
+
 ---
 
-## Beispiel-Sitzung
+## Beispiel-Sitzung (Abschnitt A)
 
 ```
 TWM Isolation Variac - Spannungs-Sequenz

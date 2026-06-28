@@ -1,14 +1,25 @@
 # Variac Spannungs-Sequenz – PC-Tools
 
-Skripte zum automatisierten Anfahren einer festen Spannungsreihe am **TWM Isolation
-Variac Controller** über dessen REST-API. Es gibt zwei gleichwertige Varianten:
+Werkzeuge zum automatisierten Anfahren einer Spannungsreihe am **TWM Isolation
+Variac Controller** über dessen REST-API. Es gibt zwei Bedienwege:
+
+**A) Kommandozeile** – feste Reihe (20/50/75/100/150/200/230 V), interaktive Abfragen:
 
 | Datei | Plattform | Voraussetzung |
 |-------|-----------|---------------|
 | [`variac_sequence.py`](variac_sequence.py) | plattformübergreifend | Python 3 (nur Standardbibliothek) |
 | [`variac_sequence.ps1`](variac_sequence.ps1) | Windows | PowerShell (Bordmittel, keine Installation) |
 
-Beide Skripte verhalten sich identisch und benötigen keine zusätzlichen Pakete.
+**B) Lokale Weboberfläche** – frei einstellbare Werte (bis zu 10 Spannungen), Live-Ausgabe:
+
+| Datei | Rolle |
+|-------|-------|
+| [`variac_server.py`](variac_server.py) | Lokaler Webserver, der die Seite ausliefert und das Skript startet |
+| [`index.html`](index.html) | Bedienoberfläche (Vanilla-JavaScript) |
+| [`variac_run.py`](variac_run.py) | Parametriertes, nicht-interaktives Lauf-Skript (alle Werte als CLI-Parameter) |
+
+Alle Werkzeuge benötigen nur Python 3 (Standardbibliothek) bzw. PowerShell – keine
+zusätzlichen Pakete.
 
 ---
 
@@ -88,6 +99,62 @@ Falls die Ausführung wegen der **Execution Policy** blockiert wird:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\variac_sequence.ps1 -Address 192.168.0.116
 ```
+
+---
+
+## Weboberfläche (lokal)
+
+Komfortablere Variante mit Eingabemaske im Browser. Eine reine HTML-Seite darf aus
+Sicherheitsgründen kein lokales Programm starten – deshalb läuft ein **kleiner lokaler
+Python-Webserver** ([`variac_server.py`](variac_server.py)), der die Seite ausliefert
+und das parametrierte Skript [`variac_run.py`](variac_run.py) mit den eingegebenen
+Werten ausführt.
+
+### Starten
+
+```bash
+python variac_server.py
+```
+
+Der Browser öffnet automatisch `http://127.0.0.1:8765`. Optionen:
+`--port <n>`, `--no-browser`, `--host <bind>` (Standard: nur lokal `127.0.0.1`).
+
+### Bedienung
+
+- **Verbindung**: Controller-IP eingeben, mit *Status abfragen* prüfen.
+- **Ablauf**: Modus *automatisch* (Intervall in Sekunden) oder *manuell* (Weiterschalten
+  per Knopf). Optionen: Strombegrenzung nach letzter Spannung ausschalten; am Ende
+  Ausgang ausschalten + 0 V.
+- **Soll-Spannungen**: Anzahl der Felder einstellen (**1–10**), *Felder anwenden*, Werte
+  eintragen (die ersten Felder sind mit der Standardreihe vorbelegt).
+- **Steuerung**: *Sequenz starten* führt das Skript aus, die Live-Ausgabe erscheint
+  unten. Im manuellen Modus wird *Weiter ▶* aktiv, sobald das Skript wartet.
+  *Not-Aus* schaltet jederzeit den Ausgang aus und stellt 0 V ein.
+
+### Skript direkt nutzen
+
+[`variac_run.py`](variac_run.py) lässt sich auch ohne Weboberfläche aufrufen – es nimmt
+alle Einstellungen als Parameter entgegen:
+
+```bash
+python variac_run.py --host 192.168.0.116 --mode auto --interval 10 \
+    --voltages 20 50 75 100 150 200 230 --limit-off-after-last --shutdown
+```
+
+| Option | Beschreibung | Standard |
+|--------|--------------|----------|
+| `--host` | IP-Adresse/Hostname des Controllers | `192.168.0.116` |
+| `--timeout` | HTTP-Timeout pro Anfrage (s) | `5.0` |
+| `--voltages` | Liste der Soll-Spannungen (max. 10) | – (erforderlich) |
+| `--mode` | `auto` (Zeitintervall) oder `manual` (auf Eingabe warten) | `auto` |
+| `--interval` | Wartezeit zwischen Schritten in Sekunden (nur `auto`) | `5.0` |
+| `--limit-off-after-last` | Strombegrenzung nach letzter Spannung ausschalten | aus |
+| `--shutdown` | Am Ende Ausgang ausschalten und auf 0 V | aus |
+
+Im Modus `manual` wartet das Skript vor jedem weiteren Schritt auf eine Zeile von
+*stdin* (Terminal = Enter, Web = Button *Weiter*). **Nach der letzten Spannung wird in
+beiden Modi gewartet**, bis *Weiter* bestätigt wird – erst danach erfolgt der Abschluss
+(Strombegrenzung ausschalten / Ausgang aus + 0 V, je nach Einstellung).
 
 ---
 

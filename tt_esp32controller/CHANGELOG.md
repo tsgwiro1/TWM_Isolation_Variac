@@ -9,6 +9,13 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
 ## [V3.3.0] – in Entwicklung
 
 ### Geändert
+- **Konfiguration/Kalibrierung ins NVS** (#35): `saveConfiguration()`/`loadConfiguration()`
+  persistieren den Config-JSON-String jetzt im NVS (eigene Flash-Partition) statt als
+  `config.json` im LittleFS — Konfiguration und Kalibrierung überleben damit jedes
+  `uploadfs` (Webseiten-Update) und jede App-OTA. Einmalige Migration beim Boot:
+  vorhandene `config.json` wird validiert, 1:1 ins NVS übernommen und aus dem LittleFS
+  entfernt. `GET /api/config` (inkl. `?download`) liefert unverändert dasselbe JSON,
+  `POST /api/config` unverändert.
 - **Logging thread-safe** (#4): `logMessage()` formatiert nur noch und legt den Eintrag in eine
   FreeRTOS-Queue; ein einzelner Logger-Task übernimmt Serial-Ausgabe, RAM-Historie, WebSocket-
   Versand und Flash-Write (nur WARN+). Damit entfallen die konkurrierenden `String`-/LittleFS-/

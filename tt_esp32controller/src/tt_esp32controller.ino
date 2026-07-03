@@ -37,6 +37,7 @@ THE SOFTWARE.
 #include <Arduino.h>
 #include <FS.h>          // <-- DIESE ZEILE HINZUFÜGEN
 #include <LittleFS.h>
+#include <Preferences.h>
 using namespace fs;
 #include "Action.h"
 #include <AccelStepper.h>
@@ -100,7 +101,13 @@ using namespace fs;
 #define PIN_LED_x10 6
 
 // File und Standardwerte für die Settings
-#define CONFIG_FILE "/config.json"
+#define CONFIG_FILE "/config.json"   // nur noch für die einmalige Migration ins NVS (#35)
+
+// #35: Konfiguration liegt im NVS (eigene Flash-Partition) und überlebt damit jedes
+// uploadfs (Webseiten-Update) und jede App-OTA. Gespeichert wird der komplette
+// Config-JSON-String unter einem Key (Schema bleibt allein applyAndValidateConfig()).
+#define NVS_NAMESPACE  "twm"
+#define NVS_KEY_CONFIG "config"
 #define DEFAULT_WHIPER_MIN 0
 #define DEFAULT_WHIPER_MAX 2000
 #define DEFAULT_VOLTAGE_PRESET 0
@@ -648,7 +655,7 @@ String applyAndValidateStepperConfig(JsonObject doc) {
 }
 
 /**
- * @brief Speichert die aktuellen Konfigurationswerte in die config.json-Datei.
+ * @brief Speichert die aktuellen Konfigurationswerte als JSON ins NVS (#35).
  */
 void saveConfiguration() {
   StaticJsonDocument<512> doc;
@@ -672,50 +679,90 @@ void saveConfiguration() {
     doc["presets"]["p3"] = 0;
   }
 
-  File configFile = LittleFS.open(CONFIG_FILE, "w");
-  if (!configFile) {
-    logMessage(LOG_ERROR, "Failed to open config file for writing.");
-    return;
+  // #35: In den NVS schreiben (überlebt uploadfs/OTA). Lokale Preferences-Instanz,
+  // damit gleichzeitige Aufrufer (Web-Task, Input-Task) sich keinen Handle teilen.
+  String out;
+  serializeJson(doc, out);
+  Preferences prefs;
+  if (prefs.begin(NVS_NAMESPACE, false)) {
+    size_t written = prefs.putString(NVS_KEY_CONFIG, out);
+    prefs.end();
+    if (written > 0) {
+      logMessage(LOG_INFO, "Configuration saved to NVS.");
+    } else {
+      logMessage(LOG_ERROR, "Failed to write configuration to NVS.");
+    }
+  } else {
+    logMessage(LOG_ERROR, "Failed to open NVS for writing.");
   }
-
-  serializeJson(doc, configFile);
-  configFile.close();
-  logMessage(LOG_INFO, "Configuration saved to LittleFS.");
 }
 
 /**
- * @brief Lädt alle Konfigurationswerte aus der config.json-Datei.
- * Wenn die Datei nicht existiert oder fehlerhaft ist, werden Standardwerte angewendet und eine neue Datei erstellt.
+ * @brief Lädt alle Konfigurationswerte aus dem NVS (#35); migriert einmalig von config.json.
+ * Wenn kein Eintrag existiert oder er fehlerhaft ist, werden Standardwerte angewendet und gespeichert.
  * @return true falls die Konfiguration erfolgreich geladen und angewendet werden konnte.
  */
 boolean loadConfiguration() {
-  File configFile = LittleFS.open(CONFIG_FILE, "r");
-  if (!configFile) {
-    logMessage(LOG_WARN, "Config file not found. Applying defaults and creating new file.");
+  // #35: Quelle ist der NVS. Ist er leer, wird einmalig von der alten config.json
+  // (LittleFS) migriert — deren ROHER Inhalt wandert nach erfolgreicher Validierung
+  // unverändert ins NVS (bewahrt insbesondere die Preset-Werte exakt).
+  Preferences prefs;
+  String cfg;
+  if (prefs.begin(NVS_NAMESPACE, true)) {
+    cfg = prefs.getString(NVS_KEY_CONFIG, "");
+    prefs.end();
+  }
+
+  bool migratedFromFile = false;
+  if (cfg.isEmpty() && LittleFS.exists(CONFIG_FILE)) {
+    File configFile = LittleFS.open(CONFIG_FILE, "r");
+    if (configFile) {
+      cfg = configFile.readString();
+      configFile.close();
+      migratedFromFile = true;
+      logMessage(LOG_WARN, "Config migration: found legacy config.json, importing into NVS.");
+    }
+  }
+
+  if (cfg.isEmpty()) {
+    logMessage(LOG_WARN, "No config in NVS. Applying defaults and creating new entry.");
     applyDefaultConfiguration(); // Setzt globale Variablen auf Standardwerte
-    saveConfiguration();       // Speichert diese Standardwerte in eine neue Datei
+    saveConfiguration();         // Speichert diese Standardwerte ins NVS
     return false;
   }
 
   StaticJsonDocument<512> doc;
-  DeserializationError error = deserializeJson(doc, configFile);
-  configFile.close();
+  DeserializationError error = deserializeJson(doc, cfg);
 
   if (error) {
-    logMessage(LOG_ERROR, "Failed to parse config file, applying defaults. Error: %s", error.c_str());
+    logMessage(LOG_ERROR, "Failed to parse config, applying defaults. Error: %s", error.c_str());
     applyDefaultConfiguration();
-    saveConfiguration(); // Speichere eine saubere Datei, um die korrupte zu überschreiben
+    saveConfiguration(); // Speichere einen sauberen Eintrag, um den korrupten zu überschreiben
     return false;
   }
 
   // Rufe die zentrale Validierungs-Funktion auf
   String validationError = applyAndValidateConfig(doc.as<JsonObject>());
-  
+
   if (!validationError.isEmpty()) {
     // Wenn die geladene Konfiguration ungültig ist, wende stattdessen die Standardwerte an
     logMessage(LOG_ERROR, "Loaded config is invalid, applying defaults.");
     applyDefaultConfiguration();
     return false;
+  }
+
+  if (migratedFromFile) {
+    // Validierten Datei-Inhalt 1:1 ins NVS übernehmen und die alte Datei entfernen,
+    // damit sie nicht fälschlich weiterhin als Quelle erscheint.
+    Preferences wr;
+    if (wr.begin(NVS_NAMESPACE, false)) {
+      wr.putString(NVS_KEY_CONFIG, cfg);
+      wr.end();
+      LittleFS.remove(CONFIG_FILE);
+      logMessage(LOG_WARN, "Config migration: config.json imported into NVS and removed from LittleFS.");
+    } else {
+      logMessage(LOG_ERROR, "Config migration: could not open NVS - keeping config.json.");
+    }
   }
   return true;
 }
@@ -1548,23 +1595,28 @@ void initWebServer() {
     request->send(200, "application/json", jsonString);
   });
 
-  // API-Route, zum Auslesen der Konfigurationsdatei inkl. Download Option
+  // API-Route zum Auslesen der Konfiguration (aus dem NVS, #35) inkl. Download-Option
   server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request){
-    if (LittleFS.exists(CONFIG_FILE)) {
-      
+    Preferences prefs;
+    String cfg;
+    if (prefs.begin(NVS_NAMESPACE, true)) {
+      cfg = prefs.getString(NVS_KEY_CONFIG, "");
+      prefs.end();
+    }
+
+    if (!cfg.isEmpty()) {
       // Prüfe, ob der Download-Parameter gesetzt ist
       if (request->hasParam("download")) {
-        // JA: Sende die Datei als Anhang (löst den Download im Browser aus)
-        AsyncWebServerResponse *response = request->beginResponse(LittleFS, CONFIG_FILE, "application/json");
+        // JA: Sende den Inhalt als Anhang (löst den Download im Browser aus)
+        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", cfg);
         response->addHeader("Content-Disposition", "attachment; filename=\"config.json\"");
         request->send(response);
       } else {
-        // NEIN: Sende die Datei normal zur Anzeige im Browser
-        request->send(LittleFS, CONFIG_FILE, "application/json");
+        // NEIN: Sende den Inhalt normal zur Anzeige im Browser
+        request->send(200, "application/json", cfg);
       }
-      
     } else {
-      request->send(404, "application/json", "{\"status\":\"error\",\"message\":\"Config file not found\"}");
+      request->send(404, "application/json", "{\"status\":\"error\",\"message\":\"Config not found\"}");
     }
   });
 
@@ -2116,7 +2168,7 @@ if (event == ButtonEvent::RELEASED) {
         int v = constrain((int)stepper.currentPosition(), MINWHIPERLIMIT, MAXWHIPERLIMIT);
         act->setValuePreset(v);
         saveConfiguration();
-        logMessage(LOG_INFO,"Stored new setting %d to config.json and Action object", v);
+        logMessage(LOG_INFO,"Stored new setting %d to config (NVS) and Action object", v);
     }
 }
 

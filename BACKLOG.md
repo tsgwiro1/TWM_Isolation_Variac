@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-06-21 · **Gesamt: 22 / 34 Punkte erledigt**
+**Stand:** 2026-06-21 · **Gesamt: 23 / 34 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -19,7 +19,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | D — Robustheit / Nebenläufigkeit | ✅ erledigt | 2/2 |
 | E — API-Vereinfachung | ⬜ offen | 0/1 |
 | F — Struktur & Modernisierung | ⬜ offen | 0/5 |
-| K — Konfiguration ins NVS | ⬜ offen | 0/1 |
+| K — Konfiguration ins NVS | ✅ erledigt | 1/1 |
 | G — Web-Oberfläche | ⬜ offen | 0/2 |
 | H — Sicherheit (optional) | ⬜ offen | 0/1 |
 | J — Voltmeter-Fernsteuerung via Controller | ✅ erledigt | 7/7 |
@@ -54,8 +54,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [ ] #14 ArduinoJson v7
   - [ ] #9 Partitionierung 16 MB
   - [ ] #31 Regelparameter konfigurierbar
-- [ ] **K — Konfiguration ins NVS**
-  - [ ] #35 Konfiguration/Kalibrierung ins NVS (Preferences)
+- [x] **K — Konfiguration ins NVS**
+  - [x] #35 Konfiguration/Kalibrierung ins NVS (Preferences)
 - [ ] **G — Web-Oberfläche: neues Design**
   - [ ] #23 Web-Oberfläche neu gestalten
   - [ ] #13 Live-Daten über WebSocket
@@ -159,6 +159,13 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   (keine Partitionstabellen-Änderung, kein USB-Reflash-Risiko am versiegelten Gerät).
   Eingeplant **zwischen F und G**, weil das Web-Redesign (G) mehrere `uploadfs` braucht.
   Reihenfolge neu: A, B, C, D, E, F, **K**, G, H, J, I. Gesamt jetzt 22/34.
+- **2026-06-21 — #35 umgesetzt (Paket K vorgezogen), Geräte-Test ausstehend.** Config-JSON
+  wird als String im NVS gespeichert (Namespace `twm`, Key `config`; Schema bleibt allein
+  `applyAndValidateConfig()`). Einmalige Boot-Migration: `config.json` validieren → rohen
+  Inhalt 1:1 ins NVS (bewahrt Presets exakt) → Datei löschen. `GET /api/config` liefert aus
+  dem NVS (inkl. `?download`), `POST` unverändert. OTA- und SIM-Build kompilieren.
+- **2026-06-21 — #35 am Gerät verifiziert → Paket K abgeschlossen (1/1, gesamt 23/34).**
+  Migration lief, Konfiguration/Kalibrierung überlebt `uploadfs`. Nächstes Paket: E (API).
 - **2026-06-20 — #28/#29 abgeschlossen (Paket J 3/4).** Geführte 3-Punkt-Kalibrierung über den
   Link (`CAL3_MEASURE`/`CAL3_FINISH`, Referenzspannungen frei wählbar) + Web-Bedienfeld ergänzt;
   am Gerät verifiziert. Damit Voltmeter-Status/Faktor/Auto-Zero/Kalibrierung komplett via Web.
@@ -263,7 +270,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
-| 35 | Konfig | Konfiguration/Kalibrierung ins NVS (Preferences) | `loadConfiguration()`/`saveConfiguration()` von `config.json` (LittleFS) auf die `Preferences`-Lib (NVS) umstellen: 4 Kalibrierwerte, 3 Presets, `debug_enabled`, `coarse_move_threshold`. JSON-API (`/api/config`) nach außen unverändert. Einmalige Migration: NVS leer + `config.json` vorhanden → importieren (Datei danach stehen lassen oder löschen — beim Umsetzen entscheiden). Hinweis: falls #9 (Partitionierung) später die Tabelle ändert, NVS-Offset beibehalten, damit die Werte überleben. | M | offen |
+| 35 | Konfig | Konfiguration/Kalibrierung ins NVS (Preferences) | Config-JSON-String im NVS (Namespace `twm`, Key `config`); Schema bleibt allein `applyAndValidateConfig()`. Einmalige Boot-Migration: `config.json` validieren → roh 1:1 ins NVS → Datei löschen. `GET /api/config` (inkl. `?download`) aus dem NVS, `POST` unverändert. Hinweis: falls #9 (Partitionierung) später die Tabelle ändert, NVS-Offset beibehalten, damit die Werte überleben. | M | **erledigt** *(am Gerät verifiziert: Migration + Überleben von `uploadfs`)* |
 
 ## Paket G — Web-Oberfläche: neues Design
 

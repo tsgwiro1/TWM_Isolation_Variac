@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-06-21 · **Gesamt: 22 / 33 Punkte erledigt**
+**Stand:** 2026-06-21 · **Gesamt: 22 / 34 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -19,6 +19,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | D — Robustheit / Nebenläufigkeit | ✅ erledigt | 2/2 |
 | E — API-Vereinfachung | ⬜ offen | 0/1 |
 | F — Struktur & Modernisierung | ⬜ offen | 0/5 |
+| K — Konfiguration ins NVS | ⬜ offen | 0/1 |
 | G — Web-Oberfläche | ⬜ offen | 0/2 |
 | H — Sicherheit (optional) | ⬜ offen | 0/1 |
 | J — Voltmeter-Fernsteuerung via Controller | ✅ erledigt | 7/7 |
@@ -53,6 +54,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [ ] #14 ArduinoJson v7
   - [ ] #9 Partitionierung 16 MB
   - [ ] #31 Regelparameter konfigurierbar
+- [ ] **K — Konfiguration ins NVS**
+  - [ ] #35 Konfiguration/Kalibrierung ins NVS (Preferences)
 - [ ] **G — Web-Oberfläche: neues Design**
   - [ ] #23 Web-Oberfläche neu gestalten
   - [ ] #13 Live-Daten über WebSocket
@@ -150,6 +153,12 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   (auf ESP32 atomar, keine RMW-Sequenzen). OTA- und SIM-Build kompilieren.
 - **2026-06-21 — Paket D am Gerät verifiziert → abgeschlossen (2/2, gesamt 22/33).** Controller
   auf **V3.3.0** (V3.2.0 im CHANGELOG abgeschlossen: Pakete B/C/J). Nächstes Paket: E (API).
+- **2026-06-21 — Neues Paket K (#35) aufgenommen: Konfiguration ins NVS.** Analyse: `uploadfs`
+  löscht die ganze LittleFS-Partition inkl. `config.json` (Kalibrierung!). Optionen abgewogen
+  (NVS / eigene Config-Partition / Datei-Upload-Endpoint); Entscheidung **NVS/Preferences**
+  (keine Partitionstabellen-Änderung, kein USB-Reflash-Risiko am versiegelten Gerät).
+  Eingeplant **zwischen F und G**, weil das Web-Redesign (G) mehrere `uploadfs` braucht.
+  Reihenfolge neu: A, B, C, D, E, F, **K**, G, H, J, I. Gesamt jetzt 22/34.
 - **2026-06-20 — #28/#29 abgeschlossen (Paket J 3/4).** Geführte 3-Punkt-Kalibrierung über den
   Link (`CAL3_MEASURE`/`CAL3_FINISH`, Referenzspannungen frei wählbar) + Web-Bedienfeld ergänzt;
   am Gerät verifiziert. Damit Voltmeter-Status/Faktor/Auto-Zero/Kalibrierung komplett via Web.
@@ -180,12 +189,13 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | **D** | Robustheit / Nebenläufigkeit | Stabilität unter RTOS | 4, 5 |
 | **E** | API-Vereinfachung & -Bereinigung | Klare, schlanke, konsistente API | 22 |
 | **F** | Struktur & Modernisierung | Wartbarkeit | 10, 15, 14, 9, 31 |
+| **K** | Konfiguration ins NVS | Config/Kalibrierung überlebt `uploadfs`/OTA | 35 |
 | **G** | Web-Oberfläche: neues Design | Frisch, professionell, responsiv | 23, 13 |
 | **H** | Sicherheit (optional) | Absicherung API/OTA | 11 |
 | **J** | Voltmeter-Fernsteuerung via Controller | Menü/Kalibrierung/Status des Voltmeters über Web/API | 27, 28, 29, 30 |
 | **I** | Dokumentation aktualisieren | Vollständig, auf finalem Stand | 24, 12 |
 
-> Begründung: **A** zuerst — Migration ins saubere Repo + verlässliches Flash-/Test-Setup, danach passiert alle Arbeit dort. **B** räumt billige Fehler/Inkonsistenzen weg (inkl. #19, das in C gebraucht wird). **C** ist das Kernanliegen (Regelung) als zusammenhängender Block, mit Sim-Modus #20 als Enabler vorab. **D** härtet das Laufzeitverhalten. **E** schlankt die API, bevor **F** (Refactoring) und **G** (UI) darauf aufbauen — die UI wird gegen die *finale* API gebaut. **H** Sicherheit (laut Absprache optional). **J** (nachträglich aufgenommen) baut die Voltmeter-Fernsteuerung auf der finalen API/UI auf, kommt daher nach **G/H**. **I** Doku zuletzt, weil sie den endgültigen Stand von Code, API und UI beschreibt. *(Buchstabe J liegt vor I, weil später ergänzt — die Reihenfolge richtet sich nach der Tabelle, nicht nach dem Alphabet.)*
+> Begründung: **A** zuerst — Migration ins saubere Repo + verlässliches Flash-/Test-Setup, danach passiert alle Arbeit dort. **B** räumt billige Fehler/Inkonsistenzen weg (inkl. #19, das in C gebraucht wird). **C** ist das Kernanliegen (Regelung) als zusammenhängender Block, mit Sim-Modus #20 als Enabler vorab. **D** härtet das Laufzeitverhalten. **E** schlankt die API, bevor **F** (Refactoring) und **G** (UI) darauf aufbauen — die UI wird gegen die *finale* API gebaut. **H** Sicherheit (laut Absprache optional). **J** (nachträglich aufgenommen) baut die Voltmeter-Fernsteuerung auf der finalen API/UI auf, kommt daher nach **G/H**. **I** Doku zuletzt, weil sie den endgültigen Stand von Code, API und UI beschreibt. *(Buchstabe J liegt vor I, weil später ergänzt — die Reihenfolge richtet sich nach der Tabelle, nicht nach dem Alphabet.)* **K** (Config ins NVS, später ergänzt) liegt bewusst **vor G**: das Web-Redesign braucht mehrere `uploadfs`, und ab K überlebt die Konfiguration/Kalibrierung diese.
 
 ---
 
@@ -242,6 +252,18 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | 14 | Refactor | ArduinoJson v7 | Migration von `StaticJsonDocument` auf v7-API. | M | offen |
 | 9  | Build | Partitionierung 16 MB | ~7,5 MB ungenutzt: LittleFS/OTA vergrößern; FS-Partitionslabel konsistent benennen + Code-Kommentar. | M | offen |
 | 31 | Konfig | Regelparameter konfigurierbar | Regelparameter (`REG_FEEDFORWARD_UNDERSHOOT_V`, Damping, Deadband, Settle) statt `#define` über config.json/Settings einstellbar machen → Tuning pro Gerät ohne Code-Änderung (z. B. richtungsabhängige Hysterese). Dabei ungenutztes `coarse_move_threshold` aufräumen/umwidmen. | M | offen |
+
+## Paket K — Konfiguration ins NVS
+
+> Ziel: Konfiguration + Kalibrierung überleben jedes `uploadfs` (Webseiten-Update) und jede
+> App-OTA. Hintergrund: `uploadfs` schreibt die gesamte LittleFS-Partition neu → `config.json`
+> (inkl. Kalibrierung) geht verloren. Entscheidung: **Option 1 (NVS/Preferences)** — eigene,
+> von OTA/`uploadfs` unberührte Partition, kein Eingriff in die Partitionstabelle nötig.
+> Bewusst **vor Paket G** eingeplant, weil das Web-Redesign mehrere `uploadfs` braucht.
+
+| ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
+|----|-----------|-------|--------------|---------|--------|
+| 35 | Konfig | Konfiguration/Kalibrierung ins NVS (Preferences) | `loadConfiguration()`/`saveConfiguration()` von `config.json` (LittleFS) auf die `Preferences`-Lib (NVS) umstellen: 4 Kalibrierwerte, 3 Presets, `debug_enabled`, `coarse_move_threshold`. JSON-API (`/api/config`) nach außen unverändert. Einmalige Migration: NVS leer + `config.json` vorhanden → importieren (Datei danach stehen lassen oder löschen — beim Umsetzen entscheiden). Hinweis: falls #9 (Partitionierung) später die Tabelle ändert, NVS-Offset beibehalten, damit die Werte überleben. | M | offen |
 
 ## Paket G — Web-Oberfläche: neues Design
 

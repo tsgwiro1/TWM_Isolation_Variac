@@ -6,7 +6,23 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.ino`.
 
-## [V3.2.0] – in Entwicklung
+## [V3.3.0] – in Entwicklung
+
+### Geändert
+- **Logging thread-safe** (#4): `logMessage()` formatiert nur noch und legt den Eintrag in eine
+  FreeRTOS-Queue; ein einzelner Logger-Task übernimmt Serial-Ausgabe, RAM-Historie, WebSocket-
+  Versand und Flash-Write (nur WARN+). Damit entfallen die konkurrierenden `String`-/LittleFS-/
+  `ws.textAll()`-Zugriffe aus mehreren Tasks (Heap-Korruptionsrisiko). Volle Queue → Meldung wird
+  verworfen und gezählt (Nachmeldung im Log). WS-Connect liest die Historie als Snapshot unter Mutex.
+- **Geteilte Zustände geschützt** (#5): Die 4 Kalibrierwerte (min/max Position + Spannung) werden
+  überall als konsistenter Satz unter `calibMux` geschrieben/gelesen (`getCalibration()`-Snapshot
+  in der Regelungs-Mathematik). `whiperPos`-Read-Modify-Write und alle `stepper.moveTo()`/`run()`-
+  Aufrufe laufen unter `stepperMux` (AccelStepper ist nicht thread-safe; `setWhiperMove()` als
+  gemeinsamer Kern). Einzelne 32-bit-Skalare (`setpoint_voltage`, `received_rms_value`) bleiben
+  bewusst volatile-only — ausgerichtete 32-bit-Zugriffe sind auf dem ESP32 atomar, zusammengesetzte
+  Sequenzen existieren darauf nicht.
+
+## [V3.2.0] – 2026-06-21
 
 ### Hinzugefügt
 - Simulationsmodus (`SIM`, PlatformIO-Env `esp32s3_sim`): die „gemessene" Spannung wird aus der

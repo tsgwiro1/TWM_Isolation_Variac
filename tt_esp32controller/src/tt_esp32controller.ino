@@ -28,9 +28,9 @@ THE SOFTWARE.
 
 // version
 #ifdef SIM
-#define FW  "Firmware V3.2.0 (SIM)"
+#define FW  "Firmware V3.3.0 (SIM)"
 #else
-#define FW  "Firmware V3.2.0"
+#define FW  "Firmware V3.3.0"
 #endif
 
 // Includes for Libraries
@@ -163,6 +163,17 @@ volatile bool debugEnabled = true; // Steuert die Log-Ausgabe
 String logHistory = "";
 const int MAX_LOG_HISTORY = 4096;
 
+// #4: Logging thread-safe — logMessage() formatiert nur noch und legt den Eintrag in eine
+// Queue; ein einzelner Logger-Task übernimmt Serial, RAM-Historie, WebSocket und Flash-Write.
+// (String/LittleFS/ws aus mehreren Tasks gleichzeitig war das größte Concurrency-Risiko.)
+struct LogEntry {
+  LogLevel level;
+  char msg[300];                       // fertig formatierte Zeile inkl. Zeitstempel + '\n'
+};
+QueueHandle_t     logQueue = NULL;
+SemaphoreHandle_t logHistoryMutex = NULL;   // schützt logHistory (Logger-Task vs. WS-Connect)
+volatile uint32_t logDroppedCount = 0;      // wegen voller Queue verworfene Meldungen
+
 // Transformer Whiper
 #define MINWHIPERLIMIT -50
 #define MAXWHIPERLIMIT 2500
@@ -171,6 +182,18 @@ volatile int whiperPos = 0;
 volatile int minWhiperPos = 0;
 volatile int maxWhiperPos = 2000;
 volatile uint32_t last_encoder_change_time = 0;
+
+// #5: Schutz geteilter Zustände.
+// - calibMux: die 4 Kalibrierwerte (minWhiperPos/maxWhiperPos/minVoltageAtMinPos/
+//   maxVoltageAtMaxPos) werden immer als SATZ geschrieben/gelesen — ohne Schutz könnte die
+//   Regelungs-Mathematik einen halb-aktualisierten Satz sehen (falsche Anfahrposition).
+// - stepperMux: serialisiert das whiperPos-Read-Modify-Write und alle AccelStepper-Aufrufe
+//   (moveTo vs. run() aus verschiedenen Tasks — AccelStepper ist nicht thread-safe).
+// Einzelne 32-bit-Skalare (setpoint_voltage, received_rms_value, …) bleiben bewusst nur
+// volatile: ausgerichtete 32-bit-Zugriffe sind auf dem ESP32 atomar, und es gibt auf ihnen
+// keine zusammengesetzten Read-Modify-Write-Sequenzen.
+portMUX_TYPE calibMux   = portMUX_INITIALIZER_UNLOCKED;
+portMUX_TYPE stepperMux = portMUX_INITIALIZER_UNLOCKED;
 
 // Sollwert-/Preset-Grenzen. Untergrenze fix 0; effektive Obergrenze liefert
 // maxVoltageTarget() = min(kalibriertes Max, MAX_VOLTAGE_TARGET).
@@ -344,11 +367,13 @@ void logMessage(LogLevel level, const char* format, ...);
  * Es werden alle globalen Variabeln initialisiert, welche sonst aus dem config.json File gesetzt werden.
  */
 void applyDefaultConfiguration() {
-    // Standardwerte in die laufenden Variablen laden
+    // Standardwerte in die laufenden Variablen laden (Kalibrier-Satz atomar, #5)
+    portENTER_CRITICAL(&calibMux);
     minWhiperPos = DEFAULT_WHIPER_MIN;
     maxWhiperPos = DEFAULT_WHIPER_MAX;
     minVoltageAtMinPos = DEFAULT_VOLTAGE_AT_MIN_POS;
     maxVoltageAtMaxPos = DEFAULT_VOLTAGE_AT_MAX_POS;
+    portEXIT_CRITICAL(&calibMux);
     voltageThresholdCoarseMove = DEFAULT_VOLTAGE_COARSE_MOVE;
     debugEnabled = DEFAULT_DEBUG;
     if (hardwareInitialized) {
@@ -510,11 +535,14 @@ String applyAndValidateConfig(JsonObject doc) {
 
   // --- Finale Entscheidung ---
   if (errors.size() == 0) {
-    // KEINE FEHLER: Wende die validierten Werte auf die globalen Variablen an
+    // KEINE FEHLER: Wende die validierten Werte auf die globalen Variablen an.
+    // Kalibrier-Satz atomar schreiben (#5) — Leser (Regelung) sehen nie einen Mischzustand.
+    portENTER_CRITICAL(&calibMux);
     minWhiperPos = tempMinPos;
     maxWhiperPos = tempMaxPos;
     minVoltageAtMinPos = tempMinVoltage;
     maxVoltageAtMaxPos = tempMaxVoltage;
+    portEXIT_CRITICAL(&calibMux);
     voltageThresholdCoarseMove = tempVoltageThresholdCoarseMove;
     debugEnabled = tempDebugEnabled;
     
@@ -739,8 +767,9 @@ void homing() {
  * @param delta Die Anzahl der Schritte, um die bewegt werden soll (positiv oder negativ).
  */
 void setWhiperRelativ(int delta) {
-    int value = whiperPos + delta;
-    setWhiperAbsolut(value);
+    // Delta-Anwendung läuft komplett unter stepperMux (in setWhiperMove), damit sich
+    // gleichzeitige relative Bewegungen aus mehreren Tasks nicht gegenseitig verlieren. (#5)
+    setWhiperMove(delta, true);
 }
 
 /**
@@ -749,8 +778,24 @@ void setWhiperRelativ(int delta) {
  * @param value Die absolute Zielposition.
  */
 void setWhiperAbsolut(int value) {
-    whiperPos = constrain(value, minWhiperPos, maxWhiperPos);
+    setWhiperMove(value, false);
+}
+
+/**
+ * @brief Gemeinsamer Kern für relative/absolute Schleifer-Bewegung (#5).
+ * whiperPos-Read-Modify-Write und stepper.moveTo() laufen atomar unter stepperMux
+ * (serialisiert gegen stepper.run() im Stepper-Task und gegen andere Aufrufer).
+ */
+void setWhiperMove(int value, bool relative) {
+    int minPos, maxPos;
+    float minV, maxV;
+    getCalibration(minPos, maxPos, minV, maxV);
+
+    portENTER_CRITICAL(&stepperMux);
+    if (relative) value += whiperPos;
+    whiperPos = constrain(value, minPos, maxPos);
     stepper.moveTo(whiperPos);
+    portEXIT_CRITICAL(&stepperMux);
 }
 
 /**
@@ -912,19 +957,37 @@ bool voltmeterRequest(uint8_t cmd, const uint8_t* payload, uint8_t len, uint32_t
 }
 
 /**
+ * @brief Liest die 4 Kalibrierwerte als konsistenten Satz (#5).
+ * Schreiber (Web-Config, /api/calibration/save, Settings-Modus) schreiben unter demselben
+ * calibMux — Leser sehen dadurch nie einen halb-aktualisierten Satz.
+ */
+void getCalibration(int& minPos, int& maxPos, float& minV, float& maxV) {
+  portENTER_CRITICAL(&calibMux);
+  minPos = minWhiperPos;
+  maxPos = maxWhiperPos;
+  minV = minVoltageAtMinPos;
+  maxV = maxVoltageAtMaxPos;
+  portEXIT_CRITICAL(&calibMux);
+}
+
+/**
  * @brief Schätzt die Stepper-Position für eine gegebene Zielspannung.
  * Verwendet eine lineare Interpolation zwischen den kalibrierten Minimal-/Maximalwerten.
  * @param target_voltage Die gewünschte Ausgangsspannung.
  * @return int Die geschätzte absolute Stepper-Position.
  */
 int estimatePositionForVoltage(float target_voltage) {
+  int minPos, maxPos;
+  float minV, maxV;
+  getCalibration(minPos, maxPos, minV, maxV);
+
   // Begrenze die Zielspannung auf den physikalisch möglichen Bereich
-  if (target_voltage < minVoltageAtMinPos) target_voltage = minVoltageAtMinPos;
-  if (target_voltage > maxVoltageAtMaxPos) target_voltage = maxVoltageAtMaxPos;
-  
-  // Lineare Konvertierung (mit minWhiperPos als Offset: bei target = minVoltageAtMinPos
-  // ergibt sich minWhiperPos, nicht 0 — minWhiperPos ist kalibrierungsbedingt negativ).
-  int estimated_pos = minWhiperPos + (target_voltage - minVoltageAtMinPos) * (maxWhiperPos - minWhiperPos) / (maxVoltageAtMaxPos - minVoltageAtMinPos);
+  if (target_voltage < minV) target_voltage = minV;
+  if (target_voltage > maxV) target_voltage = maxV;
+
+  // Lineare Konvertierung (mit minPos als Offset: bei target = minV ergibt sich minPos,
+  // nicht 0 — minWhiperPos ist kalibrierungsbedingt negativ).
+  int estimated_pos = minPos + (target_voltage - minV) * (maxPos - minPos) / (maxV - minV);
 
   return estimated_pos;
 }
@@ -955,9 +1018,12 @@ bool isVoltageDataFresh() {
  * @return float Volt pro Schritt, oder 0 wenn die Kalibrierung ungültig ist.
  */
 float voltsPerStep() {
-  int span = maxWhiperPos - minWhiperPos;
+  int minPos, maxPos;
+  float minV, maxV;
+  getCalibration(minPos, maxPos, minV, maxV);
+  int span = maxPos - minPos;
   if (span == 0) return 0.0f;
-  return (maxVoltageAtMaxPos - minVoltageAtMinPos) / (float)span;
+  return (maxV - minV) / (float)span;
 }
 
 /**
@@ -1350,15 +1416,19 @@ void initWebServer() {
         }
 
         if (limitType == "min") {
+            portENTER_CRITICAL(&calibMux);
             minWhiperPos = valueToSave;
+            portEXIT_CRITICAL(&calibMux);
             logMessage(LOG_WARN, "API: NEW MIN LIMIT calibrated -> %d steps", valueToSave);
             saveConfiguration();
-        } 
+        }
         else if (limitType == "max") {
+            portENTER_CRITICAL(&calibMux);
             maxWhiperPos = valueToSave;
+            portEXIT_CRITICAL(&calibMux);
             logMessage(LOG_WARN, "API: NEW MAX LIMIT calibrated -> %d steps", valueToSave);
             saveConfiguration();
-        } 
+        }
         else {
             // Fehler: Ungültiger limit-Typ
             request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid limit type. Use 'min' or 'max'.\"}");
@@ -1540,9 +1610,15 @@ void initWebServer() {
   // Event-Handler für den WebSocket
   ws.onEvent([](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len){
       if (type == WS_EVT_CONNECT) {
-          // Ein neuer Client (Browser) hat sich verbunden! 
+          // Ein neuer Client (Browser) hat sich verbunden!
           // Schicke ihm sofort die gesamte gespeicherte Historie aus dem RAM.
-          client->text(logHistory);
+          // Snapshot unter Mutex — der Logger-Task (#4) verändert logHistory parallel.
+          String snapshot;
+          if (xSemaphoreTake(logHistoryMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            snapshot = logHistory;
+            xSemaphoreGive(logHistoryMutex);
+          }
+          client->text(snapshot);
       }
   });
 
@@ -1563,44 +1639,65 @@ void initWebServer() {
  * @param ... Die variablen Argumente für den Format-String.
  */
 void logMessage(LogLevel level, const char* format, ...) {
+    LogEntry entry;
+    entry.level = level;
+
     char buf[256];
     va_list args;
-
     va_start(args, format);
     vsnprintf(buf, sizeof(buf), format, args);
     va_end(args);
+    snprintf(entry.msg, sizeof(entry.msg), "[%lu][%s] %s\n", millis(), logLevelStrings[level], buf);
 
-    char final_msg[300];
-    snprintf(final_msg, sizeof(final_msg), "[%lu][%s] %s\n", millis(), logLevelStrings[level], buf);
+    // Nur formatieren + einreihen; die Verarbeitung (Serial/Historie/WS/Flash) macht
+    // ausschliesslich der Logger-Task (#4). Kein Warten: volle Queue -> Meldung verwerfen.
+    if (logQueue != NULL) {
+      if (xQueueSend(logQueue, &entry, 0) != pdTRUE) {
+        logDroppedCount++;
+      }
+    } else {
+      // Fallback ganz früh im Boot (bevor der Logger-Task existiert): nur Serial.
+      if (debugEnabled) Serial.print(entry.msg);
+    }
+}
 
+/**
+ * @brief Verarbeitet einen Log-Eintrag: Serial, RAM-Historie, WebSocket, Flash (nur WARN+).
+ * Läuft NUR im Logger-Task (#4) — dadurch sind String/LittleFS/ws-Zugriffe serialisiert.
+ */
+void processLogEntry(const LogEntry& entry) {
     // Gib die Meldung auf Serial aus, wenn Debugging aktiviert ist
     if (debugEnabled) {
-      Serial.print(final_msg);
+      Serial.print(entry.msg);
     }
 
-    logHistory += final_msg;
-    // Wenn der Puffer zu gross wird, die ältere Hälfte abschneiden
-    if (logHistory.length() > MAX_LOG_HISTORY) {
-        logHistory = logHistory.substring(logHistory.length() - 2048);
-        // Die erste, unvollständige Zeile nach dem Abschneiden bereinigen
-        int firstNewLine = logHistory.indexOf('\n');
-        if (firstNewLine != -1) {
-            logHistory = logHistory.substring(firstNewLine + 1);
-        }
+    // RAM-Historie unter Mutex (der WS-Connect-Handler liest sie aus einem anderen Task)
+    if (xSemaphoreTake(logHistoryMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+      logHistory += entry.msg;
+      // Wenn der Puffer zu gross wird, die ältere Hälfte abschneiden
+      if (logHistory.length() > MAX_LOG_HISTORY) {
+          logHistory = logHistory.substring(logHistory.length() - 2048);
+          // Die erste, unvollständige Zeile nach dem Abschneiden bereinigen
+          int firstNewLine = logHistory.indexOf('\n');
+          if (firstNewLine != -1) {
+              logHistory = logHistory.substring(firstNewLine + 1);
+          }
+      }
+      xSemaphoreGive(logHistoryMutex);
     }
 
     // Live-Log an alle offenen Browser-Fenster senden!
-    ws.textAll(final_msg);
+    ws.textAll(entry.msg);
 
     // Schreibe nur Warnungen und Fehler ins Log-File, um den Flash zu schonen
-    if (level >= LOG_WARN) {
+    if (entry.level >= LOG_WARN) {
       // Öffne die Datei im "Append"-Modus.
       // Der Modus "FILE_APPEND" erstellt die Datei automatisch, falls sie nicht existiert.
       File logFile = LittleFS.open(LOG_FILE, FILE_APPEND);
-      
+
       if (logFile) {
-        logFile.print(final_msg);
-        
+        logFile.print(entry.msg);
+
         // Log-Rotation: Wenn die Datei zu gross wird, alte löschen und neue anfangen
         if (logFile.size() > MAX_LOG_SIZE) {
           logFile.close();
@@ -1620,6 +1717,30 @@ void logMessage(LogLevel level, const char* format, ...) {
         }
       }
     }
+}
+
+/**
+ * @brief FreeRTOS Task: einziger Konsument der Log-Queue (#4).
+ * Meldet zusätzlich, wenn Einträge wegen voller Queue verworfen wurden.
+ */
+void loggerTask(void *parameter) {
+  LogEntry entry;
+  for (;;) {
+    if (xQueueReceive(logQueue, &entry, portMAX_DELAY) == pdTRUE) {
+      processLogEntry(entry);
+
+      // Verworfene Meldungen nachmelden (Zähler ist nur ungefähr — bewusst einfach gehalten)
+      uint32_t dropped = logDroppedCount;
+      if (dropped > 0) {
+        logDroppedCount = 0;
+        LogEntry note;
+        note.level = LOG_WARN;
+        snprintf(note.msg, sizeof(note.msg), "[%lu][WARN] LOGGER: %lu Meldung(en) verworfen (Queue voll)\n",
+                 millis(), (unsigned long)dropped);
+        processLogEntry(note);
+      }
+    }
+  }
 }
 
 // ********************************************************************************
@@ -2068,6 +2189,7 @@ TaskHandle_t h_sensorAndFanTask;
 TaskHandle_t h_communicationTask;
 TaskHandle_t h_stepperTask;
 TaskHandle_t h_voltmeterUpdateTask;
+TaskHandle_t h_loggerTask;
 
 /**
  * @brief FreeRTOS Task zur Verarbeitung aller Benutzereingaben (Encoder, Tasten).
@@ -2124,20 +2246,35 @@ void userInputTask(void *parameter) {
       if (lastEncPos != newEncPos) {
           int dPos = newEncPos - lastEncPos;
           lastEncPos = newEncPos;
-          int value = whiperPos + dPos * encSpeed;
-          whiperPos = constrain(value, MINWHIPERLIMIT, MAXWHIPERLIMIT);
+
+          // Messwert/Frische VOR den kritischen Abschnitten auswerten (#5)
+          bool  fresh = isVoltageDataFresh();
+          float rms   = received_rms_value;
+
+          int pos = whiperPos + dPos * encSpeed;
+          pos = constrain(pos, MINWHIPERLIMIT, MAXWHIPERLIMIT);
 
           if (A_p1->getState()) {
-              whiperPos = constrain(whiperPos, MINWHIPERLIMIT, 0);
-              minWhiperPos = whiperPos;
-			        if (isVoltageDataFresh()) minVoltageAtMinPos = received_rms_value;
+              pos = constrain(pos, MINWHIPERLIMIT, 0);
+              portENTER_CRITICAL(&calibMux);
+              minWhiperPos = pos;
+              if (fresh) minVoltageAtMinPos = rms;
+              portEXIT_CRITICAL(&calibMux);
           }
           if (A_p2->getState()) {
-              whiperPos = constrain(whiperPos, minWhiperPos + 1, MAXWHIPERLIMIT);
-              maxWhiperPos = whiperPos;
-			        if (isVoltageDataFresh()) maxVoltageAtMaxPos = received_rms_value;
+              pos = constrain(pos, minWhiperPos + 1, MAXWHIPERLIMIT);
+              portENTER_CRITICAL(&calibMux);
+              maxWhiperPos = pos;
+              if (fresh) maxVoltageAtMaxPos = rms;
+              portEXIT_CRITICAL(&calibMux);
           }
+
+          // whiperPos-Update + moveTo atomar (#5); im Settings-Modus ist dieser Task
+          // der einzige Beweger, aber run() im Stepper-Task läuft parallel.
+          portENTER_CRITICAL(&stepperMux);
+          whiperPos = pos;
           stepper.moveTo(whiperPos);
+          portEXIT_CRITICAL(&stepperMux);
       }
     }
     
@@ -2768,7 +2905,11 @@ void stepperTask(void *parameter) {
       
       // Sobald er aufgeweckt wurde, erledigt er seine Arbeit:
       if (hardwareInitialized) {
+        // Unter stepperMux: AccelStepper ist nicht thread-safe — run() darf nicht
+        // mitten in ein moveTo() aus einem anderen Task fallen (#5).
+        portENTER_CRITICAL(&stepperMux);
         stepper.run();
+        portEXIT_CRITICAL(&stepperMux);
       }
     }
   }
@@ -2906,6 +3047,19 @@ bool checkI2CDevice(byte addr) {
  */
 void setup() {
   currentSystemState = STATE_WIFI_CONNECTING;
+
+  // #4: Logging-Infrastruktur ZUERST, damit ab dem ersten logMessage() alles über die
+  // Queue läuft (Serial/Historie/WS/Flash nur noch im Logger-Task).
+  logQueue = xQueueCreate(24, sizeof(LogEntry));
+  logHistoryMutex = xSemaphoreCreateMutex();
+  xTaskCreatePinnedToCore(
+      loggerTask,         // Task-Funktion
+      "Logger",           // Name
+      4096,               // Stack (String-/Datei-Operationen)
+      NULL,               // Parameter
+      1,                  // Niedrige Priorität
+      &h_loggerTask,      // Handle (Stack-Überwachung)
+      0);                 // Auf Core 0 pinnen
 
   xTaskCreatePinnedToCore(
       statusLedTask,      // Task-Funktion
@@ -3222,7 +3376,8 @@ void loop() {
         h_displayUpdateTask,
         h_sensorAndFanTask,
         h_communicationTask,
-        h_stepperTask
+        h_stepperTask,
+        h_loggerTask
     };
 
     for (TaskHandle_t taskHandle : tasksToCheck) {

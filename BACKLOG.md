@@ -9,14 +9,14 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-06-21 · **Gesamt: 20 / 33 Punkte erledigt**
+**Stand:** 2026-06-21 · **Gesamt: 22 / 33 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
 | A — Projekt-Setup & Flash-Basis | ✅ erledigt | 5/5 |
 | B — Schnelle Bugfixes & Konsistenz | ✅ erledigt | 3/3 |
 | C — Regelung „snappy" | ✅ erledigt | 5/5 |
-| D — Robustheit / Nebenläufigkeit | ⬜ offen | 0/2 |
+| D — Robustheit / Nebenläufigkeit | ✅ erledigt | 2/2 |
 | E — API-Vereinfachung | ⬜ offen | 0/1 |
 | F — Struktur & Modernisierung | ⬜ offen | 0/5 |
 | G — Web-Oberfläche | ⬜ offen | 0/2 |
@@ -42,9 +42,9 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [x] #18 Voltmeter-Datenfrische
   - [x] #3 Positions-Offset
   - [x] #17 Spannungsregelung neu  _(#2 Anti-Windup entfällt damit)_
-- [ ] **D — Robustheit / Nebenläufigkeit**
-  - [ ] #4 Logging thread-safe
-  - [ ] #5 Geteilte Zustände schützen
+- [x] **D — Robustheit / Nebenläufigkeit**
+  - [x] #4 Logging thread-safe
+  - [x] #5 Geteilte Zustände schützen
 - [ ] **E — API-Vereinfachung & -Bereinigung**
   - [ ] #22 API vereinfachen & bereinigen
 - [ ] **F — Struktur & Modernisierung**
@@ -140,6 +140,16 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 - **2026-06-21 — #32 am Gerät verifiziert → Paket J abgeschlossen (7/7).** Damit ist die
   komplette Voltmeter-Fernsteuerung inkl. FW-Update über den Link fertig — das Gerät kann
   versiegelt werden, alles Weitere geht via OTA/Web. Nächstes Paket gemäß Reihenfolge: D.
+- **2026-06-21 — Paket D umgesetzt (#4 + #5), Geräte-Test ausstehend.**
+  #4: `logMessage()` → FreeRTOS-Queue (24 Einträge) + einzelner Logger-Task (Serial, Historie,
+  WS, Flash nur dort); Historie-Snapshot unter Mutex beim WS-Connect; Drop-Zähler bei voller
+  Queue. #5: Kalibrier-Viertupel überall atomar unter `calibMux` (Schreiber: Web-Config,
+  `/api/calibration/save`, Settings-Modus; Leser: `getCalibration()`-Snapshot in
+  `estimatePositionForVoltage()`/`voltsPerStep()`); `whiperPos`-RMW + `stepper.moveTo()`/`run()`
+  unter `stepperMux` (`setWhiperMove()` als Kern). Einzelne 32-bit-Skalare bewusst volatile-only
+  (auf ESP32 atomar, keine RMW-Sequenzen). OTA- und SIM-Build kompilieren.
+- **2026-06-21 — Paket D am Gerät verifiziert → abgeschlossen (2/2, gesamt 22/33).** Controller
+  auf **V3.3.0** (V3.2.0 im CHANGELOG abgeschlossen: Pakete B/C/J). Nächstes Paket: E (API).
 - **2026-06-20 — #28/#29 abgeschlossen (Paket J 3/4).** Geführte 3-Punkt-Kalibrierung über den
   Link (`CAL3_MEASURE`/`CAL3_FINISH`, Referenzspannungen frei wählbar) + Web-Bedienfeld ergänzt;
   am Gerät verifiziert. Damit Voltmeter-Status/Faktor/Auto-Zero/Kalibrierung komplett via Web.
@@ -214,8 +224,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
-| 4  | Concurrency | Logging thread-safe | `logMessage()` über FreeRTOS-Queue an einen Logger-Task serialisieren (RAM-Historie, WS-Versand, Flash-Write nur dort). `String logHistory` nicht mehr aus mehreren Tasks. | M | offen |
-| 5  | Concurrency | Geteilte Zustände schützen | `setpoint_voltage`, `received_rms_value`, `whiperPos`, Kalibrierwerte per `portMUX`/Mutex/Queue statt nur `volatile`. | L | offen |
+| 4  | Concurrency | Logging thread-safe | `logMessage()` über FreeRTOS-Queue an einen Logger-Task serialisieren (RAM-Historie, WS-Versand, Flash-Write nur dort). `String logHistory` nicht mehr aus mehreren Tasks. | M | **erledigt** *(am Gerät verifiziert)* |
+| 5  | Concurrency | Geteilte Zustände schützen | Kalibrier-Viertupel atomar unter `calibMux` (+ `getCalibration()`-Snapshot); `whiperPos`-RMW + AccelStepper (`moveTo`/`run`) unter `stepperMux`. Einzelne 32-bit-Skalare (`setpoint_voltage`, `received_rms_value`) bewusst volatile-only — auf ESP32 atomar, keine RMW-Sequenzen. | L | **erledigt** *(am Gerät verifiziert)* |
 
 ## Paket E — API-Vereinfachung & -Bereinigung
 

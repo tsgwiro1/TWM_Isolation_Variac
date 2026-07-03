@@ -297,6 +297,7 @@ uint8_t          voltmeterResponsePayload[64];
 #define VM_FLASH_PAGE   1024u            // F103CB: 1 KB Flash-Page
 #define VM_EEPROM_PAGE  127u             // letzte Page = emuliertes EEPROM (Kalibrierung) -> NICHT löschen
 #define BL_BLOCK        256              // AN3155 Write-Memory: max. 256 Byte/Block
+#define VM_UPDATE_RESULT_MS 5000         // Ergebnis (Erfolg/Fehler) so lange auf dem LCD zeigen (#32)
 #define BL_ACK          0x79
 #define BL_NACK         0x1F
 #define BL_INIT         0x7F
@@ -1838,6 +1839,74 @@ void drawErrorScreen() {
   tftEndWrite();   // << FREIGEBEN
 }
 
+// Cache für den Voltmeter-Update-Screen (#32): nur Änderungen neu zeichnen.
+static int  vmUpdScreenLastProgress = -1;
+static char vmUpdScreenLastMsg[96]  = "";
+static VmUpdateState vmUpdScreenLastState = VMU_IDLE;
+
+/**
+ * @brief Zeichnet den statischen Teil des Voltmeter-Update-Screens (#32).
+ * Wird einmal beim Eintritt gezeichnet; Fortschritt/Status via updateVmUpdateScreen().
+ */
+void drawVmUpdateScreen() {
+  vmUpdScreenLastProgress = -1;
+  vmUpdScreenLastMsg[0] = '\0';
+  vmUpdScreenLastState = VMU_IDLE;
+  tftStartWrite(); // << SPERREN
+  tft.fillScreen(TFT_BLACK);
+  tft.fillRect(0, 0, 240, 20, TFT_NAVY);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(TFT_WHITE, TFT_NAVY);
+  tft.drawString("ISOLATION VARIAC", 10, 2, 2);
+
+  tft.setTextDatum(CC_DATUM);
+  tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+  tft.drawString("Voltmeter-Update", 120, 70, 4);
+  tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+  tft.drawString("Variac gesperrt - Ausgang AUS", 120, 100, 2);
+
+  tft.drawRect(19, 149, 202, 22, TFT_WHITE); // Rahmen Fortschrittsbalken
+  tftEndWrite();   // << FREIGEBEN
+}
+
+/**
+ * @brief Aktualisiert Fortschrittsbalken, Prozentwert und Statusmeldung des Update-Screens (#32).
+ * Statusmeldung bei Erfolg grün, bei Fehler rot.
+ */
+void updateVmUpdateScreen() {
+  int prog = vmUpdateProgress;
+  if (prog < 0) prog = 0;
+  if (prog > 100) prog = 100;
+
+  tftStartWrite(); // << SPERREN
+  if (prog != vmUpdScreenLastProgress) {
+    vmUpdScreenLastProgress = prog;
+    int w = (198 * prog) / 100;
+    tft.fillRect(21, 151, w, 18, TFT_DARKGREEN);
+    tft.fillRect(21 + w, 151, 198 - w, 18, TFT_BLACK);
+    tft.setTextDatum(CC_DATUM);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextPadding(100);
+    tft.drawString(String(prog) + " %", 120, 195, 4);
+    tft.setTextPadding(0);
+  }
+  VmUpdateState st = vmUpdateState; // einmal lesen (Update-Task schreibt parallel)
+  if (strncmp(vmUpdScreenLastMsg, vmUpdateMessage, sizeof(vmUpdScreenLastMsg)) != 0
+      || st != vmUpdScreenLastState) {
+    vmUpdScreenLastState = st;
+    strncpy(vmUpdScreenLastMsg, vmUpdateMessage, sizeof(vmUpdScreenLastMsg) - 1);
+    vmUpdScreenLastMsg[sizeof(vmUpdScreenLastMsg) - 1] = '\0';
+    tft.setTextDatum(CC_DATUM);
+    if (st == VMU_SUCCESS)    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    else if (st == VMU_ERROR) tft.setTextColor(TFT_RED, TFT_BLACK);
+    else                      tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextPadding(238);
+    tft.drawString(vmUpdScreenLastMsg, 120, 235, 2);
+    tft.setTextPadding(0);
+  }
+  tftEndWrite();   // << FREIGEBEN
+}
+
 /**
  * @brief Zeichnet den statischen Hintergrund des Einstellungs-Bildschirms.
  */
@@ -2010,6 +2079,14 @@ void userInputTask(void *parameter) {
     if (!hardwareInitialized) {
       vTaskDelay(pdMS_TO_TICKS(1000));
       continue; // Schleife überspringen, wenn Hardware fehlt
+    }
+
+    // #32: Während des Voltmeter-FW-Updates ist der Variac gesperrt (keine Bedienung).
+    // Encoder-Position synchron halten, damit nach der Freigabe kein Sprung entsteht.
+    if (vmUpdateState != VMU_IDLE) {
+      lastEncPos = getEncoderCount();
+      vTaskDelay(pdMS_TO_TICKS(100));
+      continue;
     }
 
     // Prüfe, ob ein Modus-Wechsel per API angefordert wurde
@@ -2186,11 +2263,47 @@ void motorControlTask(void *parameter) {
  * @param parameter Standard FreeRTOS Task-Parameter (hier ungenutzt).
  */
 void displayUpdateTask(void *parameter) {
+  bool vmUpdScreenActive = false;   // Voltmeter-Update-Screen ist aktuell gezeichnet (#32)
+  uint32_t vmUpdResultSince = 0;    // Zeitpunkt, seit dem das Ergebnis (Erfolg/Fehler) angezeigt wird
   for (;;) {
 
     if (!hardwareInitialized) {
       vTaskDelay(pdMS_TO_TICKS(1000));
       continue; // Schleife überspringen, wenn Hardware fehlt
+    }
+
+    // #32: Während des Voltmeter-FW-Updates eigener Screen (Fortschritt + Status).
+    if (vmUpdateState != VMU_IDLE) {
+      if (!vmUpdScreenActive) {
+        vmUpdScreenActive = true;
+        vmUpdResultSince = 0;
+        drawVmUpdateScreen();
+      }
+      updateVmUpdateScreen();
+      if (vmUpdateState == VMU_RUNNING) {
+        vmUpdResultSince = 0; // (wieder) am Laufen -> Ergebnis-Timer zurücksetzen
+      } else {
+        // Erfolg/Fehler: Ergebnis VM_UPDATE_RESULT_MS stehen lassen, dann quittieren.
+        if (vmUpdResultSince == 0) {
+          vmUpdResultSince = millis();
+        } else if (millis() - vmUpdResultSince >= VM_UPDATE_RESULT_MS) {
+          vmUpdateState = VMU_IDLE; // -> Rückkehr in den Normalbetrieb (unten)
+        }
+      }
+      vTaskDelay(pdMS_TO_TICKS(100));
+      continue;
+    }
+    if (vmUpdScreenActive) {
+      // Rückkehr in den Normalbetrieb (Ausgang bleibt AUS): Screen komplett neu aufbauen.
+      vmUpdScreenActive = false;
+      initDisplayStruct(); // Anzeige-Cache invalidieren -> alle Werte neu zeichnen
+      if (currentMode == MODE_NORMAL) {
+        drawBackground();
+        drawLegend();
+      } else { // MODE_SETTINGS
+        clearScreen();
+        drawSettingsScreen();
+      }
     }
 
     if (currentMode == MODE_NORMAL) {

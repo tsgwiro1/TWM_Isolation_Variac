@@ -29,6 +29,11 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
   Datei auf dem LittleFS nach dem Magic-Tag `@@VMFW@@` und liefert die Version. UI zeigt sie
   dauerhaft an (auch nach Upload); beim „Update starten" wird Datei- vs. laufende Version
   verglichen und gewarnt, wenn bereits dieselbe Version installiert ist. (#33)
+- LCD-Anzeige während des Voltmeter-FW-Updates: eigener Screen „Voltmeter-Update /
+  Variac gesperrt - Ausgang AUS" mit Fortschrittsbalken, Prozentwert und Statusmeldung
+  (Erfolg grün / Fehler rot). Bedienung (Tasten/Encoder) ist während des Updates gesperrt.
+  Nach Abschluss bleibt das Ergebnis 5 s stehen, dann kehrt die Anzeige in den Normalbetrieb
+  zurück — der Ausgang bleibt AUS (kein automatisches Wiedereinschalten). (#32)
 - Geführte 3-Punkt-Kalibrierung über Web: API `/api/voltmeter/cal3/measure` (Punkt messen) und
   `/api/voltmeter/cal3/finish` (Regression + speichern), inkl. Bedienfeld in `settings.html`. (#29)
 - API `/api/voltmeter/reboot` und `/api/voltmeter/reset-defaults` + Buttons im Panel

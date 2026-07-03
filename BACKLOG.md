@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-06-21 · **Gesamt: 19 / 33 Punkte erledigt**
+**Stand:** 2026-06-21 · **Gesamt: 20 / 33 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -21,7 +21,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | F — Struktur & Modernisierung | ⬜ offen | 0/5 |
 | G — Web-Oberfläche | ⬜ offen | 0/2 |
 | H — Sicherheit (optional) | ⬜ offen | 0/1 |
-| J — Voltmeter-Fernsteuerung via Controller | 🔄 in Arbeit | 6/7 |
+| J — Voltmeter-Fernsteuerung via Controller | ✅ erledigt | 7/7 |
 | I — Dokumentation | ⬜ offen | 0/2 |
 
 ### Checkliste
@@ -58,14 +58,14 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [ ] #13 Live-Daten über WebSocket
 - [ ] **H — Sicherheit (optional)**
   - [ ] #11 Auth & REST-Hygiene
-- [ ] **J — Voltmeter-Fernsteuerung via Controller**
+- [x] **J — Voltmeter-Fernsteuerung via Controller**
   - [x] #27 Bidirektionales Befehls-/Antwort-Protokoll (UART)
   - [x] #28 Voltmeter: Menüfunktionen über den Link
   - [x] #29 Controller: API + Web-UI fürs Voltmeter
   - [x] #30 Kür: Voltmeter-FW-Update via Controller
   - [x] #34 Spannungs-Offset über Web/API setzen
   - [x] #33 FW-Version aus .bin auslesen/anzeigen
-  - [ ] #32 LCD-Anzeige während Voltmeter-FW-Update
+  - [x] #32 LCD-Anzeige während Voltmeter-FW-Update
 - [ ] **I — Dokumentation aktualisieren**
   - [ ] #24 Doku aktualisieren & vervollständigen
   - [ ] #12 API-Doku Single-Source
@@ -131,6 +131,15 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   Beide Builds kompilieren; Geräte-Test ausstehend.
 - **2026-06-21 — #33 + #34 am Gerät verifiziert (Paket J 6/7).** Spannungs-Offset setzen und
   Datei-Versionsanzeige/-vergleich funktionieren. Offen in Paket J nur noch #32 (LCD-Anzeige).
+- **2026-06-21 — #32 umgesetzt (LCD-Anzeige während Voltmeter-FW-Update).** Eigener Screen
+  „Voltmeter-Update / Variac gesperrt - Ausgang AUS" mit Fortschrittsbalken, %-Wert und
+  Statusmeldung (Erfolg grün / Fehler rot) im `displayUpdateTask`; Bedienung (Tasten/Encoder)
+  während des Updates gesperrt (`userInputTask`), Encoder ohne Sprung nach Freigabe. Ergebnis
+  bleibt 5 s stehen (`VM_UPDATE_RESULT_MS`), danach kompletter Screen-Rebuild (Normal- oder
+  Settings-Modus); Ausgang bleibt AUS. OTA- und SIM-Build kompilieren.
+- **2026-06-21 — #32 am Gerät verifiziert → Paket J abgeschlossen (7/7).** Damit ist die
+  komplette Voltmeter-Fernsteuerung inkl. FW-Update über den Link fertig — das Gerät kann
+  versiegelt werden, alles Weitere geht via OTA/Web. Nächstes Paket gemäß Reihenfolge: D.
 - **2026-06-20 — #28/#29 abgeschlossen (Paket J 3/4).** Geführte 3-Punkt-Kalibrierung über den
   Link (`CAL3_MEASURE`/`CAL3_FINISH`, Referenzspannungen frei wählbar) + Web-Bedienfeld ergänzt;
   am Gerät verifiziert. Damit Voltmeter-Status/Faktor/Auto-Zero/Kalibrierung komplett via Web.
@@ -250,7 +259,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | 30 | Kür | Voltmeter-FW-Update via Controller | Über den eingebauten **ROM-UART-Bootloader** (AN3155): Voltmeter-App springt per Befehl ins System-Memory (`0x1FFFF000`), Controller (AN3155-Host, 8E1) flasht via Init/Get/**Page-Erase nur der Programmpages** (EEPROM/Kalibrierung bleibt)/Write/Go. FW-Binary per Web→LittleFS, Fortschritt/Status + Diagnose-Option (skip-enter/BOOT0). Recovery via BOOT0+Reset+ST-Link. | L–XL | **erledigt** *(am Gerät end-to-end verifiziert, EEPROM bleibt erhalten)* |
 | 34 | Voltmeter | Spannungs-Offset über Web/API setzen | Gegenstück zu „Faktor setzen": Link-Befehl `SET_OFFSET` (0x11, Plausi −50…+50 V, EEPROM) + API `/api/voltmeter/offset?value=` + Eingabefeld/Button im Panel. Bisher war der Offset nur über die 3-Punkt-Kalibrierung änderbar. | S | **erledigt** *(am Gerät verifiziert)* |
 | 33 | Controller | FW-Version aus .bin auslesen/anzeigen | Magic-Tag im Voltmeter (`"@@VMFW@@" FW`, `__attribute__((used))`); Controller scannt die hochgeladene `.bin` nach dem Tag → zeigt Datei-Version vs. laufende Version (`GET_VERSION`) → „Update nötig?". Greift erst ab dem ersten getaggten Build. | M | **erledigt** *(am Gerät verifiziert)* |
-| 32 | LCD | Anzeige während Voltmeter-FW-Update | Während des Flashs eigener LCD-Screen „Voltmeter-Update läuft – Variac gesperrt" mit Fortschritt-% und Statusmeldung; Ausgang/Regelung aus (bereits umgesetzt). Nach Abschluss (Erfolg/Fehler) ~5 s Ergebnis anzeigen, dann zurück in den Normalbetrieb — **Ausgang bleibt aus** (kein Auto-Einschalten). | M | offen |
+| 32 | LCD | Anzeige während Voltmeter-FW-Update | Während des Flashs eigener LCD-Screen „Voltmeter-Update läuft – Variac gesperrt" mit Fortschritt-% und Statusmeldung; Bedienung (Tasten/Encoder) gesperrt. Nach Abschluss (Erfolg/Fehler) ~5 s Ergebnis anzeigen, dann zurück in den Normalbetrieb — **Ausgang bleibt aus** (kein Auto-Einschalten). | M | **erledigt** *(am Gerät verifiziert)* |
 
 ## Paket I — Dokumentation aktualisieren
 

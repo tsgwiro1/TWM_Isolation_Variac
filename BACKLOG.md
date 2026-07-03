@@ -47,7 +47,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [x] #4 Logging thread-safe
   - [x] #5 Geteilte Zustände schützen
 - [ ] **E — API-Vereinfachung & -Bereinigung**
-  - [ ] #22 API vereinfachen & bereinigen
+  - [ ] #22 API vereinfachen & bereinigen (REST-Konventionen + OpenAPI-Spec + Doku-Seite)
 - [ ] **F — Struktur & Modernisierung**
   - [ ] #10 Modularisierung
   - [ ] #15 Typos (`Whiper`→`Wiper`, `corse`→`coarse`)
@@ -166,6 +166,12 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   dem NVS (inkl. `?download`), `POST` unverändert. OTA- und SIM-Build kompilieren.
 - **2026-06-21 — #35 am Gerät verifiziert → Paket K abgeschlossen (1/1, gesamt 23/34).**
   Migration lief, Konfiguration/Kalibrierung überlebt `uploadfs`. Nächstes Paket: E (API).
+- **2026-06-21 — #22 erweitert: REST-Konventionen + OpenAPI.** Entscheidung: API in Paket E
+  entlang der REST-Konventionen neu schneiden (GET nur lesen, Aktionen auf POST/PUT — inkl.
+  `fetch()`-Anpassungen in den Webseiten; einheitliche Antwort-Hülle), dabei `openapi.yaml`
+  als Design-Artefakt/Doku-Quelle mitschreiben und eine interaktive Doku-Seite
+  (RapiDoc/Swagger-UI) auf dem Gerät ausliefern. Löst #12 im Wesentlichen mit (dort bleibt
+  nur Aufräumen der alten Doku); Aufwand #22: M → L. Umsetzung noch nicht gestartet.
 - **2026-06-20 — #28/#29 abgeschlossen (Paket J 3/4).** Geführte 3-Punkt-Kalibrierung über den
   Link (`CAL3_MEASURE`/`CAL3_FINISH`, Referenzspannungen frei wählbar) + Web-Bedienfeld ergänzt;
   am Gerät verifiziert. Damit Voltmeter-Status/Faktor/Auto-Zero/Kalibrierung komplett via Web.
@@ -246,9 +252,15 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Paket E — API-Vereinfachung & -Bereinigung
 
+> Erweitert (2026-06-21): API wird entlang der **REST-Konventionen** neu geschnitten und mit
+> einer **OpenAPI-3-Spec** (`openapi.yaml` im Repo, Single Source of Truth → löst #12) plus
+> **interaktiver Doku-Seite** auf dem Gerät dokumentiert. Hinweis: OpenAPI beschreibt/
+> dokumentiert nur (handgepflegt, keine Codegen/Validierung auf dem ESP32) — das Design
+> machen die REST-Konventionen.
+
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
-| 22 | API | API vereinfachen & bereinigen | Redundante/wenig sinnvolle Endpoints zusammenführen oder entfernen (z. B. Überschneidung `/data` ↔ `/api/status`; Nutzen von `/api/files`, `/api/files/delete` prüfen). Konsistentes, schlankes API-Schema definieren (einheitliche Pfade/Antworten, GET nur für Lesen). Basis für #13/#23. | M | offen |
+| 22 | API | API vereinfachen & bereinigen (REST + OpenAPI) | (a) Redundante/wenig sinnvolle Endpoints zusammenführen oder entfernen (z. B. Überschneidung `/data` ↔ `/api/status`; Nutzen von `/api/files`, `/api/files/delete` prüfen). (b) **REST-Konventionen**: GET nur lesen, zustandsändernde Aktionen auf POST/PUT umstellen (betrifft u. a. `/api/reboot`, `/api/calibration/save`, `/api/voltmeter/*` — inkl. Anpassung aller `fetch()`-Aufrufe in den Webseiten), ressourcen-orientierte Pfade, einheitliche Antwort-Hülle `{status, message, …}` + Fehlercodes. (c) **`openapi.yaml`** parallel zum Umbau schreiben (Design-Artefakt + Doku-Quelle). (d) **Interaktive Doku-Seite** auf dem Gerät: kleine HTML-Seite + RapiDoc/Swagger-UI (per CDN oder lokal, 16 MB Flash vorhanden), Gerät serviert die `openapi.yaml`. Basis für #13/#23; zahlt auf #11 (CSRF/REST-Hygiene) ein. | L | offen |
 
 ## Paket F — Struktur & Modernisierung
 
@@ -305,7 +317,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
 | 24 | Docs | Doku aktualisieren & vervollständigen | Alle Dokumente (Kalibrierung, REST-API, Status-LED, USB CDC, TFT-Settings, Build/Flash) auf den finalen Stand bringen, Lücken schließen, einheitliche Form & Ablage. | M | offen |
-| 12 | Docs | API-Doku Single-Source | API-Doku nur einmal pflegen (HTML in `data/` als Quelle vs. `.docx`), Drift vermeiden. Teil von #24. | M | offen |
+| 12 | Docs | API-Doku Single-Source | Wird im Wesentlichen durch #22 gelöst: `openapi.yaml` als Single Source of Truth + Doku-Seite auf dem Gerät. Hier verbleibt nur: alte HTML-/docx-API-Doku entfernen bzw. auf die neue Seite verweisen. Teil von #24. | S | offen |
 
 ---
 

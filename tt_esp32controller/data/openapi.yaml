@@ -1,0 +1,468 @@
+openapi: 3.0.3
+info:
+  title: TWM Isolation Variac API
+  description: |
+    REST-API des Trennstelltransformator-Controllers (ESP32-S3).
+
+    **Konventionen:**
+    - `GET` liest nur — ändert nie Zustand.
+    - Zustandsändernde Aktionen sind `POST` (bzw. `DELETE`), Parameter als Query-String.
+    - Antworten sind JSON mit der Hülle `{"status": "success|error", "message": "..."}`,
+      Lese-Endpunkte liefern die Nutzdaten direkt.
+
+    **Live-Log:** zusätzlich zum REST-API liefert der WebSocket `ws://<host>/ws`
+    die Log-Meldungen live (beim Verbinden zuerst die RAM-Historie).
+  version: "4.0.0"
+servers:
+  - url: http://twm_variac.local
+    description: Gerät im lokalen Netz (mDNS)
+
+tags:
+  - name: Status & Steuerung
+  - name: Konfiguration
+  - name: System
+  - name: Voltmeter
+  - name: Voltmeter-Firmware-Update
+
+paths:
+  /api/status:
+    get:
+      tags: [Status & Steuerung]
+      summary: Kompletter Gerätestatus
+      description: Ist-/Sollspannung, Datenfrische, Temperatur, Stepper-Position, Tasten-Zustände.
+      responses:
+        "200":
+          description: Aktueller Status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  voltage_actual:   { type: number, description: Gemessene Ausgangsspannung [V] }
+                  voltage_fresh:    { type: boolean, description: Messwert ist aktuell (< 250 ms alt) }
+                  voltage_setpoint: { type: number, description: Sollspannung [V] }
+                  temperature:      { type: number, description: Schleifer-Temperatur [°C] }
+                  stepper_position: { type: integer, description: Aktuelle Stepper-Position [Schritte] }
+                  is_hardware_ok:   { type: boolean }
+                  fw_version:       { type: string }
+                  states:
+                    type: object
+                    properties:
+                      output_on:     { type: boolean }
+                      limit_on:      { type: boolean }
+                      regulation_on: { type: boolean }
+                      p1_on:         { type: boolean }
+                      p2_on:         { type: boolean }
+                      p3_on:         { type: boolean }
+
+  /api/setpoint:
+    post:
+      tags: [Status & Steuerung]
+      summary: Sollspannung setzen
+      description: Startet die Regelung auf den neuen Sollwert (Vorsteuerung + Korrektur).
+      parameters:
+        - name: voltage
+          in: query
+          required: true
+          schema: { type: number }
+          description: Zielspannung [V]; wird auf 0…kalibriertes Maximum begrenzt.
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "503": { $ref: "#/components/responses/HardwareNotReady" }
+
+  /api/command:
+    post:
+      tags: [Status & Steuerung]
+      summary: Geräte-Aktion auslösen
+      parameters:
+        - name: action
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [toggle_output, toggle_limit, toggle_regulation, recall_p1, recall_p2, recall_p3, enter_settings]
+          description: >
+            toggle_output = Ausgang ein/aus, toggle_limit = Strombegrenzung,
+            toggle_regulation = Regelung, recall_p1..p3 = Preset anfahren,
+            enter_settings = Settings-Modus am Gerät.
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "503": { $ref: "#/components/responses/HardwareNotReady" }
+
+  /api/config:
+    get:
+      tags: [Konfiguration]
+      summary: Konfiguration lesen
+      description: Liefert die im NVS gespeicherte Konfiguration. Mit `?download` als Datei-Download.
+      parameters:
+        - name: download
+          in: query
+          required: false
+          schema: { type: string }
+          description: Wenn gesetzt, kommt die Antwort als Download (Content-Disposition).
+      responses:
+        "200":
+          description: Konfigurations-JSON
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Config" }
+        "404": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [Konfiguration]
+      summary: Konfiguration schreiben
+      description: Validiert und übernimmt die Konfiguration, speichert ins NVS.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Config" }
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "400":
+          description: Validierungsfehler
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: error }
+                  validation_errors: { type: object }
+
+  /api/calibration:
+    post:
+      tags: [Konfiguration]
+      summary: Kalibrier-Endanschlag setzen
+      description: >
+        Speichert die aktuelle (oder übergebene) Stepper-Position als min-/max-Endanschlag
+        und persistiert die Konfiguration.
+      parameters:
+        - name: limit
+          in: query
+          required: true
+          schema: { type: string, enum: [min, max] }
+        - name: value
+          in: query
+          required: false
+          schema: { type: integer }
+          description: Explizite Position [Schritte]; ohne Angabe wird die aktuelle Position verwendet.
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "503": { $ref: "#/components/responses/HardwareNotReady" }
+
+  /api/reboot:
+    post:
+      tags: [System]
+      summary: Controller neu starten
+      responses:
+        "200":
+          description: Neustart in 200 ms (Antwort kommt noch vorher).
+          content:
+            text/plain:
+              schema: { type: string }
+
+  /api/log:
+    get:
+      tags: [System]
+      summary: Log-Datei lesen
+      parameters:
+        - name: old
+          in: query
+          required: false
+          schema: { type: string }
+          description: Wenn gesetzt, wird die rotierte Datei system.log.old geliefert.
+        - name: download
+          in: query
+          required: false
+          schema: { type: string }
+          description: Wenn gesetzt, kommt die Antwort als Download.
+      responses:
+        "200":
+          description: Log-Inhalt
+          content:
+            text/plain:
+              schema: { type: string }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/files:
+    get:
+      tags: [System]
+      summary: Dateien im LittleFS auflisten
+      responses:
+        "200":
+          description: Dateiliste
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name: { type: string }
+                    size: { type: integer }
+    delete:
+      tags: [System]
+      summary: Datei löschen
+      parameters:
+        - name: filename
+          in: query
+          required: true
+          schema: { type: string }
+          description: Absoluter Pfad im Root, z. B. `/system.log.old`.
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/voltmeter/version:
+    get:
+      tags: [Voltmeter]
+      summary: Firmware-Version des Voltmeters (über den seriellen Link)
+      responses:
+        "200":
+          description: Version
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:  { type: string, example: success }
+                  version: { type: string, example: Firmware V1.2.3 }
+        "504": { $ref: "#/components/responses/VoltmeterTimeout" }
+
+  /api/voltmeter/status:
+    get:
+      tags: [Voltmeter]
+      summary: Kalibrier-Status des Voltmeters
+      responses:
+        "200":
+          description: Skalierungsfaktor, Spannungs-Offset, ADC-Nullpunkt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:          { type: string, example: success }
+                  scaling_factor:  { type: number }
+                  voltage_offset:  { type: number }
+                  adc_zero_offset: { type: number }
+        "504": { $ref: "#/components/responses/VoltmeterTimeout" }
+
+  /api/voltmeter/factor:
+    post:
+      tags: [Voltmeter]
+      summary: Skalierungsfaktor setzen (persistiert im Voltmeter-EEPROM)
+      parameters:
+        - name: value
+          in: query
+          required: true
+          schema: { type: number }
+          description: Plausibilitätsbereich 100…1000.
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "504": { $ref: "#/components/responses/VoltmeterTimeout" }
+
+  /api/voltmeter/offset:
+    post:
+      tags: [Voltmeter]
+      summary: Spannungs-Offset setzen (persistiert im Voltmeter-EEPROM)
+      parameters:
+        - name: value
+          in: query
+          required: true
+          schema: { type: number }
+          description: Plausibilitätsbereich −50…+50 V.
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "504": { $ref: "#/components/responses/VoltmeterTimeout" }
+
+  /api/voltmeter/autozero:
+    post:
+      tags: [Voltmeter]
+      summary: Auto-Zero-Kalibrierung starten
+      description: Läuft danach mehrere Sekunden; der RMS-Stream pausiert währenddessen.
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "504": { $ref: "#/components/responses/VoltmeterTimeout" }
+
+  /api/voltmeter/cal3/measure:
+    post:
+      tags: [Voltmeter]
+      summary: 3-Punkt-Kalibrierung – einen Punkt messen
+      description: Mittelt ca. 2 s; Referenzspannung muss anliegen.
+      parameters:
+        - name: index
+          in: query
+          required: true
+          schema: { type: integer, minimum: 0, maximum: 2 }
+        - name: voltage
+          in: query
+          required: true
+          schema: { type: number }
+          description: Tatsächlich anliegende Referenzspannung [V].
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "504": { $ref: "#/components/responses/VoltmeterTimeout" }
+
+  /api/voltmeter/cal3/finish:
+    post:
+      tags: [Voltmeter]
+      summary: 3-Punkt-Kalibrierung abschließen
+      description: Lineare Regression über die gemessenen Punkte (min. 2), speichert Faktor + Offset.
+      responses:
+        "200":
+          description: Neue Kalibrierwerte
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:         { type: string, example: success }
+                  scaling_factor: { type: number }
+                  voltage_offset: { type: number }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "504": { $ref: "#/components/responses/VoltmeterTimeout" }
+
+  /api/voltmeter/reboot:
+    post:
+      tags: [Voltmeter]
+      summary: Voltmeter neu starten (Soft-Reset)
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "504": { $ref: "#/components/responses/VoltmeterTimeout" }
+
+  /api/voltmeter/reset-defaults:
+    post:
+      tags: [Voltmeter]
+      summary: Voltmeter-Kalibrierung auf Werkseinstellungen
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "504": { $ref: "#/components/responses/VoltmeterTimeout" }
+
+  /api/voltmeter/update/upload:
+    post:
+      tags: [Voltmeter-Firmware-Update]
+      summary: Firmware-Binary (.bin) hochladen
+      description: Multipart-Upload nach LittleFS (`/voltmeter_fw.bin`). Während eines laufenden Updates nicht möglich.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                firmware:
+                  type: string
+                  format: binary
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+
+  /api/voltmeter/update/start:
+    post:
+      tags: [Voltmeter-Firmware-Update]
+      summary: Flash-Vorgang starten
+      description: >
+        Voltmeter in den ROM-Bootloader schicken und die hochgeladene .bin flashen
+        (AN3155, Page-Erase nur der Programmpages — Kalibrierung bleibt erhalten).
+        Ausgang und Regelung werden deaktiviert; Fortschritt via `/api/voltmeter/update/status`.
+      parameters:
+        - name: skipenter
+          in: query
+          required: false
+          schema: { type: string, enum: ["1"] }
+          description: "Diagnose: ENTER_BOOTLOADER überspringen (Voltmeter bereits via BOOT0 im Bootloader)."
+      responses:
+        "200": { $ref: "#/components/responses/Success" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /api/voltmeter/update/status:
+    get:
+      tags: [Voltmeter-Firmware-Update]
+      summary: Update-Fortschritt/-Status
+      responses:
+        "200":
+          description: Aktueller Zustand
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  state:    { type: string, enum: [idle, running, success, error] }
+                  progress: { type: integer, minimum: 0, maximum: 100 }
+                  message:  { type: string }
+
+  /api/voltmeter/update/fileversion:
+    get:
+      tags: [Voltmeter-Firmware-Update]
+      summary: FW-Version der hochgeladenen .bin
+      description: Liest den Magic-Tag `@@VMFW@@` aus der Datei auf dem LittleFS.
+      responses:
+        "200":
+          description: Version oder none
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:  { type: string, enum: [success, none] }
+                  version: { type: string }
+
+components:
+  schemas:
+    Config:
+      type: object
+      properties:
+        system:
+          type: object
+          properties:
+            debug_enabled:         { type: boolean }
+            coarse_move_threshold: { type: number }
+        calibration:
+          type: object
+          properties:
+            min_pos:     { type: integer, description: Stepper-Position am unteren Endanschlag }
+            max_pos:     { type: integer, description: Stepper-Position am oberen Endanschlag }
+            min_voltage: { type: number, description: Spannung an min_pos [V] }
+            max_voltage: { type: number, description: Spannung an max_pos [V] }
+        presets:
+          type: object
+          properties:
+            p1: { type: integer }
+            p2: { type: integer }
+            p3: { type: integer }
+    Envelope:
+      type: object
+      properties:
+        status:  { type: string, enum: [success, error] }
+        message: { type: string }
+  responses:
+    Success:
+      description: Erfolg
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+    Error:
+      description: Fehler
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+    BadRequest:
+      description: Ungültige/fehlende Parameter
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+    HardwareNotReady:
+      description: Hardware nicht bereit
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+    VoltmeterTimeout:
+      description: Keine Antwort vom Voltmeter (Link-Timeout)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }

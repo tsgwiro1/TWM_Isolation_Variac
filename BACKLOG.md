@@ -172,6 +172,16 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   als Design-Artefakt/Doku-Quelle mitschreiben und eine interaktive Doku-Seite
   (RapiDoc/Swagger-UI) auf dem Gerät ausliefern. Löst #12 im Wesentlichen mit (dort bleibt
   nur Aufräumen der alten Doku); Aufwand #22: M → L. Umsetzung noch nicht gestartet.
+- **2026-07-04 — #22 umgesetzt (Paket E), Geräte-Test ausstehend.** Entscheidungen:
+  POST mit Query-String-Parametern; ungenutzte Endpoints entfernt; RapiDoc lokal.
+  Umbau: alle zustandsändernden Routen GET→POST; `/data` in `/api/status` aufgegangen
+  (`states.p1_on..p3_on`); `/api/presets` (GET), `/api/presets/save`, `/api/calibration` (GET)
+  entfernt; `calibration/save`→`POST /api/calibration`; `files/delete`→`DELETE /api/files`.
+  `script.js`/`settings.js` angepasst. **`openapi.yaml`** (komplette Spec) + **RapiDoc-Doku-Seite**
+  ersetzt die alte `doc_api.html` (Dateiname bleibt → Nav-Links intakt; #12 damit im Kern
+  erledigt). OTA- und SIM-Build kompilieren. **Breaking Change** für externe Skripte/Lesezeichen
+  (alte GET-Aktions-URLs funktionieren nicht mehr) → **MAJOR-Bump: Controller V4.0.0**
+  (V3.3.0 im CHANGELOG abgeschlossen: #4/#5/#35).
 - **2026-06-20 — #28/#29 abgeschlossen (Paket J 3/4).** Geführte 3-Punkt-Kalibrierung über den
   Link (`CAL3_MEASURE`/`CAL3_FINISH`, Referenzspannungen frei wählbar) + Web-Bedienfeld ergänzt;
   am Gerät verifiziert. Damit Voltmeter-Status/Faktor/Auto-Zero/Kalibrierung komplett via Web.

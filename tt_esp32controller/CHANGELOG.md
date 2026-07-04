@@ -6,7 +6,26 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.ino`.
 
-## [V3.3.0] – in Entwicklung
+## [V4.0.0] – in Entwicklung
+
+### Geändert
+- **API nach REST-Konventionen umgebaut** (#22, **Breaking Change** → MAJOR-Version):
+  - `GET` liest nur noch — alle zustandsändernden Aktionen sind jetzt `POST`
+    (`/api/setpoint`, `/api/command`, `/api/reboot`, `/api/calibration`,
+    `/api/voltmeter/{factor,offset,autozero,reboot,reset-defaults,cal3/*,update/start}`);
+    Parameter weiterhin als Query-String.
+  - `/data` entfernt — ist in `GET /api/status` aufgegangen (`states` um `p1_on..p3_on` ergänzt).
+  - Entfernt (ungenutzt, Inhalte stecken in `/api/config`): `GET /api/presets`,
+    `GET /api/presets/save`, `GET /api/calibration`.
+  - `GET /api/calibration/save` → `POST /api/calibration`; `GET /api/files/delete` →
+    `DELETE /api/files?filename=`.
+  - Webseiten (`script.js`, `settings.js`) auf die neuen Methoden/Routen umgestellt.
+  - **Neu: interaktive API-Doku** unter `doc_api.html` (RapiDoc, lokal im LittleFS —
+    funktioniert ohne Internet) mit `openapi.yaml` als Single Source of Truth (löst #12);
+    die alte handgepflegte HTML-API-Doku ist ersetzt.
+  - Hinweis: Firmware und Filesystem (`uploadfs`) müssen zusammen aktualisiert werden.
+
+## [V3.3.0] – 2026-07-04
 
 ### Geändert
 - **Konfiguration/Kalibrierung ins NVS** (#35): `saveConfiguration()`/`loadConfiguration()`

@@ -4,381 +4,52 @@
     <meta charset="UTF-8">
     <title>REST API Dokumentation - TWM Isolation Variac</title>
     <link rel="stylesheet" href="style.css">
+    <script type="module" src="rapidoc-min.js"></script>
     <style>
-        /* Modernes 2-Spalten Layout für die API Doku */
-        .api-layout {
-            display: grid;
-            /* WICHTIG: minmax(0, 1fr) verhindert, dass eine breite Tabelle das Grid sprengt! */
-            grid-template-columns: 280px minmax(0, 1fr); 
-            gap: 30px;
+        /* RapiDoc soll die volle Breite unterhalb der Nav nutzen */
+        .doc-container-api {
             max-width: 1400px;
-            /* Oben 40px, Rechts flexibel, Unten 40px, Links 40px -> Fixiert es links! */
-            margin: 40px auto 40px 40px; 
-            text-align: left;
+            margin: 20px auto;
             padding: 0 20px;
         }
-
-        /* Floating Sidebar */
-        .api-sidebar {
-            position: sticky;
-            top: 30px;
-            background-color: #1e1e1e;
-            padding: 25px;
+        rapi-doc {
+            width: 100%;
+            height: calc(100vh - 120px);
             border-radius: 12px;
+            overflow: hidden;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            height: fit-content;
-            max-height: calc(100vh - 60px);
-            overflow-y: auto;
-        }
-
-        .api-sidebar h2 { font-size: 1.2em; margin-top: 0; color: #bb86fc; border: none; padding: 0; }
-        .api-sidebar ul { list-style: none; padding: 0; margin: 0; }
-        .api-sidebar li { margin-bottom: 10px; }
-        .api-sidebar .sub-menu { margin-left: 15px; margin-top: 5px; font-size: 0.9em; }
-        .api-sidebar .sub-menu li { margin-bottom: 6px; }
-        .api-sidebar a { color: #e0e0e0; text-decoration: none; transition: color 0.2s; }
-        .api-sidebar a:hover { color: #03dac6; }
-
-        /* Hauptinhalt */
-        .api-content {
-            background-color: #1e1e1e;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            line-height: 1.6;
-            /* WICHTIG: Wenn eine Tabelle breiter ist als die Box, scrolle nur innerhalb dieser Box! */
-            overflow-x: auto; 
-        }
-
-        /* Anpassung aus dem Screenshot: Metadaten unter dem Titel */
-        .doc-header h1 { margin-bottom: 15px; border-bottom: none; padding-bottom: 0; }
-        .doc-header { border-bottom: 2px solid #bb86fc; margin-bottom: 40px; padding-bottom: 20px; }
-        .doc-meta { 
-            font-size: 1.1em; /* Leicht grösser gemacht */
-            color: #aaa; 
-            background: #252525;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #bb86fc;
-            line-height: 1.8;
-        }
-        .doc-meta code { color: #03dac6; background: none; padding: 0; }
-
-        /* Globale Links im Inhaltsbereich */
-        .api-content a { color: #03dac6; text-decoration: none; }
-        .api-content a:hover { text-decoration: underline; }
-
-        section { margin-bottom: 60px; }
-        h2 { border-left: 5px solid #bb86fc; padding-left: 15px; color: #e0e0e0; margin-top: 40px; }
-        h3 { color: #03dac6; margin-top: 30px; border-bottom: 1px solid #333; padding-bottom: 5px; }
-        
-        .endpoint-block { margin: 25px 0; padding: 20px; background: #121212; border-radius: 8px; border-left: 4px solid #03dac6; }
-        .method-tag { font-family: monospace; font-weight: bold; padding: 3px 8px; border-radius: 3px; margin-right: 10px; background: #03dac6; color: #121212; }
-        .post-tag { background: #bb86fc; }
-        
-        pre { background: #000; color: #a6e22e; padding: 15px; border-radius: 6px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 0.9em; border: 1px solid #333; margin: 10px 0; }
-        code { color: #ff79c6; font-family: monospace; }
-        
-        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-        th, td { padding: 12px; border: 1px solid #333; font-size: 0.95em; vertical-align: top; }
-        th { background: #2c2c2e; color: #bb86fc; text-align: left; }
-        
-        .param-name { font-weight: bold; color: #03dac6; }
-        .required { color: #ff5555; font-size: 0.8em; font-weight: bold; }
-
-        /* Responsive Design: Auf kleinen Bildschirmen das Grid auflösen */
-        @media (max-width: 950px) {
-            .api-layout { grid-template-columns: 1fr; }
-            .api-sidebar { position: relative; top: 0; max-height: none; margin-bottom: 20px; }
         }
     </style>
 </head>
 <body class="doc-body">
-
-    <div class="api-layout">
-	
-		<div class="doc-nav" style="grid-column: 1 / -1; margin-top: 0;">
-            <a href="doc_usage.html">1. Bedienung</a>
-            <a href="doc_api.html" style="color:#bb86fc">2. API</a>
-            <a href="doc_settings.html">3. Einstellungen</a>
-            <a href="/" style="float:right">X Schließen</a>
-        </div>
-        
-		<aside class="api-sidebar">
-            <a href="#" style="text-decoration: none;"><h2>Navigation</h2></a>
-            <ul>
-                <li><a href="#1-einleitung">1. Einleitung</a></li>
-                <li><a href="#2-uebersicht">2. Endpunkt-Übersicht</a></li>
-                <li><a href="#3-details">3. Endpunkte im Detail</a>
-                    <ul class="sub-menu">
-                        <li><a href="#3-1">3.1 /status</a></li>
-                        <li><a href="#3-2">3.2 /setpoint</a></li>
-                        <li><a href="#3-3">3.3 /command</a></li>
-                        <li><a href="#3-4">3.4 /presets</a></li>
-                        <li><a href="#3-5">3.5 /presets/save</a></li>
-                        <li><a href="#3-6">3.6 /calibration</a></li>
-                        <li><a href="#3-7">3.7 /calibration/save</a></li>
-                        <li><a href="#3-8">3.8 /reboot</a></li>
-                        <li><a href="#3-9">3.9 /log</a></li>
-                        <li><a href="#3-10">3.10 /files</a></li>
-                        <li><a href="#3-11">3.11 /files/delete</a></li>
-                        <li><a href="#3-12">3.12 /config (GET)</a></li>
-                        <li><a href="#3-13">3.13 /config (POST)</a></li>
-                    </ul>
-                </li>
-                <li><a href="#4-datenmodelle">4. Datenmodelle</a></li>
-                <li><a href="#5-fehlerbehandlung">5. Fehlerbehandlung</a></li>
-                <li><a href="#6-konfiguration">6. Konfiguration (config.json)</a></li>
-            </ul>
-            
-            <div style="margin-top: 30px; border-top: 1px solid #444; padding-top: 15px;">
-                <a href="#" style="color: #bb86fc; font-weight: bold;">&uarr; Nach oben</a>
-            </div>
-        </aside>
-
-        <main class="api-content">
-            <div class="doc-header">
-                <h1>REST API Dokumentation: TWM Isolation Variac Controller</h1>
-                <div class="doc-meta">
-                    <strong>Basis-URL:</strong> <code>http://twm_variac.local/api/</code><br>
-                    <strong>Version:</strong> 3.11 &nbsp;|&nbsp; <strong>Datum:</strong> 09. Oktober 2025
-                </div>
-            </div>
-
-            <section id="1-einleitung">
-                <h2>1. Einleitung</h2>
-                <p>Diese API dient zur Fernsteuerung und Überwachung des TWM Isolation Variac Controllers. Sie ermöglicht das Auslesen des aktuellen Gerätestatus sowie das Senden von Steuerbefehlen über das Netzwerk. Die Kommunikation erfolgt über Standard-HTTP-Anfragen. Alle Daten werden im JSON-Format ausgetauscht.</p>
-            </section>
-
-            <section id="2-uebersicht">
-                <h2>2. API Endpunkt-Übersicht</h2>
-                <table>
-                    <thead>
-                        <tr><th>Methode</th><th>Endpunkt</th><th>Beschreibung</th><th>Beispiel</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr><td>GET</td><td><a href="#3-1"><code>/status</code></a></td><td>Liest den vollständigen Echtzeit-Zustand des Geräts aus.</td><td><code>GET /api/status</code></td></tr>
-                        <tr><td>GET</td><td><a href="#3-4"><code>/presets</code></a></td><td>Gibt die aktuell gespeicherten Spannungswerte für die Presets zurück.</td><td><code>GET /api/presets</code></td></tr>
-                        <tr><td>GET</td><td><a href="#3-6"><code>/calibration</code></a></td><td>Liest die kalibrierten Minimal-/Maximal-Positionen des Steppers.</td><td><code>GET /api/calibration</code></td></tr>
-                        <tr><td>GET</td><td><a href="#3-2"><code>/setpoint</code></a></td><td>Setzt einen neuen, manuellen Sollwert für die Ausgangsspannung.</td><td><code>GET /api/setpoint?voltage=120.5</code></td></tr>
-                        <tr><td>GET</td><td><a href="#3-3"><code>/command</code></a></td><td>Führt eine vordefinierte Aktion aus.</td><td><code>GET /api/command?action=toggle_output</code></td></tr>
-                        <tr><td>GET</td><td><a href="#3-5"><code>/presets/save</code></a></td><td>Speichert eine Spannung auf einem Preset-Platz (1, 2 oder 3).</td><td><code>GET /api/presets/save?preset=1</code></td></tr>
-                        <tr><td>GET</td><td><a href="#3-7"><code>/calibration/save</code></a></td><td>Speichert eine Stepper-Position als Anschlag.</td><td><code>GET /api/calibration/save?limit=min</code></td></tr>
-                        <tr><td>GET</td><td><a href="#3-8"><code>/reboot</code></a></td><td>Startet das Gerät neu.</td><td><code>GET /api/reboot</code></td></tr>
-                        <tr><td>GET</td><td><a href="#3-9"><code>/log</code></a></td><td>Ruft die System-Log-Datei ab.</td><td><code>GET /api/log?download=true</code></td></tr>
-                        <tr><td>GET</td><td><a href="#3-10"><code>/files</code></a></td><td>Listet alle Dateien im Dateisystem auf.</td><td><code>GET /api/files</code></td></tr>
-                        <tr><td>GET</td><td><a href="#3-11"><code>/files/delete</code></a></td><td>Löscht eine spezifische Datei.</td><td><code>GET /api/files/delete?filename=...</code></td></tr>
-                        <tr><td>GET</td><td><a href="#3-12"><code>/config</code></a></td><td>Liest die gesamte config.json-Datei aus.</td><td><code>GET /api/config</code></td></tr>
-                        <tr><td>POST</td><td><a href="#3-13"><code>/config</code></a></td><td>Schreibt eine neue Konfiguration in die config.json.</td><td><code>POST /api/config</code></td></tr>
-                    </tbody>
-                </table>
-            </section>
-
-            <section id="3-details">
-                <h2>3. Endpunkte im Detail</h2>
-
-                <div class="endpoint-block" id="3-1">
-                    <h3>3.1. Gerätestatus abfragen</h3>
-                    <p><span class="method-tag">GET</span> <code>/status</code></p>
-                    <p>Ruft den vollständigen, aktuellen Zustand des Geräts ab.</p>
-                    <p><strong>Beispiel-Anfrage:</strong></p>
-                    <pre>curl http://twm_variac.local/api/status</pre>
-                    <p><strong>Antwort:</strong> Status Code 200 OK. Body: (<a href="#4-1">Siehe Datenmodell 4.1</a>)</p>
-                </div>
-
-                <div class="endpoint-block" id="3-2">
-                    <h3>3.2. Soll-Spannung setzen</h3>
-                    <p><span class="method-tag">GET</span> <code>/setpoint</code></p>
-                    <p>Setzt einen neuen Sollwert für die Ausgangsspannung.</p>
-                    <p><strong>Parameter:</strong></p>
-                    <ul>
-                        <li><code class="param-name">voltage</code> <span class="required">[ERF]</span>: Der neue Sollwert als Fliesskommazahl.</li>
-                    </ul>
-                    <pre>curl "http://twm_variac.local/api/setpoint?voltage=120.5"</pre>
-                    <p><strong>Antwort:</strong> <code>{"status":"success","message":"Setpoint updated"}</code></p>
-                </div>
-
-                <div class="endpoint-block" id="3-3">
-                    <h3>3.3. Befehle ausführen</h3>
-                    <p><span class="method-tag">GET</span> <code>/command</code></p>
-                    <p>Löst vordefinierte Aktionen auf dem Gerät aus.</p>
-                    <p><strong>Parameter:</strong></p>
-                    <ul>
-                        <li><code class="param-name">action</code> <span class="required">[ERF]</span>: Der auszuführende Befehl als String.</li>
-                    </ul>
-                    <table>
-                        <tr><th>action-Wert</th><th>Beschreibung</th></tr>
-                        <tr><td><code>toggle_output</code></td><td>Schaltet den Hauptausgang ein oder aus.</td></tr>
-                        <tr><td><code>toggle_limit</code></td><td>Schaltet die Strombegrenzung ein oder aus.</td></tr>
-                        <tr><td><code>toggle_regulation</code></td><td>Schaltet die aktive Spannungsregelung ein oder aus.</td></tr>
-                        <tr><td><code>recall_p1</code></td><td>Ruft die Spannung des Presets 1 ab.</td></tr>
-                        <tr><td><code>recall_p2</code></td><td>Ruft die Spannung des Presets 2 ab.</td></tr>
-                        <tr><td><code>recall_p3</code></td><td>Ruft die Spannung des Presets 3 ab.</td></tr>
-                        <tr><td><code>enter_settings</code></td><td>Versetzt das Gerät in den Kalibrierungs-Modus.</td></tr>
-                    </table>
-                    <pre>curl "http://twm_variac.local/api/command?action=toggle_output"</pre>
-                </div>
-
-                <div class="endpoint-block" id="3-4">
-                    <h3>3.4. Gespeicherte Presets abfragen</h3>
-                    <p><span class="method-tag">GET</span> <code>/presets</code></p>
-                    <p>Ruft die aktuell für die drei Presets gespeicherten Spannungswerte ab.</p>
-                    <pre>curl http://twm_variac.local/api/presets</pre>
-                    <p><strong>Antwort:</strong> (<a href="#4-2">Siehe Datenmodell 4.2</a>)</p>
-                </div>
-
-                <div class="endpoint-block" id="3-5">
-                    <h3>3.5. Preset speichern</h3>
-                    <p><span class="method-tag">GET</span> <code>/presets/save</code></p>
-                    <p>Speichert einen Spannungswert auf einem der drei Preset-Plätze.</p>
-                    <p><strong>Parameter:</strong></p>
-                    <ul>
-                        <li><code class="param-name">preset</code> <span class="required">[ERF]</span>: Die Nummer des Presets (1, 2 oder 3).</li>
-                        <li><code class="param-name">voltage</code> (opt): Der zu speichernde Wert. Ohne Angabe wird die aktuelle Ist-Spannung verwendet.</li>
-                    </ul>
-                    <pre>curl "http://twm_variac.local/api/presets/save?preset=1&voltage=110"</pre>
-                </div>
-
-                <div class="endpoint-block" id="3-6">
-                    <h3>3.6. Kalibrierungswerte abfragen</h3>
-                    <p><span class="method-tag">GET</span> <code>/calibration</code></p>
-                    <p>Ruft die gespeicherten Minimal- und Maximal-Positionen des Steppers ab.</p>
-                    <pre>curl http://twm_variac.local/api/calibration</pre>
-                    <p><strong>Antwort:</strong> (<a href="#4-3">Siehe Datenmodell 4.3</a>)</p>
-                </div>
-
-                <div class="endpoint-block" id="3-7">
-                    <h3>3.7. Kalibrierungspunkt speichern</h3>
-                    <p><span class="method-tag">GET</span> <code>/calibration/save</code></p>
-                    <p>Speichert eine Stepper-Position als Anschlag. Nur im Settings-Modus aktiv.</p>
-                    <p><strong>Parameter:</strong></p>
-                    <ul>
-                        <li><code class="param-name">limit</code> <span class="required">[ERF]</span>: "min" oder "max".</li>
-                        <li><code class="param-name">value</code> (opt): Die Position. Ohne Angabe wird die aktuelle Position verwendet.</li>
-                    </ul>
-                    <pre>curl "http://twm_variac.local/api/calibration/save?limit=min&value=-25"</pre>
-                </div>
-
-                <div class="endpoint-block" id="3-8">
-                    <h3>3.8. Gerät neustarten</h3>
-                    <p><span class="method-tag">GET</span> <code>/reboot</code></p>
-                    <pre>curl http://twm_variac.local/api/reboot</pre>
-                    <p><strong>Antwort:</strong> <code>Rebooting in 200ms...</code></p>
-                </div>
-
-                <div class="endpoint-block" id="3-9">
-                    <h3>3.9. Log-Datei abrufen</h3>
-                    <p><span class="method-tag">GET</span> <code>/log</code></p>
-                    <p><strong>Parameter:</strong></p>
-                    <ul>
-                        <li><code class="param-name">old</code>: "true" für system.log.old</li>
-                        <li><code class="param-name">download</code>: "true" für Download-Header</li>
-                    </ul>
-                    <pre>curl "http://twm_variac.local/api/log?download=true"</pre>
-                </div>
-
-                <div class="endpoint-block" id="3-10">
-                    <h3>3.10. Dateien auflisten</h3>
-                    <p><span class="method-tag">GET</span> <code>/files</code></p>
-                    <pre>curl http://twm_variac.local/api/files</pre>
-                </div>
-
-                <div class="endpoint-block" id="3-11">
-                    <h3>3.11. Datei löschen</h3>
-                    <p><span class="method-tag">GET</span> <code>/files/delete</code></p>
-                    <p><strong>Parameter:</strong> <code class="param-name">filename</code> (erforderlich, Pfad beginnend mit /).</p>
-                    <pre>curl "http://twm_variac.local/api/files/delete?filename=/system.log.old"</pre>
-                </div>
-
-                <div class="endpoint-block" id="3-12">
-                    <h3>3.12. Konfiguration auslesen</h3>
-                    <p><span class="method-tag">GET</span> <code>/config</code></p>
-                    <pre>curl http://twm_variac.local/api/config</pre>
-                </div>
-
-                <div class="endpoint-block" id="3-13">
-                    <h3>3.13. Konfiguration schreiben</h3>
-                    <p><span class="method-tag post-tag">POST</span> <code>/config</code></p>
-                    <p>Erwartet valides JSON im Body. Beispiel für Preset-Update:</p>
-                    <pre>curl -X POST -H "Content-Type: application/json" -d "{\"presets\":{\"p1\":55}}" http://twm_variac.local/api/config</pre>
-                </div>
-            </section>
-
-            <section id="4-datenmodelle">
-                <h2>4. Datenmodelle</h2>
-                <h3 id="4-1">4.1. Status-Objekt</h3>
-                <pre>{
-  "voltage_actual": 12.5,
-  "voltage_setpoint": 50.0,
-  "temperature": 35.7,
-  "stepper_position": 1500,
-  "is_hardware_ok": true,
-  "fw_version": "Firmware V3.11",
-  "states": {
-    "output_on": true,
-    "limit_on": false,
-    "regulation_on": true
-  }
-}</pre>
-                <h3 id="4-2">4.2. Presets-Objekt</h3>
-                <pre>{ "p1": 50, "p2": 120, "p3": 230 }</pre>
-                <h3 id="4-3">4.3. Kalibrierungs-Objekt</h3>
-                <pre>{ "min_pos": -25, "max_pos": 1980 }</pre>
-            </section>
-
-            <section id="5-fehlerbehandlung">
-                <h2>5. Fehlerbehandlung und Statuscodes</h2>
-                <p>Die API verwendet Standard-HTTP-Statuscodes.</p>
-                
-                <h3>5.1. Erfolgreiche Anfragen</h3>
-                <p><strong>Code: 200 OK</strong></p>
-                <p>Anfrage erfolgreich. Body enthält Daten oder Erfolgs-JSON:</p>
-                <pre>{ "status": "success", "message": "Command executed" }</pre>
-
-                <h3>5.2. Fehlerhafte Anfragen</h3>
-                <p><strong>Code: 400 Bad Request</strong></p>
-                <p>Tritt auf bei fehlenden Parametern oder ungültigen Werten.</p>
-                <pre>{ "status": "error", "message": "Missing 'action' parameter" }</pre>
-
-                <h3>5.3. Nicht gefundene Ressource</h3>
-                <p><strong>Code: 404 Not Found</strong></p>
-                <pre>{ "status": "error", "message": "Endpoint not found" }</pre>
-
-                <h3>5.4. Dienst nicht verfügbar</h3>
-                <p><strong>Code: 503 Service Unavailable</strong></p>
-                <p>Hardware nicht bereit (hardwareInitialized ist false).</p>
-                <pre>{ "status": "error", "message": "Hardware not ready" }</pre>
-            </section>
-
-            <section id="6-konfiguration">
-                <h2>6. Konfigurations-Datei (config.json)</h2>
-                <p>Struktur der persistenten Einstellungen.</p>
-                
-                <h3>6.1. system Objekt</h3>
-                <table>
-                    <tr><th>Feld</th><th>Typ</th><th>Beschreibung</th><th>Default</th></tr>
-                    <tr><td>debug_enabled</td><td>Bool</td><td>Serielles Debugging ein/aus</td><td>true</td></tr>
-                    <tr><td>coarse_move_threshold</td><td>Float</td><td>Schwelle für Grob-Anfahrt (V)</td><td>20.0</td></tr>
-                </table>
-
-                <h3>6.2. calibration Objekt</h3>
-                <table>
-                    <tr><th>Feld</th><th>Typ</th><th>Beschreibung</th><th>Default</th></tr>
-                    <tr><td>min_pos</td><td>Int</td><td>Min. Anschlag Position</td><td>0</td></tr>
-                    <tr><td>max_pos</td><td>Int</td><td>Max. Anschlag Position</td><td>2000</td></tr>
-                    <tr><td>min_voltage</td><td>Float</td><td>Spannung am Min-Anschlag</td><td>3.0</td></tr>
-                    <tr><td>max_voltage</td><td>Float</td><td>Spannung am Max-Anschlag</td><td>255.0</td></tr>
-                </table>
-
-                <h3>6.3. presets Objekt</h3>
-                <table>
-                    <tr><th>Feld</th><th>Typ</th><th>Beschreibung</th><th>Default</th></tr>
-                    <tr><td>p1 / p2 / p3</td><td>Int</td><td>Gespeicherte Spannungswerte</td><td>0</td></tr>
-                </table>
-            </section>
-
-        </main>
+    <div class="doc-container-api">
+    <div class="doc-nav">
+        <a href="doc_usage.html">1. Bedienung</a>
+        <a href="doc_api.html" style="color:#bb86fc">2. API</a>
+        <a href="doc_settings.html">3. Einstellungen</a>
+        <a href="/" style="float:right">X Schließen</a>
     </div>
 
+    <!-- Interaktive API-Doku (#22): Quelle ist /openapi.yaml (Single Source of Truth).
+         RapiDoc liegt lokal im LittleFS (rapidoc-min.js) - funktioniert ohne Internet. -->
+    <rapi-doc
+        spec-url="/openapi.yaml"
+        theme="dark"
+        bg-color="#1e1e1e"
+        text-color="#e0e0e0"
+        primary-color="#bb86fc"
+        nav-bg-color="#161616"
+        nav-text-color="#e0e0e0"
+        nav-hover-text-color="#03dac6"
+        render-style="focused"
+        show-header="false"
+        allow-spec-url-load="false"
+        allow-spec-file-load="false"
+        allow-server-selection="false"
+        allow-authentication="false"
+        default-schema-tab="schema"
+        schema-style="table">
+    </rapi-doc>
+    </div>
 </body>
 </html>

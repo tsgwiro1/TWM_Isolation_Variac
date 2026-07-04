@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (confirm('Gerät wirklich neustarten? Alle nicht gespeicherten Änderungen gehen verloren.')) {
                 
                 // 1. Befehl feuern und ignorieren was zurückkommt (Fire and Forget)
-                fetch('/api/reboot').catch(() => { /* Fehler ignorieren, Gerät geht ja offline */ });
+                fetch('/api/reboot', { method: 'POST' }).catch(() => { /* Fehler ignorieren, Gerät geht ja offline */ });
                 
                 // 2. SOFORT die Anzeige aktualisieren, OHNE auf den ESP32 zu warten!
                 const container = document.querySelector('.container');
@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const v = document.getElementById('vm-new-factor').value;
         if (v === '' || isNaN(v)) { vmMsg('Bitte gültigen Faktor eingeben.'); return; }
         vmMsg('Setze Faktor...');
-        fetch('/api/voltmeter/factor?value=' + encodeURIComponent(v))
+        fetch('/api/voltmeter/factor?value=' + encodeURIComponent(v), { method: 'POST' })
             .then(r => r.json())
             .then(d => { vmMsg(d.message || d.status); loadVoltmeterStatus(); })
             .catch(() => vmMsg('Kommunikationsfehler.'));
@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const v = document.getElementById('vm-new-offset').value;
         if (v === '' || isNaN(v)) { vmMsg('Bitte gültigen Offset eingeben.'); return; }
         vmMsg('Setze Offset...');
-        fetch('/api/voltmeter/offset?value=' + encodeURIComponent(v))
+        fetch('/api/voltmeter/offset?value=' + encodeURIComponent(v), { method: 'POST' })
             .then(r => r.json())
             .then(d => { vmMsg(d.message || d.status); loadVoltmeterStatus(); })
             .catch(() => vmMsg('Kommunikationsfehler.'));
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (vmAutozero) vmAutozero.addEventListener('click', () => {
         if (!confirm('Auto-Zero-Kalibrierung starten? Dauert einige Sekunden.')) return;
         vmMsg('Auto-Zero läuft...');
-        fetch('/api/voltmeter/autozero')
+        fetch('/api/voltmeter/autozero', { method: 'POST' })
             .then(r => r.json())
             .then(d => { vmMsg(d.message || d.status); setTimeout(loadVoltmeterStatus, 8000); })
             .catch(() => vmMsg('Kommunikationsfehler.'));
@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (vmReboot) vmReboot.addEventListener('click', () => {
         if (!confirm('Voltmeter neu starten?')) return;
         vmMsg('Voltmeter startet neu...');
-        fetch('/api/voltmeter/reboot')
+        fetch('/api/voltmeter/reboot', { method: 'POST' })
             .then(r => r.json())
             .then(d => { vmMsg(d.message || d.status); setTimeout(loadVoltmeterStatus, 8000); })
             .catch(() => vmMsg('Kommunikationsfehler.'));
@@ -187,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (vmResetDefaults) vmResetDefaults.addEventListener('click', () => {
         if (!confirm('Voltmeter-Kalibrierung auf Werkseinstellungen zurücksetzen?')) return;
         vmMsg('Setze zurück...');
-        fetch('/api/voltmeter/reset-defaults')
+        fetch('/api/voltmeter/reset-defaults', { method: 'POST' })
             .then(r => r.json())
             .then(d => { vmMsg(d.message || d.status); loadVoltmeterStatus(); })
             .catch(() => vmMsg('Kommunikationsfehler.'));
@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const v = document.getElementById('cal3-v' + idx).value;
             if (v === '' || isNaN(v)) { vmMsg('Bitte Referenzspannung für Punkt ' + n + ' eingeben.'); return; }
             vmMsg('Messe Punkt ' + n + ' … (~2 s)');
-            fetch('/api/voltmeter/cal3/measure?index=' + idx + '&voltage=' + encodeURIComponent(v))
+            fetch('/api/voltmeter/cal3/measure?index=' + idx + '&voltage=' + encodeURIComponent(v), { method: 'POST' })
                 .then(r => r.json())
                 .then(d => vmMsg(d.status === 'success' ? ('Punkt ' + n + ' gemessen.') : ('Fehler: ' + (d.message || ''))))
                 .catch(() => vmMsg('Kommunikationsfehler.'));
@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const cal3Finish = document.getElementById('cal3-finish');
     if (cal3Finish) cal3Finish.addEventListener('click', () => {
         vmMsg('Berechne Kalibrierung…');
-        fetch('/api/voltmeter/cal3/finish')
+        fetch('/api/voltmeter/cal3/finish', { method: 'POST' })
             .then(r => r.json())
             .then(d => {
                 if (d.status === 'success') {
@@ -288,7 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function startUpdate(skipEnter) {
         fwMsg('Starte Update…');
-        fetch('/api/voltmeter/update/start' + (skipEnter ? '?skipenter=1' : ''))
+        fetch('/api/voltmeter/update/start' + (skipEnter ? '?skipenter=1' : ''), { method: 'POST' })
             .then(r => r.json())
             .then(d => {
                 fwMsg(d.message || d.status);

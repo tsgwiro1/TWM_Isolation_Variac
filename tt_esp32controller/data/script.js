@@ -21,16 +21,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Funktion, um die Daten vom ESP32 zu holen und die Anzeige zu aktualisieren
+    // (#22: /data ist in /api/status aufgegangen)
     function updateData() {
-        fetch('/data')
+        fetch('/api/status')
             .then(response => response.json())
             .then(data => {
                 // Werte aktualisieren
-                istVoltageElement.textContent = data.ist.toFixed(1);
-                sollVoltageElement.textContent = data.soll.toFixed(1);
+                istVoltageElement.textContent = data.voltage_actual.toFixed(1);
+                sollVoltageElement.textContent = data.voltage_setpoint.toFixed(1);
 
-                // NEU: Zeigerinstrument aktualisieren
-                const voltage = data.ist;
+                // Zeigerinstrument aktualisieren
+                const voltage = data.voltage_actual;
                 // Definiere den Bereich: 0V bis 260V entspricht -90 Grad bis +90 Grad
                 const angle = mapRange(voltage, 0, 260, -90, 90);
                 // Wende die Rotation auf die Nadel an
@@ -38,13 +39,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     gaugeNeedle.style.transform = `translate(-50%) rotate(${angle}deg)`;
                 }
 
-                // NEU: Tasten-Zustände aktualisieren
-                btnOnoff.classList.toggle('active', data.state_onoff);
-                btnLimit.classList.toggle('active', data.state_limit);
-                btnReg.classList.toggle('active', data.state_reg);
-                btnP1.classList.toggle('active', data.state_p1);
-                btnP2.classList.toggle('active', data.state_p2);
-                btnP3.classList.toggle('active', data.state_p3);
+                // Tasten-Zustände aktualisieren
+                const st = data.states || {};
+                btnOnoff.classList.toggle('active', st.output_on);
+                btnLimit.classList.toggle('active', st.limit_on);
+                btnReg.classList.toggle('active', st.regulation_on);
+                btnP1.classList.toggle('active', st.p1_on);
+                btnP2.classList.toggle('active', st.p2_on);
+                btnP3.classList.toggle('active', st.p3_on);
             })
             .catch(error => console.error('Fehler beim Abrufen der Daten:', error));
     }
@@ -56,7 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
             statusMessage.textContent = 'Bitte gültigen Wert eingeben.';
             return;
         }
-        fetch(`/api/setpoint?voltage=${voltage}`)
+        fetch(`/api/setpoint?voltage=${voltage}`, { method: 'POST' })
             .then(response => {
                 if (response.ok) {
                     statusMessage.textContent = `Sollwert auf ${voltage} V gesetzt.`;
@@ -71,7 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // NEU: Generische Funktion, um einen Tasten-Befehl zu senden
     function sendCommand(action) {
-        fetch(`/api/command?action=${action}`)
+        fetch(`/api/command?action=${action}`, { method: 'POST' })
             .then(response => {
                 if (!response.ok) {
                     console.error('Fehler beim Senden des Befehls:', action);

@@ -28,9 +28,9 @@ THE SOFTWARE.
 
 // version
 #ifdef SIM
-#define FW  "Firmware V3.3.0 (SIM)"
+#define FW  "Firmware V4.0.0 (SIM)"
 #else
-#define FW  "Firmware V3.3.0"
+#define FW  "Firmware V4.0.0"
 #endif
 
 // Includes for Libraries
@@ -1081,30 +1081,8 @@ void initWebServer() {
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
 
   // API-Route für die Datenabfrage ("/data"): Liefere IST/SOLL und Tasten-Zustände als JSON
-  server.on("/data", HTTP_GET, [](AsyncWebServerRequest *request){
-    StaticJsonDocument<256> doc;
-
-    doc["ist"] = received_rms_value;
-    doc["soll"] = setpoint_voltage;
-    doc["ist_fresh"] = isVoltageDataFresh();
-
-    // Zustände der Action-Objekte hinzufügen (benötigt Zeiger-Architektur)
-    if (hardwareInitialized) {
-      doc["state_onoff"] = (bool)A_onoff->getState();
-      doc["state_limit"] = (bool)A_limit->getState();
-      doc["state_reg"]   = (bool)A_reg->getState();
-      doc["state_p1"]    = (bool)A_p1->getState();
-      doc["state_p2"]    = (bool)A_p2->getState();
-      doc["state_p3"]    = (bool)A_p3->getState();
-    }
-    
-    String jsonString;
-    serializeJson(doc, jsonString);
-    request->send(200, "application/json", jsonString);
-  });
-
-  // API-Route zum Setzen des Sollwerts ("/api/setpoint?voltage=...")
-  server.on("/api/setpoint", HTTP_GET, [] (AsyncWebServerRequest *request) {
+  // API-Route zum Setzen des Sollwerts (POST /api/setpoint?voltage=...) (#22)
+  server.on("/api/setpoint", HTTP_POST, [] (AsyncWebServerRequest *request) {
     if (!hardwareInitialized) {
       request->send(503, "application/json", "{\"status\":\"error\",\"message\":\"Hardware not ready\"}");
       return;
@@ -1121,8 +1099,8 @@ void initWebServer() {
     }
   });
 
-  // API-Route zum Auslösen von Aktionen ("/api/command?action=...")
-  server.on("/api/command", HTTP_GET, [] (AsyncWebServerRequest *request) {
+  // API-Route zum Auslösen von Aktionen (POST /api/command?action=...) (#22)
+  server.on("/api/command", HTTP_POST, [] (AsyncWebServerRequest *request) {
     if (!hardwareInitialized) {
       request->send(503, "application/json", "{\"status\":\"error\",\"message\":\"Hardware not ready\"}");
       return;
@@ -1165,6 +1143,10 @@ void initWebServer() {
       states["output_on"] = (bool)A_onoff->getState();
       states["limit_on"] = (bool)A_limit->getState();
       states["regulation_on"] = (bool)A_reg->getState();
+      // Preset-Tasten-Zustände (ehemals in /data; /data ist in /api/status aufgegangen, #22)
+      states["p1_on"] = (bool)A_p1->getState();
+      states["p2_on"] = (bool)A_p2->getState();
+      states["p3_on"] = (bool)A_p3->getState();
     }
     
     String jsonString;
@@ -1209,7 +1191,7 @@ void initWebServer() {
   });
 
   // API-Route: Skalierungsfaktor des Voltmeters setzen (+ EEPROM speichern)
-  server.on("/api/voltmeter/factor", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/api/voltmeter/factor", HTTP_POST, [](AsyncWebServerRequest *request){
     if (!request->hasParam("value")) {
       request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'value' parameter\"}");
       return;
@@ -1230,7 +1212,7 @@ void initWebServer() {
   });
 
   // API-Route: Spannungs-Offset des Voltmeters setzen (+ EEPROM speichern)
-  server.on("/api/voltmeter/offset", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/api/voltmeter/offset", HTTP_POST, [](AsyncWebServerRequest *request){
     if (!request->hasParam("value")) {
       request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'value' parameter\"}");
       return;
@@ -1251,7 +1233,7 @@ void initWebServer() {
   });
 
   // API-Route: Auto-Zero-Kalibrierung des Voltmeters starten (läuft danach mehrere Sekunden)
-  server.on("/api/voltmeter/autozero", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/api/voltmeter/autozero", HTTP_POST, [](AsyncWebServerRequest *request){
     if (voltmeterRequest(VM_CMD_RECAL, nullptr, 0, 400)) {
       request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Auto-zero started (takes a few seconds)\"}");
     } else {
@@ -1260,7 +1242,7 @@ void initWebServer() {
   });
 
   // API-Route: 3-Punkt-Kalibrierung – einen Punkt messen (index + anliegende Referenzspannung)
-  server.on("/api/voltmeter/cal3/measure", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/api/voltmeter/cal3/measure", HTTP_POST, [](AsyncWebServerRequest *request){
     if (!request->hasParam("index") || !request->hasParam("voltage")) {
       request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'index' or 'voltage'\"}");
       return;
@@ -1281,7 +1263,7 @@ void initWebServer() {
   });
 
   // API-Route: Voltmeter neu starten (Soft-Reset)
-  server.on("/api/voltmeter/reboot", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/api/voltmeter/reboot", HTTP_POST, [](AsyncWebServerRequest *request){
     if (voltmeterRequest(VM_CMD_REBOOT, nullptr, 0, 400)) {
       request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Voltmeter rebooting\"}");
     } else {
@@ -1290,7 +1272,7 @@ void initWebServer() {
   });
 
   // API-Route: Voltmeter-Kalibrierung auf Standardwerte zurücksetzen
-  server.on("/api/voltmeter/reset-defaults", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/api/voltmeter/reset-defaults", HTTP_POST, [](AsyncWebServerRequest *request){
     if (voltmeterRequest(VM_CMD_RESET_DEFAULTS, nullptr, 0, 400)) {
       request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Calibration reset to defaults\"}");
     } else {
@@ -1299,7 +1281,7 @@ void initWebServer() {
   });
 
   // API-Route: 3-Punkt-Kalibrierung abschließen – Regression rechnen + speichern
-  server.on("/api/voltmeter/cal3/finish", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/api/voltmeter/cal3/finish", HTTP_POST, [](AsyncWebServerRequest *request){
     if (voltmeterRequest(VM_CMD_CAL3_FINISH, nullptr, 0, 600) && voltmeterResponseLen >= 9) {
       bool ok = (voltmeterResponsePayload[0] == 1);
       if (ok) {
@@ -1335,7 +1317,7 @@ void initWebServer() {
     });
 
   // Update starten: prüft Datei, stößt den Update-Task an.
-  server.on("/api/voltmeter/update/start", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/api/voltmeter/update/start", HTTP_POST, [](AsyncWebServerRequest *request){
     if (vmUpdateState == VMU_RUNNING) {
       request->send(409, "application/json", "{\"status\":\"error\",\"message\":\"Update already running\"}");
       return;
@@ -1378,72 +1360,12 @@ void initWebServer() {
     request->send(200, "application/json", out);
   });
 
-  // API-Route zum Speichern der aktuellen oder übergebenen Spannung auf einem Preset
-  server.on("/api/presets/save", HTTP_GET, [](AsyncWebServerRequest *request) {
-    // 1. Zuerst prüfen, ob die Hardware überhaupt bereit ist
-    if (!hardwareInitialized) {
-        request->send(503, "application/json", "{\"status\":\"error\",\"message\":\"Hardware not ready\"}");
-        return;
-    }
+  // #22: /api/presets (GET), /api/presets/save und /api/calibration (GET) entfernt —
+  // die Werte stecken vollständig in /api/config; Presets speichern läuft über
+  // POST /api/config oder die Gerätetasten.
 
-    // 2. Prüfen, ob der 'preset'-Parameter vorhanden ist
-    if (request->hasParam("preset")) {
-        int presetNum = request->getParam("preset")->value().toInt();
-        float voltageToSave;
-
-        // Prüfe, ob eine Spannung explizit mitgeliefert wurde
-        if (request->hasParam("voltage")) {
-            voltageToSave = request->getParam("voltage")->value().toFloat();
-        } else if (isVoltageDataFresh()) {
-            voltageToSave = received_rms_value; // Fallback auf aktuellen Messwert
-        } else {
-            request->send(503, "application/json", "{\"status\":\"error\",\"message\":\"No fresh voltmeter data\"}");
-            return;
-        }
-
-        int v = constrain((int)round(voltageToSave), MIN_VOLTAGE_TARGET, maxVoltageTarget());
-        Action* targetAction = nullptr;
-
-        switch(presetNum) {
-            case 1: targetAction = A_p1; break;
-            case 2: targetAction = A_p2; break;
-            case 3: targetAction = A_p3; break;
-            default:
-                // Fehler: Ungültige Preset-Nummer
-                request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid preset number. Use 1, 2, or 3.\"}");
-                return;
-        }
-        // Werte aktualisieren und speichern
-        targetAction->setValuePreset(v);
-        saveConfiguration();
-        logMessage(LOG_INFO, "API: Preset %d stored -> %d V", presetNum, v);
-        // Erfolgs-Antwort im JSON-Format
-        request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Preset saved\"}");
-    } else {
-        // Fehler: Fehlender 'preset'-Parameter
-        request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'preset' parameter\"}");
-    }
-  });
-
-  // API-Route zum Abrufen der gespeicherten Preset-Werte
-  server.on("/api/presets", HTTP_GET, [](AsyncWebServerRequest *request){
-    if (!hardwareInitialized) {
-      request->send(503, "application/json", "{\"error\":\"Hardware not ready\"}");
-      return;
-    }
-    
-    StaticJsonDocument<128> doc;
-    doc["p1"] = A_p1->getValuePreset();
-    doc["p2"] = A_p2->getValuePreset();
-    doc["p3"] = A_p3->getValuePreset();
-    
-    String jsonString;
-    serializeJson(doc, jsonString);
-    request->send(200, "application/json", jsonString);
-  });
-
-  // API-Route zum Speichern der Kalibrierungswerte
-  server.on("/api/calibration/save", HTTP_GET, [](AsyncWebServerRequest *request) {
+  // API-Route zum Setzen eines Kalibrier-Endanschlags (POST /api/calibration?limit=min|max[&value=]) (#22)
+  server.on("/api/calibration", HTTP_POST, [](AsyncWebServerRequest *request) {
     // 1. Zuerst prüfen, ob die Hardware überhaupt bereit ist
     if (!hardwareInitialized) {
         request->send(503, "application/json", "{\"status\":\"error\",\"message\":\"Hardware not ready\"}");
@@ -1491,19 +1413,8 @@ void initWebServer() {
     }
   });
 
-  // API-Route zum Auslesen der Kalibrierungswerte
-  server.on("/api/calibration", HTTP_GET, [](AsyncWebServerRequest *request){
-    StaticJsonDocument<128> doc;
-    doc["min_pos"] = minWhiperPos;
-    doc["max_pos"] = maxWhiperPos;
-    
-    String jsonString;
-    serializeJson(doc, jsonString);
-    request->send(200, "application/json", jsonString);
-  });
-
-  // API-Route für einen Neustart des Geräts
-  server.on("/api/reboot", HTTP_GET, [](AsyncWebServerRequest *request){
+  // API-Route für einen Neustart des Geräts (POST, #22)
+  server.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest *request){
     // Sende die Bestätigung an den Client.
     request->send(200, "text/plain", "Rebooting in 200ms...");
     
@@ -1546,8 +1457,8 @@ void initWebServer() {
     }
   });
 
-  // API-Route zum Löschen einer Datei
-  server.on("/api/files/delete", HTTP_GET, [](AsyncWebServerRequest *request) {
+  // API-Route zum Löschen einer Datei (DELETE /api/files?filename=/x.y) (#22)
+  server.on("/api/files", HTTP_DELETE, [](AsyncWebServerRequest *request) {
     if (request->hasParam("filename")) {
       String filename = request->getParam("filename")->value();
       

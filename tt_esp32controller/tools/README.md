@@ -214,13 +214,14 @@ Ausgang einschalten ...
 
 ## Verwendete API-Endpunkte
 
-Die Skripte nutzen die REST-API des Controllers (siehe
-[`../documentation/REST API Dokumentation_IsolationVariac.docx`](../documentation/)):
+Die Skripte nutzen die REST-API des Controllers **ab Firmware V4.0.0** (interaktive Doku:
+`http://<controller>/doc_api.html`, Spec: `openapi.yaml` in `../data/`). Für ältere
+Firmware (< V4.0.0, Aktionen noch per GET) eine frühere Version dieser Tools verwenden.
 
 | Zweck | Endpunkt |
 |-------|----------|
 | Zustand lesen | `GET /api/status` |
-| Soll-Spannung setzen | `GET /api/setpoint?voltage=<V>` |
-| Ausgang umschalten | `GET /api/command?action=toggle_output` |
-| Strombegrenzung umschalten | `GET /api/command?action=toggle_limit` |
-| Spannungsregelung umschalten | `GET /api/command?action=toggle_regulation` |
+| Soll-Spannung setzen | `POST /api/setpoint?voltage=<V>` |
+| Ausgang umschalten | `POST /api/command?action=toggle_output` |
+| Strombegrenzung umschalten | `POST /api/command?action=toggle_limit` |
+| Spannungsregelung umschalten | `POST /api/command?action=toggle_regulation` |

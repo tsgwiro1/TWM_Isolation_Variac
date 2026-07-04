@@ -51,16 +51,25 @@ class Variac:
             self.base = "http://" + host.rstrip("/")
         self.timeout = timeout
 
-    def _get(self, path, params=None):
+    def _request(self, path, params=None, method="GET"):
         url = self.base + "/api" + path
         if params:
             url += "?" + urllib.parse.urlencode(params)
         try:
-            with urllib.request.urlopen(url, timeout=self.timeout) as resp:
+            req = urllib.request.Request(url, method=method)
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 data = resp.read().decode("utf-8", errors="replace")
         except Exception as exc:  # urllib wirft je nach Fehler verschiedene Typen
             raise VariacError("Anfrage fehlgeschlagen ({}): {}".format(url, exc))
         return data
+
+    def _get(self, path, params=None):
+        return self._request(path, params, method="GET")
+
+    def _post(self, path, params=None):
+        # Ab Controller-FW V4.0.0 sind zustandsaendernde Aufrufe POST
+        # (Parameter weiterhin im Query-String).
+        return self._request(path, params, method="POST")
 
     def get_status(self):
         """Liest den Gesamtzustand des Geraets als dict."""
@@ -72,10 +81,10 @@ class Variac:
 
     def set_voltage(self, voltage):
         """Setzt den Soll-Spannungswert."""
-        self._get("/setpoint", {"voltage": voltage})
+        self._post("/setpoint", {"voltage": voltage})
 
     def _command(self, action):
-        self._get("/command", {"action": action})
+        self._post("/command", {"action": action})
 
     def _state(self, key):
         """Liefert den aktuellen Bool-Zustand aus dem 'states'-Objekt."""

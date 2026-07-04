@@ -59,7 +59,8 @@ function Set-VVoltage {
     # InvariantCulture erzwingen, damit der Dezimalpunkt verwendet wird.
     $v = [string]::Format([System.Globalization.CultureInfo]::InvariantCulture, "{0}", $Voltage)
     try {
-        Invoke-RestMethod -Uri "$script:BaseUrl/api/setpoint?voltage=$v" -TimeoutSec $TimeoutSec | Out-Null
+        # Ab Controller-FW V4.0.0: zustandsaendernde Aufrufe sind POST
+        Invoke-RestMethod -Method Post -Uri "$script:BaseUrl/api/setpoint?voltage=$v" -TimeoutSec $TimeoutSec | Out-Null
     } catch {
         throw "Setpoint setzen fehlgeschlagen: $($_.Exception.Message)"
     }
@@ -68,7 +69,7 @@ function Set-VVoltage {
 function Invoke-VCommand {
     param([string]$Action)
     try {
-        Invoke-RestMethod -Uri "$script:BaseUrl/api/command?action=$Action" -TimeoutSec $TimeoutSec | Out-Null
+        Invoke-RestMethod -Method Post -Uri "$script:BaseUrl/api/command?action=$Action" -TimeoutSec $TimeoutSec | Out-Null
     } catch {
         throw "Befehl '$Action' fehlgeschlagen: $($_.Exception.Message)"
     }

@@ -70,16 +70,18 @@ extern volatile bool is_regulation_active;
 extern volatile float setpoint_voltage;
 extern volatile float minVoltageAtMinPos;
 extern volatile float maxVoltageAtMaxPos;
-extern volatile float voltageThresholdCoarseMove;  // aktuell ungenutzt (Aufräumen in #31)
 
-// --- Parameter der Spannungsregelung (#17) ---
-#define REG_DEADBAND_V           1.0f   // innerhalb +/- dieses Fehlers wird nicht korrigiert
-#define REG_CORRECTION_DAMPING   0.8f   // Anteil der berechneten Korrektur (Schutz vor Überschwingen)
-#define REG_SETTLE_MS            150    // Wartezeit nach Stepper-Stopp, bis gemessen wird
+// --- Parameter der Spannungsregelung (#17), seit #31 über die Konfiguration einstellbar ---
+// (Tuning pro Gerät ohne Code-Änderung; Persistenz im NVS, API/UI über /api/config)
+extern volatile float    reg_deadband_v;    // innerhalb +/- dieses Fehlers wird nicht korrigiert
+extern volatile float    reg_damping;       // Anteil der berechneten Korrektur (Schutz vor Überschwingen)
+extern volatile uint32_t reg_settle_ms;     // Wartezeit nach Stepper-Stopp, bis gemessen wird
+extern volatile float    reg_undershoot_v;  // Vorsteuerung stoppt um diese Spannung kurz vor dem Ziel
+
+// Feste Parameter der Spannungsregelung (bewusst nicht konfigurierbar)
 #define REG_DRIFT_PERSIST_MS     800    // im Halten: so lange außerhalb Deadband, bevor nachkorrigiert wird
 #define REG_MAX_CORRECTION_STEPS 150    // Klemme je Einzelkorrektur (Schutz gegen Ausreißer-Messung)
 #define REG_MAX_CORRECTIONS      5      // max. Korrekturiterationen pro Anfahrt
-#define REG_FEEDFORWARD_UNDERSHOOT_V 5.0f // Vorsteuerung stoppt um diese Spannung kurz vor dem Ziel
 
 // Periodizität für Regelung und Preset Handling
 #define REGULATION_LOOP_PERIOD 100

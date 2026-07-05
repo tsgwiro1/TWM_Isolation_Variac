@@ -16,7 +16,12 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 // System
                 document.getElementById('debug_enabled').checked = data.system.debug_enabled;
-                document.getElementById('coarse_move_threshold').value = data.system.coarse_move_threshold;
+                // Regelparameter (#31; ältere Configs haben den Block evtl. noch nicht)
+                const reg = data.regulation || {};
+                document.getElementById('reg_deadband_v').value = reg.deadband_v ?? 1.0;
+                document.getElementById('reg_damping').value = reg.damping ?? 0.8;
+                document.getElementById('reg_settle_ms').value = reg.settle_ms ?? 150;
+                document.getElementById('reg_undershoot_v').value = reg.undershoot_v ?? 5.0;
                 // Kalibrierung
                 document.getElementById('min_pos').value = data.calibration.min_pos;
                 document.getElementById('max_pos').value = data.calibration.max_pos;
@@ -41,8 +46,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Erstelle ein JSON-Objekt aus den Formulardaten
         const data = {
             system: {
-                debug_enabled: document.getElementById('debug_enabled').checked,
-                coarse_move_threshold: parseFloat(document.getElementById('coarse_move_threshold').value)
+                debug_enabled: document.getElementById('debug_enabled').checked
+            },
+            regulation: {
+                deadband_v: parseFloat(document.getElementById('reg_deadband_v').value),
+                damping: parseFloat(document.getElementById('reg_damping').value),
+                settle_ms: parseInt(document.getElementById('reg_settle_ms').value),
+                undershoot_v: parseFloat(document.getElementById('reg_undershoot_v').value)
             },
             calibration: {
                 min_pos: parseInt(document.getElementById('min_pos').value),

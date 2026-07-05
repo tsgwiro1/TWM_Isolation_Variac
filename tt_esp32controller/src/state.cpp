@@ -22,7 +22,12 @@ volatile bool is_regulation_active = false;
 volatile float setpoint_voltage = 0.0f;
 volatile float minVoltageAtMinPos = 3.0f;
 volatile float maxVoltageAtMaxPos = 255.0f;
-volatile float voltageThresholdCoarseMove = 20.0f;
+
+// Regelparameter (#31): Startwerte = bisherige #define-Werte; Config überschreibt beim Boot.
+volatile float    reg_deadband_v   = 1.0f;
+volatile float    reg_damping      = 0.8f;
+volatile uint32_t reg_settle_ms    = 150;
+volatile float    reg_undershoot_v = 5.0f;
 
 TaskHandle_t h_userInputTask;
 TaskHandle_t h_motorControlTask;

@@ -196,7 +196,15 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   SIM-Build kompilieren, RAM/Flash praktisch identisch (+1,2 KB). Geräte-Test steht mit
   dem V4.0.0-Testlauf zusammen aus. **Version: Controller V4.1.0** (V4.0.0 im CHANGELOG
   abgeschlossen; `openapi.yaml` bleibt bewusst auf API-Version 4.0.0 — API unverändert).
-  Testanleitung entsprechend aktualisiert (T1 erwartet V4.1.0).
+  Testanleitung entsprechend aktualisiert (T1 erwartet V4.1.0). **Tag `v4.0.0`** auf dem
+  V4.0.0-Stand (`71e4bdb`) gesetzt statt Feature-Branch — bei Testproblemen lässt sich der
+  reine V4.0.0-Stand auschecken/flashen (Bugs API vs. Refactoring eindeutig zuordenbar).
+- **2026-07-05 — #31 umgesetzt (Regelparameter konfigurierbar).** Deadband/Dämpfung/
+  Beruhigungszeit/Anfahr-Marge als `regulation`-Block in der Config (Validierung mit
+  Plausibilitätsgrenzen, Settings-UI, NVS); Defaults = bisherige Tuning-Werte, alte Configs
+  ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
+  `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
+  Geräte-Test steht mit dem Testlauf zusammen aus.
 - **2026-06-20 — #28/#29 abgeschlossen (Paket J 3/4).** Geführte 3-Punkt-Kalibrierung über den
   Link (`CAL3_MEASURE`/`CAL3_FINISH`, Referenzspannungen frei wählbar) + Web-Bedienfeld ergänzt;
   am Gerät verifiziert. Damit Voltmeter-Status/Faktor/Auto-Zero/Kalibrierung komplett via Web.

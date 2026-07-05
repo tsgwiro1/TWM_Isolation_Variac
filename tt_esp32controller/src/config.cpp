@@ -21,7 +21,10 @@
 #define DEFAULT_VOLTAGE_PRESET 0
 #define DEFAULT_VOLTAGE_AT_MIN_POS 3.0f
 #define DEFAULT_VOLTAGE_AT_MAX_POS 255.0f
-#define DEFAULT_VOLTAGE_COARSE_MOVE 20.0f
+#define DEFAULT_REG_DEADBAND_V    1.0f
+#define DEFAULT_REG_DAMPING       0.8f
+#define DEFAULT_REG_SETTLE_MS     150
+#define DEFAULT_REG_UNDERSHOOT_V  5.0f
 #define DEFAULT_DEBUG true
 
 // Liefert den rohen Config-JSON-String aus dem NVS (leer, wenn keiner existiert).
@@ -48,7 +51,10 @@ void applyDefaultConfiguration() {
     minVoltageAtMinPos = DEFAULT_VOLTAGE_AT_MIN_POS;
     maxVoltageAtMaxPos = DEFAULT_VOLTAGE_AT_MAX_POS;
     portEXIT_CRITICAL(&calibMux);
-    voltageThresholdCoarseMove = DEFAULT_VOLTAGE_COARSE_MOVE;
+    reg_deadband_v   = DEFAULT_REG_DEADBAND_V;
+    reg_damping      = DEFAULT_REG_DAMPING;
+    reg_settle_ms    = DEFAULT_REG_SETTLE_MS;
+    reg_undershoot_v = DEFAULT_REG_UNDERSHOOT_V;
     debugEnabled = DEFAULT_DEBUG;
     if (hardwareInitialized) {
       A_p1->setValuePreset(DEFAULT_VOLTAGE_PRESET);
@@ -72,8 +78,11 @@ String applyAndValidateConfig(JsonObject doc) {
   int tempMaxPos = maxWiperPos;
   float tempMinVoltage = minVoltageAtMinPos;
   float tempMaxVoltage = maxVoltageAtMaxPos;
-  float tempVoltageThresholdCoarseMove = voltageThresholdCoarseMove;
   bool tempDebugEnabled = debugEnabled;
+  float    tempRegDeadband   = reg_deadband_v;
+  float    tempRegDamping    = reg_damping;
+  uint32_t tempRegSettle     = reg_settle_ms;
+  float    tempRegUndershoot = reg_undershoot_v;
 
   bool calibrationHasErrors = false;
 
@@ -192,18 +201,31 @@ String applyAndValidateConfig(JsonObject doc) {
             errors["debug_enabled"] = "must be a boolean (true or false)";
         }
     }
-    // coarse_move_threshold validieren
-    if (!system["coarse_move_threshold"].isNull()) {
-      if (!system["coarse_move_threshold"].is<float>()) {
-        errors["coarse_move_threshold"] = "must be a float";
-      } else {       
-        float val = system["coarse_move_threshold"];
-        if (val < 0) {
-            errors["coarse_move_threshold"] = "cannot be negative";
-        } else {
-            tempVoltageThresholdCoarseMove = val;
-        }
-      }
+  }
+
+  // --- Regelparameter validieren (#31; alle optional, mit Plausibilitätsgrenzen) ---
+  if (!doc["regulation"].isNull()) {
+    JsonObject regulation = doc["regulation"];
+
+    if (!regulation["deadband_v"].isNull()) {
+      float val = regulation["deadband_v"] | -1.0f;
+      if (val < 0.1f || val > 10.0f) errors["reg_deadband_v"] = "must be 0.1 .. 10.0 V";
+      else tempRegDeadband = val;
+    }
+    if (!regulation["damping"].isNull()) {
+      float val = regulation["damping"] | -1.0f;
+      if (val < 0.1f || val > 1.0f) errors["reg_damping"] = "must be 0.1 .. 1.0";
+      else tempRegDamping = val;
+    }
+    if (!regulation["settle_ms"].isNull()) {
+      int val = regulation["settle_ms"] | -1;
+      if (val < 50 || val > 2000) errors["reg_settle_ms"] = "must be 50 .. 2000 ms";
+      else tempRegSettle = (uint32_t)val;
+    }
+    if (!regulation["undershoot_v"].isNull()) {
+      float val = regulation["undershoot_v"] | -1.0f;
+      if (val < 0.0f || val > 20.0f) errors["reg_undershoot_v"] = "must be 0 .. 20 V";
+      else tempRegUndershoot = val;
     }
   }
 
@@ -217,8 +239,11 @@ String applyAndValidateConfig(JsonObject doc) {
     minVoltageAtMinPos = tempMinVoltage;
     maxVoltageAtMaxPos = tempMaxVoltage;
     portEXIT_CRITICAL(&calibMux);
-    voltageThresholdCoarseMove = tempVoltageThresholdCoarseMove;
     debugEnabled = tempDebugEnabled;
+    reg_deadband_v   = tempRegDeadband;
+    reg_damping      = tempRegDamping;
+    reg_settle_ms    = tempRegSettle;
+    reg_undershoot_v = tempRegUndershoot;
     
     // Wende die validierten Presets an
     if (!doc["presets"].isNull() && hardwareInitialized) {
@@ -329,7 +354,11 @@ void saveConfiguration() {
 
   // Fülle das Dokument mit den aktuellen Werten aus den globalen Variablen
   doc["system"]["debug_enabled"] = debugEnabled;
-  doc["system"]["coarse_move_threshold"] = voltageThresholdCoarseMove;
+
+  doc["regulation"]["deadband_v"]   = serialized(String(reg_deadband_v, 1));
+  doc["regulation"]["damping"]      = serialized(String(reg_damping, 2));
+  doc["regulation"]["settle_ms"]    = reg_settle_ms;
+  doc["regulation"]["undershoot_v"] = serialized(String(reg_undershoot_v, 1));
 
   doc["calibration"]["min_pos"] = minWiperPos;
   doc["calibration"]["max_pos"] = maxWiperPos;

@@ -8,6 +8,18 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
 
 ## [V4.1.0] – in Entwicklung
 
+### Hinzugefügt
+- **Regelparameter konfigurierbar** (#31): Deadband, Dämpfung, Beruhigungszeit und
+  Anfahr-Marge der Spannungsregelung sind jetzt über die Konfiguration einstellbar
+  (neuer `regulation`-Block in `/api/config` mit Plausibilitätsgrenzen, Felder auf der
+  Settings-Seite, Persistenz im NVS) → Tuning pro Gerät ohne Code-Änderung.
+  Defaults = bisherige Werte (1,0 V / 0,8 / 150 ms / 5,0 V); ältere gespeicherte
+  Configs ohne den Block laufen unverändert mit den Defaults.
+
+### Entfernt
+- Ungenutztes Konfigfeld `system.coarse_move_threshold` (Überbleibsel der alten
+  PID-/Preset-Logik) aus Config, Settings-Seite und API-Schema entfernt. (#31)
+
 ### Infrastruktur
 - **ArduinoJson v7** (#14): Migration von v6 (`StaticJsonDocument` → `JsonDocument`,
   `containsKey()` → `isNull()`-Idiom, `createNestedObject()` → `to<JsonObject>()`/

@@ -12,7 +12,7 @@ info:
 
     **Live-Log:** zusätzlich zum REST-API liefert der WebSocket `ws://<host>/ws`
     die Log-Meldungen live (beim Verbinden zuerst die RAM-Historie).
-  version: "4.0.0"
+  version: "4.1.0"
 servers:
   - url: http://twm_variac.local
     description: Gerät im lokalen Netz (mDNS)
@@ -420,8 +420,15 @@ components:
         system:
           type: object
           properties:
-            debug_enabled:         { type: boolean }
-            coarse_move_threshold: { type: number }
+            debug_enabled: { type: boolean }
+        regulation:
+          type: object
+          description: Parameter der Spannungsregelung (#31), alle optional.
+          properties:
+            deadband_v:   { type: number, minimum: 0.1, maximum: 10, description: "Kein Korrigieren innerhalb +/- dieses Fehlers [V]" }
+            damping:      { type: number, minimum: 0.1, maximum: 1, description: "Anteil der berechneten Korrektur (1 = voll)" }
+            settle_ms:    { type: integer, minimum: 50, maximum: 2000, description: "Beruhigungszeit nach Stepper-Stopp [ms]" }
+            undershoot_v: { type: number, minimum: 0, maximum: 20, description: "Vorsteuerung stoppt so weit vor dem Ziel [V]" }
         calibration:
           type: object
           properties:

@@ -213,7 +213,7 @@ void motorControlTask(void *parameter) {
       // anschließende gedämpfte Korrektur den Sollwert von EINER Seite anfährt -> kein
       // Überschießen. Bei kleinen Fahrten wird die Richtung nie umgekehrt (clamp auf curPos).
       float gain = voltsPerStep();
-      int margin = (gain > 0.0f) ? (int)(REG_FEEDFORWARD_UNDERSHOOT_V / gain) : 0;
+      int margin = (gain > 0.0f) ? (int)(reg_undershoot_v / gain) : 0;
       int curPos = stepper.currentPosition();
       if (targetPos > curPos)      targetPos = max(curPos, targetPos - margin); // hoch -> tiefer stoppen
       else if (targetPos < curPos) targetPos = min(curPos, targetPos + margin); // runter -> höher stoppen
@@ -236,10 +236,10 @@ void motorControlTask(void *parameter) {
         case RP_CORRECT: {
           if (stepper.distanceToGo() != 0) { settleStart = 0; break; }
           if (settleStart == 0) settleStart = millis();
-          if (millis() - settleStart < REG_SETTLE_MS || !isVoltageDataFresh()) break;
+          if (millis() - settleStart < reg_settle_ms || !isVoltageDataFresh()) break;
 
           float error = setpoint_voltage - received_rms_value;
-          if (fabs(error) <= REG_DEADBAND_V || correctionCount >= REG_MAX_CORRECTIONS || gain <= 0.0f) {
+          if (fabs(error) <= reg_deadband_v || correctionCount >= REG_MAX_CORRECTIONS || gain <= 0.0f) {
             logMessage(LOG_INFO, "MOTOR: Target reached (Ist %.1f V, Soll %.1f V, %d Korrektur(en))",
                        received_rms_value, setpoint_voltage, correctionCount);
             if (A_reg->getState()) {
@@ -250,7 +250,7 @@ void motorControlTask(void *parameter) {
               regPhase = RP_IDLE;
             }
           } else {
-            int steps = constrain((int)(error / gain * REG_CORRECTION_DAMPING),
+            int steps = constrain((int)(error / gain * reg_damping),
                                   -REG_MAX_CORRECTION_STEPS, REG_MAX_CORRECTION_STEPS);
             setWiperRelativ(steps);
             correctionCount++;
@@ -266,11 +266,11 @@ void motorControlTask(void *parameter) {
           if (!isVoltageDataFresh()) { driftStart = 0; break; }
 
           float error = setpoint_voltage - received_rms_value;
-          if (fabs(error) > REG_DEADBAND_V && gain > 0.0f) {
+          if (fabs(error) > reg_deadband_v && gain > 0.0f) {
             if (driftStart == 0) {
               driftStart = millis();
             } else if (millis() - driftStart >= REG_DRIFT_PERSIST_MS) {
-              int steps = constrain((int)(error / gain * REG_CORRECTION_DAMPING),
+              int steps = constrain((int)(error / gain * reg_damping),
                                     -REG_MAX_CORRECTION_STEPS, REG_MAX_CORRECTION_STEPS);
               setWiperRelativ(steps);
               logMessage(LOG_INFO, "MOTOR: Drift correction %d steps (Ist %.1f V, Soll %.1f V)",

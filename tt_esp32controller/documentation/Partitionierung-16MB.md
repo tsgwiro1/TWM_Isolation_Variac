@@ -4,6 +4,10 @@
 [`partitions_16mb.csv`](../partitions_16mb.csv) im Projekt; die aktive
 [`partitions.csv`](../partitions.csv) bleibt bis zum Umstieg unverändert.
 
+> **Temporäres Dokument** — nach erfolgreicher Umsetzung von #9 am Gerät wird diese
+> Datei entfernt (das dauerhaft Wissenswerte — Layout + Label-Begründung — steht als
+> Kommentar in der Partitionstabelle selbst und bleibt dort erhalten).
+
 ## Warum
 
 Der ESP32-S3 (N16R2) hat 16 MB Flash, die aktuelle Tabelle nutzt nur 8 MB:
@@ -32,33 +36,76 @@ laufenden App wäre technisch möglich, aber ein Stromausfall im Schreibfenster
 macht das Gerät unbootbar (Rettung nur per USB = Gerät öffnen). Deshalb:
 **Umstieg nur per USB am offenen/zugänglichen Gerät.**
 
-## Umstiegs-Prozedur (wenn das Gerät per USB erreichbar ist)
+## Umstiegs-Prozedur Schritt für Schritt (Gerät per USB erreichbar)
 
-1. **Konfig sichern** (Sicherheitsnetz, NVS überlebt eigentlich):
-   `http://twm_variac.local/api/config?download`
-2. In `platformio.ini` umschalten:
-   ```ini
-   board_build.partitions = partitions_16mb.csv
-   ```
-3. **Firmware per USB flashen** (schreibt Bootloader + neue Tabelle + App):
-   ```bash
-   pio run -e esp32s3_usb -t upload
-   ```
-4. **Filesystem neu bespielen** (Partition ist neu/leer; USB oder danach OTA):
-   ```bash
-   pio run -e esp32s3_usb -t uploadfs
-   ```
-5. **Verifizieren:** Boot ok · Settings-Seite zeigt bekannte Kalibrierung/Presets
-   (NVS-Beweis) · Webseiten laden · `/api/files` zeigt die Dateien.
-6. Commit der `platformio.ini`-Änderung — ab dann bauen alle (auch OTA-)Builds
-   gegen die neue Tabelle.
+**Wichtig vorab:** Die `platformio.ini` erst **unmittelbar vor dem USB-Flash**
+umschalten (Schritt U3). Solange das Gerät die alte Tabelle trägt, muss auch
+`platformio.ini` auf der alten bleiben — sonst bauen OTA-/`uploadfs`-Builds
+Images für ein Layout, das auf dem Gerät nicht existiert.
 
-**Wichtig:** Schritt 2 erst unmittelbar vor dem USB-Flash machen. Solange das
-Gerät die alte Tabelle trägt, muss auch `platformio.ini` auf der alten bleiben —
-sonst bauen OTA-/`uploadfs`-Builds Images für ein Layout, das auf dem Gerät
-nicht existiert.
+### U1 — Konfig sichern (Sicherheitsnetz; NVS überlebt den Umstieg eigentlich)
 
-## Rollback
+1. Im Browser: `http://twm_variac.local/api/config?download`
+2. Datei lokal ablegen.
 
-`board_build.partitions = partitions.csv` zurückstellen und erneut per USB
-flashen (+ `uploadfs`). NVS bleibt auch dabei erhalten.
+- [ ] `config.json` heruntergeladen, Kalibrierwerte darin plausibel
+
+### U2 — Gerät per USB verbinden
+
+1. USB-Kabel an den ESP32-S3 (Gerät offen/zugänglich).
+2. Prüfen, dass der Port erkannt wird: `pio device list` (Mac: `/dev/cu.*`).
+
+- [ ] Serieller Port sichtbar
+
+### U3 — Partitionstabelle umschalten
+
+In `tt_esp32controller/platformio.ini` die aktive Zeile wechseln:
+
+```ini
+;board_build.partitions = partitions.csv
+board_build.partitions = partitions_16mb.csv
+```
+
+- [ ] Nur die Partitions-Zeile geändert, sonst nichts
+
+### U4 — Firmware per USB flashen (schreibt Bootloader + NEUE Tabelle + App)
+
+```bash
+cd tt_esp32controller
+~/.platformio/penv/bin/pio run -e esp32s3_usb -t upload
+```
+
+- [ ] Upload ohne Fehler, Gerät bootet (Display zeigt Normalanzeige/Homing)
+
+### U5 — Filesystem neu bespielen (FS-Partition ist durch die Größenänderung leer)
+
+```bash
+~/.platformio/penv/bin/pio run -e esp32s3_usb -t uploadfs
+```
+
+- [ ] `uploadfs` ohne Fehler (schreibt jetzt das ~9,9-MB-Image)
+
+### U6 — Verifizieren
+
+1. Settings-Seite öffnen → Kalibrierung/Presets prüfen.
+2. `http://twm_variac.local/api/files` → Dateiliste prüfen.
+3. Hauptseite + Doku-Seite (`doc_api.html`) laden.
+4. Einmal OTA testen: `pio run -e esp32s3_ota -t upload`.
+
+- [ ] **Kalibrierung/Presets unverändert da** (Beweis: NVS hat überlebt)
+- [ ] Webseiten vollständig (inkl. RapiDoc)
+- [ ] OTA funktioniert weiterhin
+
+### U7 — Abschließen
+
+1. `platformio.ini`-Änderung committen (ab jetzt bauen alle Builds gegen die neue Tabelle).
+2. Aufräumen im selben Commit: Inhalt von `partitions_16mb.csv` nach `partitions.csv`
+   übernehmen (bzw. Datei umbenennen), Umschalt-Kommentar in `platformio.ini` entfernen,
+   dieses Dokument löschen, BACKLOG #9 abhaken.
+
+- [ ] Commit erstellt, #9 im BACKLOG abgehakt
+
+## Rollback (falls etwas schiefgeht)
+
+`board_build.partitions = partitions.csv` zurückstellen und U4 + U5 erneut per USB
+ausführen. NVS (Konfiguration/Kalibrierung) bleibt auch dabei erhalten.

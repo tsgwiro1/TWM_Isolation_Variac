@@ -1,6 +1,12 @@
-# Testanleitung — Controller-Firmware V4.0.0 (API-Umbau)
+# Testanleitung — Controller-Firmware V4.0.0/V4.1.0 (API-Umbau + Paket F)
 
-**Stand:** 2026-07-04 · **Prüfling:** ESP32-Controller V4.0.0 · **Dauer:** ca. 30–45 min
+**Stand:** 2026-07-05 · **Prüfling:** ESP32-Controller V4.1.0 · **Dauer:** ca. 30–45 min
+
+> **Temporäres Dokument** — wird nach bestandenem Test wieder aus dem Repo entfernt
+> (Ergebnis wandert ins BACKLOG-Protokoll; die Historie behält die Datei).
+> Abgedeckt wird alles seit dem letzten verifizierten Gerätestand (V3.3.0):
+> V4.0.0 (REST-API #22) und V4.1.0 (ArduinoJson v7 #14, Modularisierung #10,
+> Renames #15, konfigurierbare Regelparameter #31).
 
 ## Worum es geht
 
@@ -81,6 +87,23 @@ Windows: Ctrl+F5) — sonst kommt altes JavaScript aus dem Browser-Cache!
 **Erwartet:**
 - [ ] Speichern meldet Erfolg, Werte bleiben nach Reload erhalten
 - [ ] Reboot funktioniert (jetzt via POST), automatische Weiterleitung kommt zurück
+
+## T3a — Regelparameter (neu in V4.1.0, #31)
+
+1. Auf der Settings-Seite die vier neuen Regelungs-Felder prüfen:
+   Deadband (V), Dämpfung, Beruhigungszeit (ms), Anfahr-Marge (V).
+2. Einen Wert leicht ändern (z. B. Deadband 1.0 → 1.5) → Speichern → Seite neu laden.
+3. Wert zurückstellen (1.0) → Speichern.
+4. Plausibilitätsgrenzen: Deadband testweise auf 50 setzen → Speichern.
+5. Kurzer Funktionstest: REG einschalten, Sollwert ändern → Regelung fährt wie gewohnt an
+   (die Parameter kommen jetzt aus der Config statt aus Kompilierzeit-Konstanten).
+
+**Erwartet:**
+- [ ] Felder zeigen die Standardwerte: **1.0 V / 0.8 / 150 ms / 5.0 V**
+      (bestehende Config hat den Block noch nicht → Defaults greifen)
+- [ ] Geänderter Wert überlebt Speichern + Reload; Zurückstellen funktioniert
+- [ ] Wert außerhalb der Grenzen (z. B. Deadband 50) wird mit **Validierungsfehler abgelehnt**
+- [ ] Regelverhalten unverändert „snappy" (kein Überschießen)
 
 ## T4 — Voltmeter-Panel (Settings-Seite)
 

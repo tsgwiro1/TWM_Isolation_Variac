@@ -188,6 +188,15 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   am offenen Gerät; aktive partitions.csv bleibt bis dahin unverändert). Geräte-Tests
   V4.0.0 laufen parallel beim Kollegen (Testanleitung-V4.0.0.md). #14: v6→v7-Idiome
   migriert, `lib_deps ^7.0.0`, OTA- und SIM-Build kompilieren, keine Verhaltensänderung.
+- **2026-07-05 — #10 + #15 umgesetzt (Modularisierung + Typos).** `.ino` 3363 → 414 Zeilen
+  (nur noch `setup()`/`loop()`); 11 Module (`pins`, `state`, `logging`, `config`, `motor`,
+  `comm`, `display`, `actions`, `web`, `system`, `sim`), Interna gekapselt (`loggingInit()`,
+  `logHistorySnapshot()`, `configRawJson()`, `initStepper()`). `Whiper`→`Wiper` (77 Stellen,
+  keine API-Keys betroffen); `corse` gab es nicht mehr. Reine Verschiebung: OTA- und
+  SIM-Build kompilieren, RAM/Flash praktisch identisch (+1,2 KB). Geräte-Test steht mit
+  dem V4.0.0-Testlauf zusammen aus. **Version: Controller V4.1.0** (V4.0.0 im CHANGELOG
+  abgeschlossen; `openapi.yaml` bleibt bewusst auf API-Version 4.0.0 — API unverändert).
+  Testanleitung entsprechend aktualisiert (T1 erwartet V4.1.0).
 - **2026-06-20 — #28/#29 abgeschlossen (Paket J 3/4).** Geführte 3-Punkt-Kalibrierung über den
   Link (`CAL3_MEASURE`/`CAL3_FINISH`, Referenzspannungen frei wählbar) + Web-Bedienfeld ergänzt;
   am Gerät verifiziert. Damit Voltmeter-Status/Faktor/Auto-Zero/Kalibrierung komplett via Web.

@@ -6,7 +6,22 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.ino`.
 
-## [V4.0.0] – in Entwicklung
+## [V4.1.0] – in Entwicklung
+
+### Infrastruktur
+- **ArduinoJson v7** (#14): Migration von v6 (`StaticJsonDocument` → `JsonDocument`,
+  `containsKey()` → `isNull()`-Idiom, `createNestedObject()` → `to<JsonObject>()`/
+  `add<JsonObject>()`); `lib_deps` auf `^7.0.0`. Keine Verhaltens-/API-Änderung.
+- **Modularisierung** (#10): Die 3363-Zeilen-`.ino` ist in Module aufgeteilt (`pins.h`,
+  `state`, `logging`, `config`, `motor`, `comm`, `display`, `actions`, `web`, `system`,
+  `sim` — je `.h`/`.cpp`); die `.ino` enthält nur noch `setup()`/`loop()` (414 Zeilen).
+  Modul-Interna jetzt `static`/gekapselt (`loggingInit()`, `logHistorySnapshot()`,
+  `configRawJson()`, `initStepper()`). Reine Verschiebung — Verhalten, API und
+  Speicherbedarf unverändert (Flash +1,2 KB durch Modul-Grenzen).
+- **Typos bereinigt** (#15): `Whiper` → `Wiper` in allen internen Bezeichnern (77 Stellen;
+  keine API-/JSON-Keys betroffen). `corse` existierte seit dem Regelungs-Umbau nicht mehr.
+
+## [V4.0.0] – 2026-07-04
 
 ### Geändert
 - **API nach REST-Konventionen umgebaut** (#22, **Breaking Change** → MAJOR-Version):
@@ -24,11 +39,6 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
     funktioniert ohne Internet) mit `openapi.yaml` als Single Source of Truth (löst #12);
     die alte handgepflegte HTML-API-Doku ist ersetzt.
   - Hinweis: Firmware und Filesystem (`uploadfs`) müssen zusammen aktualisiert werden.
-
-### Infrastruktur
-- **ArduinoJson v7** (#14): Migration von v6 (`StaticJsonDocument` → `JsonDocument`,
-  `containsKey()` → `isNull()`-Idiom, `createNestedObject()` → `to<JsonObject>()`/
-  `add<JsonObject>()`); `lib_deps` auf `^7.0.0`. Keine Verhaltens-/API-Änderung.
 
 ## [V3.3.0] – 2026-07-04
 

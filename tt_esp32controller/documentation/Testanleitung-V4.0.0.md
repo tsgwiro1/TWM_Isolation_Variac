@@ -14,6 +14,10 @@ Mit V4.0.0 wurde die REST-API auf REST-Konventionen umgebaut (**Breaking Change*
 
 Diese Tests prüfen, dass nach dem Update alles zusammenspielt: Firmware ↔ Webseiten ↔ Tools.
 
+> **Update:** Der aktuelle Stand baut als **V4.1.0** — zusätzlich zur V4.0.0-API ist der
+> Code modularisiert (reine interne Umstrukturierung, kein Verhaltensunterschied).
+> Die Tests decken beides ab; wo unten „V4.0.0" steht, gilt sinngemäß „V4.1.0".
+
 ## ⚠️ Sicherheit
 
 Das Gerät schaltet **Netzspannung** — es gelten die üblichen Regeln:
@@ -49,7 +53,7 @@ Windows: Ctrl+F5) — sonst kommt altes JavaScript aus dem Browser-Cache!
 3. Kalibrierwerte und Presets im Formular anschauen.
 
 **Erwartet:**
-- [ ] Version zeigt **V4.0.0**
+- [ ] Version zeigt **V4.1.0**
 - [ ] Kalibrierung (min/max Position + Spannung) und Presets haben die **bekannten Werte**
       (NVS hat das `uploadfs` überlebt — nichts wurde zurückgesetzt)
 

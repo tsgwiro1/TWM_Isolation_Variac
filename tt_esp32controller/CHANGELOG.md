@@ -25,6 +25,11 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
     die alte handgepflegte HTML-API-Doku ist ersetzt.
   - Hinweis: Firmware und Filesystem (`uploadfs`) müssen zusammen aktualisiert werden.
 
+### Infrastruktur
+- **ArduinoJson v7** (#14): Migration von v6 (`StaticJsonDocument` → `JsonDocument`,
+  `containsKey()` → `isNull()`-Idiom, `createNestedObject()` → `to<JsonObject>()`/
+  `add<JsonObject>()`); `lib_deps` auf `^7.0.0`. Keine Verhaltens-/API-Änderung.
+
 ## [V3.3.0] – 2026-07-04
 
 ### Geändert

@@ -397,7 +397,7 @@ void applyDefaultConfiguration() {
  * @return String Ein JSON-String mit Fehlermeldungen. Ist leer bei Erfolg.
  */
 String applyAndValidateConfig(JsonObject doc) {
-  StaticJsonDocument<512> errorDoc;
+  JsonDocument errorDoc;
   JsonObject errors = errorDoc.to<JsonObject>();
 
   // Temporäre Variablen, um Abhängigkeiten korrekt zu prüfen
@@ -411,14 +411,14 @@ String applyAndValidateConfig(JsonObject doc) {
   bool calibrationHasErrors = false;
 
   // --- Kalibrierung validieren ---
-  if (doc.containsKey("calibration")) {
+  if (!doc["calibration"].isNull()) {
     JsonObject calibration = doc["calibration"];
 
     if (!calibration["min_pos"].is<int>()) {
         errors["calibration_min_pos"] = "must be an integer";
         calibrationHasErrors = true;
     } else {
-      if (calibration.containsKey("min_pos")) {
+      if (!calibration["min_pos"].isNull()) {
         int val = calibration["min_pos"];
         if (val > 0 || val < MINWHIPERLIMIT) {
           errors["calibration_min_pos"] = "must be between " + String(MINWHIPERLIMIT) + " and 0";
@@ -430,7 +430,7 @@ String applyAndValidateConfig(JsonObject doc) {
     }
 
     // max_pos validieren (nur wenn min_pos gültig ist)
-    if (calibration.containsKey("max_pos") && !errors.containsKey("calibration_min_pos")) {
+    if (!calibration["max_pos"].isNull() && errors["calibration_min_pos"].isNull()) {
       if (!calibration["max_pos"].is<int>()) {
         errors["calibration_max_pos"] = "must be an integer";
         calibrationHasErrors = true;
@@ -449,7 +449,7 @@ String applyAndValidateConfig(JsonObject doc) {
     }
 
     // min_voltage validieren
-    if (calibration.containsKey("min_voltage")) {
+    if (!calibration["min_voltage"].isNull()) {
       if (!calibration["min_voltage"].is<float>()) {
         errors["calibration_min_voltage"] = "must be a float";
         calibrationHasErrors = true;
@@ -465,7 +465,7 @@ String applyAndValidateConfig(JsonObject doc) {
     }
 
     // max_voltage validieren (nur wenn min_voltage gültig ist)
-    if (calibration.containsKey("max_voltage") && !errors.containsKey("calibration_min_voltage")) {
+    if (!calibration["max_voltage"].isNull() && errors["calibration_min_voltage"].isNull()) {
       if (!calibration["max_voltage"].is<float>()) {
         errors["calibration_max_voltage"] = "must be a float";
         calibrationHasErrors = true;
@@ -482,26 +482,26 @@ String applyAndValidateConfig(JsonObject doc) {
   }
 
   // --- Presets validieren ---
-  if (doc.containsKey("presets")) {
+  if (!doc["presets"].isNull()) {
     if (calibrationHasErrors) {
       errors["presets"] = "Cannot validate presets due to errors in calibration section.";
     } else {
       JsonObject presets = doc["presets"];
-      if (presets.containsKey("p1") && presets["p1"].is<int>()) {
+      if (!presets["p1"].isNull() && presets["p1"].is<int>()) {
         if (presets["p1"] < 0 || presets["p1"] > (int)tempMaxVoltage) {
           errors["preset_p1"] = "must be between 0 and " + String((int)tempMaxVoltage);
         }
       } else {
         errors["preset_p1"] = "must be an integer";
       }
-      if (presets.containsKey("p2") && presets["p2"].is<int>()) {
+      if (!presets["p2"].isNull() && presets["p2"].is<int>()) {
         if (presets["p2"] < 0 || presets["p2"] > (int)tempMaxVoltage) {
           errors["preset_p2"] = "must be between 0 and " + String((int)tempMaxVoltage);
         }
       } else {
         errors["preset_p2"] = "must be an integer";
       }
-      if (presets.containsKey("p3") && presets["p3"].is<int>()) {
+      if (!presets["p3"].isNull() && presets["p3"].is<int>()) {
         if (presets["p3"] < 0 || presets["p3"] > (int)tempMaxVoltage) {
           errors["preset_p3"] = "must be between 0 and " + String((int)tempMaxVoltage);
         }
@@ -512,11 +512,11 @@ String applyAndValidateConfig(JsonObject doc) {
   }
 
   // --- System validieren (und anwenden, da unkritisch) ---
-  if (doc.containsKey("system")) {
+  if (!doc["system"].isNull()) {
     JsonObject system = doc["system"];
 
     // debug_enabled validieren
-    if (system.containsKey("debug_enabled")) {
+    if (!system["debug_enabled"].isNull()) {
         // Prüfe, ob der Wert ein Boolean ist
         if (system["debug_enabled"].is<bool>()) {
             tempDebugEnabled = system["debug_enabled"];
@@ -526,7 +526,7 @@ String applyAndValidateConfig(JsonObject doc) {
         }
     }
     // coarse_move_threshold validieren
-    if (system.containsKey("coarse_move_threshold")) {
+    if (!system["coarse_move_threshold"].isNull()) {
       if (!system["coarse_move_threshold"].is<float>()) {
         errors["coarse_move_threshold"] = "must be a float";
       } else {       
@@ -554,11 +554,11 @@ String applyAndValidateConfig(JsonObject doc) {
     debugEnabled = tempDebugEnabled;
     
     // Wende die validierten Presets an
-    if (doc.containsKey("presets") && hardwareInitialized) {
+    if (!doc["presets"].isNull() && hardwareInitialized) {
       JsonObject presets = doc["presets"];
-      if (presets.containsKey("p1")) A_p1->setValuePreset(presets["p1"]);
-      if (presets.containsKey("p2")) A_p2->setValuePreset(presets["p2"]);
-      if (presets.containsKey("p3")) A_p3->setValuePreset(presets["p3"]);
+      if (!presets["p1"].isNull()) A_p1->setValuePreset(presets["p1"]);
+      if (!presets["p2"].isNull()) A_p2->setValuePreset(presets["p2"]);
+      if (!presets["p3"].isNull()) A_p3->setValuePreset(presets["p3"]);
     }
     logMessage(LOG_INFO, "Configuration successfully validated and applied.");
     return ""; // Leerer String signalisiert Erfolg
@@ -578,12 +578,12 @@ String applyAndValidateConfig(JsonObject doc) {
  * @return String Ein JSON-String mit Fehlermeldungen. Ist leer bei Erfolg.
  */
 String applyAndValidateStepperConfig(JsonObject doc) {
-  StaticJsonDocument<512> errorDoc;
+  JsonDocument errorDoc;
   JsonObject errors = errorDoc.to<JsonObject>();
 
   // --- StallGuard Threshold (Param 174) ---
   // Gültiger Bereich: -64 bis 63
-  if (doc.containsKey("stallguard_threshold")) {
+  if (!doc["stallguard_threshold"].isNull()) {
     if (!doc["stallguard_threshold"].is<int>()) {
       errors["stallguard_threshold"] = "must be an integer";
     } else {
@@ -598,7 +598,7 @@ String applyAndValidateStepperConfig(JsonObject doc) {
 
   // --- CoolStep Speed Threshold (Param 182) ---
   // Gültiger Bereich: 0 bis 1048575
-  if (doc.containsKey("coolstep_speed_threshold")) {
+  if (!doc["coolstep_speed_threshold"].isNull()) {
     if (!doc["coolstep_speed_threshold"].is<int>()) {
       errors["coolstep_speed_threshold"] = "must be an integer";
     } else {
@@ -613,7 +613,7 @@ String applyAndValidateStepperConfig(JsonObject doc) {
 
   // --- CoolStep Hysteresis Start (Param 172) ---
   // Gültiger Bereich: 0 bis 15
-  if (doc.containsKey("coolstep_hyst_start")) {
+  if (!doc["coolstep_hyst_start"].isNull()) {
     if (!doc["coolstep_hyst_start"].is<int>()) {
       errors["coolstep_hyst_start"] = "must be an integer";
     } else {
@@ -628,7 +628,7 @@ String applyAndValidateStepperConfig(JsonObject doc) {
 
   // --- CoolStep Min Current (Param 168) ---
   // Gültiger Wert: 0 oder 1
-  if (doc.containsKey("coolstep_min_current")) {
+  if (!doc["coolstep_min_current"].isNull()) {
     if (!doc["coolstep_min_current"].is<int>()) {
       errors["coolstep_min_current"] = "must be an integer (0 or 1)";
     } else {
@@ -658,7 +658,7 @@ String applyAndValidateStepperConfig(JsonObject doc) {
  * @brief Speichert die aktuellen Konfigurationswerte als JSON ins NVS (#35).
  */
 void saveConfiguration() {
-  StaticJsonDocument<512> doc;
+  JsonDocument doc;
 
   // Fülle das Dokument mit den aktuellen Werten aus den globalen Variablen
   doc["system"]["debug_enabled"] = debugEnabled;
@@ -731,7 +731,7 @@ boolean loadConfiguration() {
     return false;
   }
 
-  StaticJsonDocument<512> doc;
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, cfg);
 
   if (error) {
@@ -1128,7 +1128,7 @@ void initWebServer() {
 
   // API-Route für den kompletten Gerätestatus
   server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request){
-    StaticJsonDocument<512> doc; // Etwas mehr Platz für die zusätzlichen Daten
+    JsonDocument doc; // Etwas mehr Platz für die zusätzlichen Daten
 
     doc["voltage_actual"] = received_rms_value;
     doc["voltage_fresh"] = isVoltageDataFresh();
@@ -1138,7 +1138,7 @@ void initWebServer() {
     doc["is_hardware_ok"] = hardwareInitialized;
     doc["fw_version"] = FW; 
     
-    JsonObject states = doc.createNestedObject("states");
+    JsonObject states = doc["states"].to<JsonObject>();
     if (hardwareInitialized) {
       states["output_on"] = (bool)A_onoff->getState();
       states["limit_on"] = (bool)A_limit->getState();
@@ -1161,7 +1161,7 @@ void initWebServer() {
       uint8_t n = voltmeterResponseLen < 64 ? voltmeterResponseLen : 64;
       memcpy(ver, voltmeterResponsePayload, n);
       ver[n] = '\0';
-      StaticJsonDocument<128> doc;
+      JsonDocument doc;
       doc["status"] = "success";
       doc["version"] = ver;
       String out; serializeJson(doc, out);
@@ -1178,7 +1178,7 @@ void initWebServer() {
       memcpy(&factor, voltmeterResponsePayload + 0, 4);
       memcpy(&voff,   voltmeterResponsePayload + 4, 4);
       memcpy(&adcz,   voltmeterResponsePayload + 8, 4);
-      StaticJsonDocument<192> doc;
+      JsonDocument doc;
       doc["status"] = "success";
       doc["scaling_factor"] = factor;
       doc["voltage_offset"] = voff;
@@ -1288,7 +1288,7 @@ void initWebServer() {
         float factor, voff;
         memcpy(&factor, voltmeterResponsePayload + 1, 4);
         memcpy(&voff,   voltmeterResponsePayload + 5, 4);
-        StaticJsonDocument<160> doc;
+        JsonDocument doc;
         doc["status"] = "success";
         doc["scaling_factor"] = factor;
         doc["voltage_offset"] = voff;
@@ -1338,7 +1338,7 @@ void initWebServer() {
     const char* st = vmUpdateState == VMU_RUNNING ? "running"
                    : vmUpdateState == VMU_SUCCESS ? "success"
                    : vmUpdateState == VMU_ERROR   ? "error" : "idle";
-    StaticJsonDocument<192> doc;
+    JsonDocument doc;
     doc["state"]    = st;
     doc["progress"] = vmUpdateProgress;
     doc["message"]  = vmUpdateMessage;
@@ -1348,7 +1348,7 @@ void initWebServer() {
 
   // Version der auf LittleFS liegenden .bin (aus dem Magic-Tag). (#33)
   server.on("/api/voltmeter/update/fileversion", HTTP_GET, [](AsyncWebServerRequest *request){
-    StaticJsonDocument<128> doc;
+    JsonDocument doc;
     char ver[48];
     if (LittleFS.exists(VM_FW_PATH) && readVmFwFileVersion(ver, sizeof(ver))) {
       doc["status"]  = "success";
@@ -1486,7 +1486,7 @@ void initWebServer() {
   // API-Route, um alle Dateien im LittleFS aufzulisten
   server.on("/api/files", HTTP_GET, [](AsyncWebServerRequest *request){
     // Ein JSON-Dokument erstellen. 1024 Bytes sollte für ca. 20-25 Dateien reichen.
-    StaticJsonDocument<1024> doc;
+    JsonDocument doc;
     JsonArray files = doc.to<JsonArray>();
 
     File root = LittleFS.open("/");
@@ -1494,7 +1494,7 @@ void initWebServer() {
 
     while(file){
       if (!file.isDirectory()) {
-        JsonObject fileObj = files.createNestedObject();
+        JsonObject fileObj = files.add<JsonObject>();
         fileObj["name"] = String(file.name());
         fileObj["size"] = file.size();
       }
@@ -1616,7 +1616,7 @@ void logMessage(LogLevel level, const char* format, ...) {
     // ausschliesslich der Logger-Task (#4). Kein Warten: volle Queue -> Meldung verwerfen.
     if (logQueue != NULL) {
       if (xQueueSend(logQueue, &entry, 0) != pdTRUE) {
-        logDroppedCount++;
+        logDroppedCount = logDroppedCount + 1; // kein ++ auf volatile (C++20-Deprecation)
       }
     } else {
       // Fallback ganz früh im Boot (bevor der Logger-Task existiert): nur Serial.

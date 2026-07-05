@@ -182,6 +182,12 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   erledigt). OTA- und SIM-Build kompilieren. **Breaking Change** für externe Skripte/Lesezeichen
   (alte GET-Aktions-URLs funktionieren nicht mehr) → **MAJOR-Bump: Controller V4.0.0**
   (V3.3.0 im CHANGELOG abgeschlossen: #4/#5/#35).
+- **2026-07-04 — Paket F gestartet; #14 umgesetzt (ArduinoJson v7).** Reihenfolge in F
+  festgelegt: #14 → #10+#15 (Modularisierung + Typos, Struktur mit 9 Modulen abgestimmt)
+  → #31 → #9 (nur vorbereiten: neue Partitionstabelle als separate Datei, USB-Flash erst
+  am offenen Gerät; aktive partitions.csv bleibt bis dahin unverändert). Geräte-Tests
+  V4.0.0 laufen parallel beim Kollegen (Testanleitung-V4.0.0.md). #14: v6→v7-Idiome
+  migriert, `lib_deps ^7.0.0`, OTA- und SIM-Build kompilieren, keine Verhaltensänderung.
 - **2026-06-20 — #28/#29 abgeschlossen (Paket J 3/4).** Geführte 3-Punkt-Kalibrierung über den
   Link (`CAL3_MEASURE`/`CAL3_FINISH`, Referenzspannungen frei wählbar) + Web-Bedienfeld ergänzt;
   am Gerät verifiziert. Damit Voltmeter-Status/Faktor/Auto-Zero/Kalibrierung komplett via Web.

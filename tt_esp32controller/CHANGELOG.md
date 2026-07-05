@@ -32,6 +32,11 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
   Speicherbedarf unverändert (Flash +1,2 KB durch Modul-Grenzen).
 - **Typos bereinigt** (#15): `Whiper` → `Wiper` in allen internen Bezeichnern (77 Stellen;
   keine API-/JSON-Keys betroffen). `corse` existierte seit dem Regelungs-Umbau nicht mehr.
+- **16-MB-Partitionierung vorbereitet** (#9): Neue Tabelle `partitions_16mb.csv`
+  (LittleFS 2 MB → ~9,9 MB; NVS/otadata/App-Slots an identischen Offsets → Konfiguration
+  und Firmware überleben den Umstieg) + Umstiegs-Prozedur in
+  `documentation/Partitionierung-16MB.md`. **Noch nicht aktiv** — Umschalten erfordert
+  einmalig einen USB-Flash am Gerät; bis dahin bleibt `partitions.csv` in Kraft.
 
 ## [V4.0.0] – 2026-07-04
 

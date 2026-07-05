@@ -205,6 +205,14 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-05 — #9 vorbereitet (16-MB-Partitionierung) → Paket F code-seitig komplett.**
+  `partitions_16mb.csv` (nur FS wächst auf ~9,9 MB, alle anderen Offsets identisch →
+  NVS-Konfig und Firmware überleben den Umstieg) + `Partitionierung-16MB.md`
+  (Warum/Prozedur/Rollback) + auskommentierte Umschaltzeile in `platformio.ini`.
+  Aktive `partitions.csv` unverändert — OTA/`uploadfs` bauen weiter gegen das reale
+  Gerätelayout. USB-Flash erfolgt, wenn das Gerät das nächste Mal zugänglich ist.
+  Damit ist Paket F implementiert (#14/#10/#15/#31 warten auf den Geräte-Testlauf,
+  #9 auf den USB-Flash).
 - **2026-06-20 — #28/#29 abgeschlossen (Paket J 3/4).** Geführte 3-Punkt-Kalibrierung über den
   Link (`CAL3_MEASURE`/`CAL3_FINISH`, Referenzspannungen frei wählbar) + Web-Bedienfeld ergänzt;
   am Gerät verifiziert. Damit Voltmeter-Status/Faktor/Auto-Zero/Kalibrierung komplett via Web.
@@ -302,7 +310,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | 10 | Refactor | Modularisierung | `.ino` in Module aufteilen (`config`, `web`, `display`, `motor`, `comm`, `actions`, `logging`); ggf. `.ino`→`.cpp` + Forward-Declarations. | L | offen |
 | 15 | Cosmetic | Typos | `Whiper`→`Wiper`, `CORSE`/`corse`→`coarse` konsistent umbenennen (zusammen mit #10, da gleiche Dateien). | S | offen |
 | 14 | Refactor | ArduinoJson v7 | Migration von `StaticJsonDocument` auf v7-API. | M | offen |
-| 9  | Build | Partitionierung 16 MB | ~7,5 MB ungenutzt: LittleFS/OTA vergrößern; FS-Partitionslabel konsistent benennen + Code-Kommentar. | M | offen |
+| 9  | Build | Partitionierung 16 MB | Neue Tabelle `partitions_16mb.csv`: LittleFS 2 MB → ~9,9 MB, NVS/otadata/App-Slots an identischen Offsets (Konfig + Firmware überleben den Umstieg). Label bleibt bewusst `spiffs` (dasselbe Binary muss mit alter UND neuer Tabelle laufen) — stattdessen Kommentar in csv/Code. Umstiegs-/Rollback-Prozedur: `documentation/Partitionierung-16MB.md`. | M | **vorbereitet** *(USB-Flash am zugänglichen Gerät ausstehend; bis dahin bleibt `partitions.csv` aktiv)* |
 | 31 | Konfig | Regelparameter konfigurierbar | Regelparameter (`REG_FEEDFORWARD_UNDERSHOOT_V`, Damping, Deadband, Settle) statt `#define` über config.json/Settings einstellbar machen → Tuning pro Gerät ohne Code-Änderung (z. B. richtungsabhängige Hysterese). Dabei ungenutztes `coarse_move_threshold` aufräumen/umwidmen. | M | offen |
 
 ## Paket K — Konfiguration ins NVS

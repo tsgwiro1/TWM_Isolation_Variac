@@ -37,10 +37,14 @@ DEFAULT_HOST = "192.168.0.116"
 HTTP_TIMEOUT = 5.0  # Sekunden pro Anfrage
 
 # "Spannung erreicht"-Kriterium (GitHub-#6): Die Regelung braucht je nach
-# Sprunghoehe mehrere Sekunden - deshalb pollen statt fixer Pause.
-REACH_TOLERANCE_V = 2.0   # |Ist - Soll| <= Toleranz gilt als erreicht
-REACH_TIMEOUT_S = 30.0    # danach mit Warnung weitermachen
-REACH_POLL_S = 0.5        # Abfrageintervall
+# Sprunghoehe mehrere Sekunden - deshalb pollen statt fixer Pause. Erreicht gilt
+# erst, wenn der Wert innerhalb der Toleranz liegt UND stabil ist (die Regelung
+# zieht nach der Grob-Anfahrt noch fein nach - erst der stabile Wert ist der
+# ausgeregelte Endwert).
+REACH_TOLERANCE_V = 2.0      # |Ist - Soll| <= Toleranz gilt als erreicht
+REACH_STABLE_DELTA_V = 0.5   # ... und zwei Polls unterscheiden sich max. so stark
+REACH_TIMEOUT_S = 30.0       # danach mit Warnung weitermachen
+REACH_POLL_S = 0.5           # Abfrageintervall
 
 
 class VariacError(Exception):
@@ -95,18 +99,27 @@ class Variac:
         """
         Wartet, bis die Ist-Spannung den Sollwert erreicht hat (GitHub-#6).
 
-        Pollt den Status, bis |Ist - Soll| <= tolerance oder timeout (Sekunden)
-        abgelaufen ist. Rueckgabe: (erreicht, letzte Ist-Spannung oder None).
+        Pollt den Status, bis |Ist - Soll| <= tolerance UND der Wert stabil ist
+        (zwei aufeinanderfolgende Polls unterscheiden sich um hoechstens
+        REACH_STABLE_DELTA_V - dann ist auch die Fein-Korrektur durch), oder bis
+        timeout (Sekunden) abgelaufen ist.
+        Rueckgabe: (erreicht, letzte Ist-Spannung oder None).
         """
         deadline = time.monotonic() + timeout
         actual = None
+        prev = None
         while time.monotonic() < deadline:
             time.sleep(poll)
-            actual = self.get_status().get("voltage_actual")
-            if actual is None:
+            raw = self.get_status().get("voltage_actual")
+            if raw is None:
+                prev = None
                 continue
-            if abs(float(actual) - float(target)) <= tolerance:
+            actual = float(raw)
+            if (abs(actual - float(target)) <= tolerance
+                    and prev is not None
+                    and abs(actual - prev) <= REACH_STABLE_DELTA_V):
                 return True, actual
+            prev = actual
         return False, actual
 
     def _command(self, action):
@@ -255,11 +268,12 @@ def run_sequence(variac, mode, interval, with_limit=True):
             next_label = "{} V".format(VOLTAGE_STEPS[i + 1])
             wait_step(mode, interval, next_label)
 
-    # --- Nach 230 V: Strombegrenzung abschalten? ---
+    # --- Nach 230 V: Strombegrenzung abschalten? (nur fragen, wenn sie EIN ist) ---
     print("\n--- {} V erreicht ---".format(VOLTAGE_STEPS[-1]))
-    if ask_yes_no("Strombegrenzung jetzt ausschalten?", default=False):
-        variac.ensure_state("limit_on", "toggle_limit", False, "Strombegrenzung")
-        show_status(variac, prefix="\nStatus nach Abschalten der Strombegrenzung:")
+    if variac._state("limit_on"):
+        if ask_yes_no("Strombegrenzung jetzt ausschalten?", default=False):
+            variac.ensure_state("limit_on", "toggle_limit", False, "Strombegrenzung")
+            show_status(variac, prefix="\nStatus nach Abschalten der Strombegrenzung:")
 
     # --- Abschluss ---
     print()

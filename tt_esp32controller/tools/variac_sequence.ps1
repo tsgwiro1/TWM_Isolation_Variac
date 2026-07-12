@@ -41,10 +41,13 @@ $ErrorActionPreference = "Stop"
 $VoltageSteps = @(20, 50, 75, 100, 150, 200, 230)
 
 # "Spannung erreicht"-Kriterium (GitHub-#6): Die Regelung braucht je nach
-# Sprunghoehe mehrere Sekunden - deshalb pollen statt fixer Pause.
-$ReachToleranceV = 2.0   # |Ist - Soll| <= Toleranz gilt als erreicht
-$ReachTimeoutS = 30.0    # danach mit Warnung weitermachen
-$ReachPollMs = 500       # Abfrageintervall
+# Sprunghoehe mehrere Sekunden - deshalb pollen statt fixer Pause. Erreicht gilt
+# erst, wenn der Wert innerhalb der Toleranz liegt UND stabil ist (die Regelung
+# zieht nach der Grob-Anfahrt noch fein nach).
+$ReachToleranceV = 2.0     # |Ist - Soll| <= Toleranz gilt als erreicht
+$ReachStableDeltaV = 0.5   # ... und zwei Polls unterscheiden sich max. so stark
+$ReachTimeoutS = 30.0      # danach mit Warnung weitermachen
+$ReachPollMs = 500         # Abfrageintervall
 
 # Basis-URL aufbauen (http:// nicht doppelt voranstellen).
 if ($Address -match '^(http|https)://') {
@@ -175,20 +178,27 @@ function Show-VStatus {
 function Wait-VoltageReached {
     <#
         Wartet, bis die Ist-Spannung den Sollwert erreicht hat (GitHub-#6).
-        Pollt den Status, bis |Ist - Soll| <= $ReachToleranceV oder $ReachTimeoutS
-        abgelaufen ist. Rueckgabe: @{ Reached = [bool]; Actual = [double] oder $null }
+        Pollt den Status, bis |Ist - Soll| <= $ReachToleranceV UND der Wert stabil
+        ist (zwei aufeinanderfolgende Polls unterscheiden sich um hoechstens
+        $ReachStableDeltaV - dann ist auch die Fein-Korrektur durch), oder bis
+        $ReachTimeoutS abgelaufen ist.
+        Rueckgabe: @{ Reached = [bool]; Actual = [double] oder $null }
     #>
     param([double]$Target)
     $deadline = (Get-Date).AddSeconds($ReachTimeoutS)
     $actual = $null
+    $prev = $null
     while ((Get-Date) -lt $deadline) {
         Start-Sleep -Milliseconds $ReachPollMs
         $st = Get-VStatus
-        if ($null -eq $st.voltage_actual) { continue }
+        if ($null -eq $st.voltage_actual) { $prev = $null; continue }
         $actual = [double]$st.voltage_actual
-        if ([math]::Abs($actual - $Target) -le $ReachToleranceV) {
+        if (([math]::Abs($actual - $Target) -le $ReachToleranceV) -and
+            ($null -ne $prev) -and
+            ([math]::Abs($actual - $prev) -le $ReachStableDeltaV)) {
             return @{ Reached = $true; Actual = $actual }
         }
+        $prev = $actual
     }
     return @{ Reached = $false; Actual = $actual }
 }
@@ -261,12 +271,14 @@ function Invoke-Sequence {
         }
     }
 
-    # --- Nach 230 V: Strombegrenzung abschalten? ---
+    # --- Nach 230 V: Strombegrenzung abschalten? (nur fragen, wenn sie EIN ist) ---
     Write-Host ""
     Write-Host ("--- {0} V erreicht ---" -f $VoltageSteps[-1])
-    if (Ask-YesNo "Strombegrenzung jetzt ausschalten?" $false) {
-        Set-VState -Key "limit_on" -Action "toggle_limit" -Desired $false -Label "Strombegrenzung"
-        Show-VStatus "`nStatus nach Abschalten der Strombegrenzung:"
+    if (Get-VState -Key "limit_on") {
+        if (Ask-YesNo "Strombegrenzung jetzt ausschalten?" $false) {
+            Set-VState -Key "limit_on" -Action "toggle_limit" -Desired $false -Label "Strombegrenzung"
+            Show-VStatus "`nStatus nach Abschalten der Strombegrenzung:"
+        }
     }
 
     # --- Abschluss ---

@@ -261,6 +261,12 @@ async function estop() {
   }
 }
 
+// GitHub-#7: Ohne Strombegrenzung ergibt "nach letzter Spannung ausschalten" keinen Sinn.
+$("limitOnStart").addEventListener("change", () => {
+  const withLimit = $("limitOnStart").checked;
+  $("limitOff").disabled = !withLimit;
+  if (!withLimit) $("limitOff").checked = false;
+});
 $("btnApply").addEventListener("click", buildFields);
 $("count").addEventListener("change", buildFields);
 $("btnStatus").addEventListener("click", refreshStatus);

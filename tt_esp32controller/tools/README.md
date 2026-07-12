@@ -45,13 +45,14 @@ Ablauf:
    3. **Spannungsregelung** einschalten
    4. **Ausgang** einschalten
 2. **Spannungsschritte** nacheinander anfahren. Je Schritt wird gewartet, bis die
-   Ist-Spannung den Sollwert erreicht hat (±2 V, max. 30 s), dann wird sie ausgegeben.
+   Ist-Spannung den Sollwert erreicht hat **und stabil ist** (±2 V, Änderung ≤ 0,5 V
+   zwischen zwei Messungen, max. 30 s) – ausgegeben wird also der ausgeregelte Endwert.
    Die Weiterschaltung erfolgt wahlweise:
    - **automatisch** – mit einem einstellbaren Zeitintervall (Sekunden) **ab Erreichen
      der Spannung**, oder
    - **manuell** – durch Drücken der **Enter**-Taste.
 3. Nach dem letzten Schritt (**230 V**): Abfrage, ob die **Strombegrenzung
-   ausgeschaltet** werden soll.
+   ausgeschaltet** werden soll (entfällt, wenn sie bereits aus ist).
 4. **Abschluss**: Auf Enter wird der **Ausgang ausgeschaltet** und die Spannung
    wieder auf **0 V** gestellt.
 

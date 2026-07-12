@@ -9,10 +9,11 @@ per Enter-Taste.
 
 Ablauf:
   1. Spannung auf 0 V setzen
-  2. Strombegrenzung aktivieren
+  2. Strombegrenzung ein- oder ausschalten (Abfrage, Standard: ein)
   3. Spannungsregelung einschalten
   4. Ausgang einschalten
-  5. Spannungsschritte nacheinander anfahren
+  5. Spannungsschritte nacheinander anfahren (je Schritt wird gewartet,
+     bis die Ist-Spannung den Sollwert erreicht hat)
   6. Nach 230 V: Abfrage, ob die Strombegrenzung ausgeschaltet werden soll
   7. Abschlussabfrage: Ausgang aus + Spannung zurueck auf 0 V
 
@@ -34,6 +35,12 @@ VOLTAGE_STEPS = [20, 50, 75, 100, 150, 200, 230]
 
 DEFAULT_HOST = "192.168.0.116"
 HTTP_TIMEOUT = 5.0  # Sekunden pro Anfrage
+
+# "Spannung erreicht"-Kriterium (GitHub-#6): Die Regelung braucht je nach
+# Sprunghoehe mehrere Sekunden - deshalb pollen statt fixer Pause.
+REACH_TOLERANCE_V = 2.0   # |Ist - Soll| <= Toleranz gilt als erreicht
+REACH_TIMEOUT_S = 30.0    # danach mit Warnung weitermachen
+REACH_POLL_S = 0.5        # Abfrageintervall
 
 
 class VariacError(Exception):
@@ -82,6 +89,25 @@ class Variac:
     def set_voltage(self, voltage):
         """Setzt den Soll-Spannungswert."""
         self._post("/setpoint", {"voltage": voltage})
+
+    def wait_until_reached(self, target, tolerance=REACH_TOLERANCE_V,
+                           timeout=REACH_TIMEOUT_S, poll=REACH_POLL_S):
+        """
+        Wartet, bis die Ist-Spannung den Sollwert erreicht hat (GitHub-#6).
+
+        Pollt den Status, bis |Ist - Soll| <= tolerance oder timeout (Sekunden)
+        abgelaufen ist. Rueckgabe: (erreicht, letzte Ist-Spannung oder None).
+        """
+        deadline = time.monotonic() + timeout
+        actual = None
+        while time.monotonic() < deadline:
+            time.sleep(poll)
+            actual = self.get_status().get("voltage_actual")
+            if actual is None:
+                continue
+            if abs(float(actual) - float(target)) <= tolerance:
+                return True, actual
+        return False, actual
 
     def _command(self, action):
         self._post("/command", {"action": action})
@@ -193,15 +219,16 @@ def safe_shutdown(variac):
         print("  WARNUNG: Sicheres Abschalten fehlgeschlagen: {}".format(exc))
 
 
-def run_sequence(variac, mode, interval):
+def run_sequence(variac, mode, interval, with_limit=True):
     # --- Vorbereitung: erst 0 V, dann Strombegrenzung, dann Ausgang ---
     print("\n--- Vorbereitung ---")
     print("Spannung auf 0 V setzen ...")
     variac.set_voltage(0)
     time.sleep(0.3)
 
-    print("Strombegrenzung aktivieren ...")
-    variac.ensure_state("limit_on", "toggle_limit", True, "Strombegrenzung")
+    # GitHub-#7: Sequenz wahlweise mit oder ohne Strombegrenzung fahren.
+    print("Strombegrenzung {} ...".format("aktivieren" if with_limit else "ausschalten"))
+    variac.ensure_state("limit_on", "toggle_limit", with_limit, "Strombegrenzung")
 
     print("Spannungsregelung einschalten ...")
     variac.ensure_state("regulation_on", "toggle_regulation", True, "Regelung")
@@ -214,9 +241,14 @@ def run_sequence(variac, mode, interval):
     for i, voltage in enumerate(VOLTAGE_STEPS):
         print("\n[{}/{}] Soll-Spannung {} V".format(i + 1, len(VOLTAGE_STEPS), voltage))
         variac.set_voltage(voltage)
-        time.sleep(0.5)
-        st = variac.get_status()
-        print("    Ist-Spannung: {} V".format(st.get("voltage_actual", "?")))
+        # GitHub-#6: warten, bis die Regelung den Sollwert erreicht hat,
+        # statt nach fixer Pause einen zu fruehen Messwert auszugeben.
+        reached, actual = variac.wait_until_reached(voltage)
+        if reached:
+            print("    Ist-Spannung: {} V".format(actual))
+        else:
+            print("    WARNUNG: {} V nach {:g} s nicht erreicht (Ist: {} V)".format(
+                voltage, REACH_TIMEOUT_S, actual if actual is not None else "?"))
 
         # Vor dem naechsten Schritt warten (nach dem letzten Schritt nicht).
         if i < len(VOLTAGE_STEPS) - 1:
@@ -268,9 +300,11 @@ def main():
 
     mode = ask_mode()
     interval = ask_interval() if mode == "auto" else 0.0
+    # GitHub-#7: Strombegrenzung fuer die Sequenz waehlbar (sicherer Default: mit).
+    with_limit = ask_yes_no("Sequenz mit Strombegrenzung fahren?", default=True)
 
     try:
-        run_sequence(variac, mode, interval)
+        run_sequence(variac, mode, interval, with_limit)
     except KeyboardInterrupt:
         print("\n\nAbbruch durch Benutzer (Strg+C).")
         safe_shutdown(variac)

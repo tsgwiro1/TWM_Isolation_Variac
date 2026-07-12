@@ -95,6 +95,10 @@ def _build_argv(cfg):
         "--interval", str(float(cfg.get("interval", 5.0))),
         "--voltages",
     ] + [str(float(v)) for v in voltages]
+    # GitHub-#7: Checkbox "mit Strombegrenzung" (Default: ein); abgewaehlt ->
+    # die Sequenz schaltet die Begrenzung beim Start aktiv aus.
+    if not cfg.get("limitOnStart", True):
+        argv.append("--limit-off")
     if cfg.get("limitOffAfterLast"):
         argv.append("--limit-off-after-last")
     if cfg.get("shutdown", True):

@@ -41,11 +41,14 @@ Ablauf:
 
 1. **Vorbereitung** (in dieser Reihenfolge):
    1. Spannung auf **0 V** setzen
-   2. **Strombegrenzung** einschalten
+   2. **Strombegrenzung** ein- oder ausschalten (wählbar, Standard: **ein**)
    3. **Spannungsregelung** einschalten
    4. **Ausgang** einschalten
-2. **Spannungsschritte** nacheinander anfahren. Die Weiterschaltung erfolgt wahlweise:
-   - **automatisch** – mit einem einstellbaren Zeitintervall (Sekunden), oder
+2. **Spannungsschritte** nacheinander anfahren. Je Schritt wird gewartet, bis die
+   Ist-Spannung den Sollwert erreicht hat (±2 V, max. 30 s), dann wird sie ausgegeben.
+   Die Weiterschaltung erfolgt wahlweise:
+   - **automatisch** – mit einem einstellbaren Zeitintervall (Sekunden) **ab Erreichen
+     der Spannung**, oder
    - **manuell** – durch Drücken der **Enter**-Taste.
 3. Nach dem letzten Schritt (**230 V**): Abfrage, ob die **Strombegrenzung
    ausgeschaltet** werden soll.
@@ -131,13 +134,13 @@ Der Browser öffnet automatisch `http://127.0.0.1:8765`. Optionen:
 
 - **Verbindung**: Controller-IP eingeben, mit *Status abfragen* prüfen.
 - **Ablauf**: Modus *automatisch* (Intervall in Sekunden) oder *manuell* (Weiterschalten
-  per Knopf). Optionen: Strombegrenzung nach letzter Spannung ausschalten; am Ende
-  Ausgang ausschalten + 0 V.
+  per Knopf). Optionen: Sequenz mit Strombegrenzung fahren (Standard: ein);
+  Strombegrenzung nach letzter Spannung ausschalten; am Ende Ausgang ausschalten + 0 V.
 - **Soll-Spannungen**: Anzahl der Felder einstellen (**1–10**), *Felder anwenden*, Werte
   eintragen (die ersten Felder sind mit der Standardreihe vorbelegt).
 - **Steuerung**: *Sequenz starten* führt das Skript aus, die Live-Ausgabe erscheint
   unten. Im manuellen Modus wird *Weiter ▶* aktiv, sobald das Skript wartet.
-  *Not-Aus* schaltet jederzeit den Ausgang aus und stellt 0 V ein.
+  *Not-Aus* schaltet **sofort und ohne Rückfrage** den Ausgang aus und stellt 0 V ein.
 
 ---
 
@@ -159,6 +162,7 @@ python variac_run.py --host 192.168.0.116 --mode auto --interval 10 \
 | `--voltages` | Liste der Soll-Spannungen (max. 10) | – (erforderlich) |
 | `--mode` | `auto` (Zeitintervall) oder `manual` (auf Eingabe warten) | `auto` |
 | `--interval` | Wartezeit zwischen Schritten in Sekunden (nur `auto`) | `5.0` |
+| `--limit-off` | Sequenz ohne Strombegrenzung fahren (Begrenzung beim Start ausschalten) | aus |
 | `--limit-off-after-last` | Strombegrenzung nach letzter Spannung ausschalten | aus |
 | `--shutdown` | Am Ende Ausgang ausschalten und auf 0 V | aus |
 
@@ -192,6 +196,7 @@ Anfahrt der Spannungen automatisch oder per Enter?
   [e] manuell per Enter-Taste
 Auswahl [a/e]: a
 Zeit bis zur naechsten Spannung in Sekunden: 10
+Sequenz mit Strombegrenzung fahren? [J/n]
 
 --- Vorbereitung ---
 Spannung auf 0 V setzen ...

@@ -9,10 +9,11 @@
 
     Ablauf:
       1. Spannung auf 0 V setzen
-      2. Strombegrenzung aktivieren
+      2. Strombegrenzung ein- oder ausschalten (Abfrage, Standard: ein)
       3. Spannungsregelung einschalten
       4. Ausgang einschalten
-      5. Spannungsschritte nacheinander anfahren
+      5. Spannungsschritte nacheinander anfahren (je Schritt wird gewartet,
+         bis die Ist-Spannung den Sollwert erreicht hat)
       6. Nach 230 V: Abfrage, ob die Strombegrenzung ausgeschaltet werden soll
       7. Abschlussabfrage: Ausgang aus + Spannung zurueck auf 0 V
 
@@ -38,6 +39,12 @@ $ErrorActionPreference = "Stop"
 
 # Anzufahrende Soll-Spannungen in Volt (in Reihenfolge).
 $VoltageSteps = @(20, 50, 75, 100, 150, 200, 230)
+
+# "Spannung erreicht"-Kriterium (GitHub-#6): Die Regelung braucht je nach
+# Sprunghoehe mehrere Sekunden - deshalb pollen statt fixer Pause.
+$ReachToleranceV = 2.0   # |Ist - Soll| <= Toleranz gilt als erreicht
+$ReachTimeoutS = 30.0    # danach mit Warnung weitermachen
+$ReachPollMs = 500       # Abfrageintervall
 
 # Basis-URL aufbauen (http:// nicht doppelt voranstellen).
 if ($Address -match '^(http|https)://') {
@@ -165,6 +172,27 @@ function Show-VStatus {
     Write-Host ("  Regelung          : {0}" -f (& $onOff $states.regulation_on))
 }
 
+function Wait-VoltageReached {
+    <#
+        Wartet, bis die Ist-Spannung den Sollwert erreicht hat (GitHub-#6).
+        Pollt den Status, bis |Ist - Soll| <= $ReachToleranceV oder $ReachTimeoutS
+        abgelaufen ist. Rueckgabe: @{ Reached = [bool]; Actual = [double] oder $null }
+    #>
+    param([double]$Target)
+    $deadline = (Get-Date).AddSeconds($ReachTimeoutS)
+    $actual = $null
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds $ReachPollMs
+        $st = Get-VStatus
+        if ($null -eq $st.voltage_actual) { continue }
+        $actual = [double]$st.voltage_actual
+        if ([math]::Abs($actual - $Target) -le $ReachToleranceV) {
+            return @{ Reached = $true; Actual = $actual }
+        }
+    }
+    return @{ Reached = $false; Actual = $actual }
+}
+
 function Wait-Step {
     param([string]$Mode, [double]$Interval, [string]$NextLabel)
     if ($Mode -eq "manual") {
@@ -188,7 +216,7 @@ function Invoke-SafeShutdown {
 }
 
 function Invoke-Sequence {
-    param([string]$Mode, [double]$Interval)
+    param([string]$Mode, [double]$Interval, [bool]$WithLimit = $true)
 
     # --- Vorbereitung: 0 V -> Strombegrenzung -> Regelung -> Ausgang ---
     Write-Host ""
@@ -197,8 +225,10 @@ function Invoke-Sequence {
     Set-VVoltage -Voltage 0
     Start-Sleep -Milliseconds 300
 
-    Write-Host "Strombegrenzung aktivieren ..."
-    Set-VState -Key "limit_on" -Action "toggle_limit" -Desired $true -Label "Strombegrenzung"
+    # GitHub-#7: Sequenz wahlweise mit oder ohne Strombegrenzung fahren.
+    $limitWord = if ($WithLimit) { "aktivieren" } else { "ausschalten" }
+    Write-Host "Strombegrenzung $limitWord ..."
+    Set-VState -Key "limit_on" -Action "toggle_limit" -Desired $WithLimit -Label "Strombegrenzung"
 
     Write-Host "Spannungsregelung einschalten ..."
     Set-VState -Key "regulation_on" -Action "toggle_regulation" -Desired $true -Label "Regelung"
@@ -214,9 +244,15 @@ function Invoke-Sequence {
         Write-Host ""
         Write-Host ("[{0}/{1}] Soll-Spannung {2} V" -f ($i + 1), $VoltageSteps.Count, $voltage)
         Set-VVoltage -Voltage $voltage
-        Start-Sleep -Milliseconds 500
-        $st = Get-VStatus
-        Write-Host ("    Ist-Spannung: {0} V" -f $st.voltage_actual)
+        # GitHub-#6: warten, bis die Regelung den Sollwert erreicht hat,
+        # statt nach fixer Pause einen zu fruehen Messwert auszugeben.
+        $result = Wait-VoltageReached -Target $voltage
+        if ($result.Reached) {
+            Write-Host ("    Ist-Spannung: {0} V" -f $result.Actual)
+        } else {
+            $actualText = if ($null -ne $result.Actual) { "{0} V" -f $result.Actual } else { "?" }
+            Write-Host ("    WARNUNG: {0} V nach {1:0.##} s nicht erreicht (Ist: {2})" -f $voltage, $ReachTimeoutS, $actualText)
+        }
 
         # Vor dem naechsten Schritt warten (nach dem letzten Schritt nicht).
         if ($i -lt $VoltageSteps.Count - 1) {
@@ -264,9 +300,11 @@ if (-not (Ask-YesNo "`nSequenz jetzt starten?" $true)) {
 
 $mode = Ask-Mode
 $interval = if ($mode -eq "auto") { Ask-Interval } else { 0.0 }
+# GitHub-#7: Strombegrenzung fuer die Sequenz waehlbar (sicherer Default: mit).
+$withLimit = Ask-YesNo "Sequenz mit Strombegrenzung fahren?" $true
 
 try {
-    Invoke-Sequence -Mode $mode -Interval $interval
+    Invoke-Sequence -Mode $mode -Interval $interval -WithLimit $withLimit
 } catch {
     Write-Host ""
     Write-Host "FEHLER: $($_.Exception.Message)"

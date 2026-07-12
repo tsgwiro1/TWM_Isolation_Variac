@@ -81,6 +81,7 @@
         <div><label for="interval">Intervall (s)</label><input type="number" id="interval" value="10" min="0" step="0.5"></div>
         <span class="hint">Wartezeit bis zur nächsten Spannung (nur bei „automatisch").</span>
       </div>
+      <div class="row"><label><input type="checkbox" id="limitOnStart" checked> Sequenz mit Strombegrenzung fahren</label></div>
       <div class="row"><label><input type="checkbox" id="limitOff"> Strombegrenzung nach letzter Spannung ausschalten</label></div>
       <div class="row"><label><input type="checkbox" id="shutdown" checked> Am Ende Ausgang ausschalten und auf 0 V</label></div>
     </div>
@@ -190,6 +191,7 @@ async function startRun() {
     mode: document.querySelector('input[name=mode]:checked').value,
     interval: parseFloat($("interval").value) || 0,
     voltages: voltages,
+    limitOnStart: $("limitOnStart").checked,
     limitOffAfterLast: $("limitOff").checked,
     shutdown: $("shutdown").checked,
   };
@@ -246,7 +248,7 @@ async function sendNext() {
 }
 
 async function estop() {
-  if (!confirm("Not-Aus auslösen? Ausgang wird ausgeschaltet und Spannung auf 0 V gesetzt.")) return;
+  // GitHub-#8: Ein Not-Aus löst sofort aus — bewusst OHNE Sicherheitsabfrage.
   try {
     const r = await fetch("/api/estop", {
       method: "POST", headers: {"Content-Type": "application/json"},

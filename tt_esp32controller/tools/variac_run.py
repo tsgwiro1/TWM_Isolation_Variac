@@ -8,8 +8,9 @@ wird sowohl direkt im Terminal als auch vom lokalen Webserver (variac_server.py)
 gestartet.
 
 Ablauf (wie variac_sequence.py, aber ohne interaktive Modus-/Wertabfragen):
-  1. 0 V -> Strombegrenzung EIN -> Regelung EIN -> Ausgang EIN
-  2. Spannungsschritte anfahren (auto = Zeitintervall, manual = auf Eingabe warten)
+  1. 0 V -> Strombegrenzung EIN (bzw. AUS mit --limit-off) -> Regelung EIN -> Ausgang EIN
+  2. Spannungsschritte anfahren (auto = Zeitintervall, manual = auf Eingabe warten);
+     je Schritt wird gewartet, bis die Ist-Spannung den Sollwert erreicht hat
   3. optional Strombegrenzung nach letzter Spannung ausschalten
   4. optional Ausgang aus + 0 V
 
@@ -31,7 +32,7 @@ import time
 # Damit der Import auch funktioniert, wenn das Skript aus einem anderen
 # Arbeitsverzeichnis gestartet wird.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from variac_sequence import Variac, VariacError  # noqa: E402
+from variac_sequence import Variac, VariacError, REACH_TIMEOUT_S  # noqa: E402
 
 MAX_STEPS = 10
 
@@ -99,8 +100,10 @@ def run(args):
     variac.set_voltage(0)
     time.sleep(0.3)
 
-    log("Strombegrenzung aktivieren ...")
-    variac.ensure_state("limit_on", "toggle_limit", True, "Strombegrenzung")
+    # GitHub-#7: Sequenz wahlweise mit oder ohne Strombegrenzung fahren.
+    with_limit = not args.limit_off
+    log("Strombegrenzung {} ...".format("aktivieren" if with_limit else "ausschalten"))
+    variac.ensure_state("limit_on", "toggle_limit", with_limit, "Strombegrenzung")
 
     log("Spannungsregelung einschalten ...")
     variac.ensure_state("regulation_on", "toggle_regulation", True, "Regelung")
@@ -114,9 +117,14 @@ def run(args):
     for i, voltage in enumerate(args.voltages):
         log("\n[{}/{}] Soll-Spannung {:g} V".format(i + 1, n, voltage))
         variac.set_voltage(voltage)
-        time.sleep(0.5)
-        st = variac.get_status()
-        log("    Ist-Spannung: {} V".format(st.get("voltage_actual", "?")))
+        # GitHub-#6: warten, bis die Regelung den Sollwert erreicht hat,
+        # statt nach fixer Pause einen zu fruehen Messwert auszugeben.
+        reached, actual = variac.wait_until_reached(voltage)
+        if reached:
+            log("    Ist-Spannung: {} V".format(actual))
+        else:
+            log("    WARNUNG: {:g} V nach {:g} s nicht erreicht (Ist: {} V)".format(
+                voltage, REACH_TIMEOUT_S, actual if actual is not None else "?"))
 
         if i < n - 1:
             next_label = "{:g} V".format(args.voltages[i + 1])
@@ -135,7 +143,7 @@ def run(args):
         log("Strombegrenzung ausschalten ...")
         variac.ensure_state("limit_on", "toggle_limit", False, "Strombegrenzung")
     else:
-        log("Strombegrenzung bleibt eingeschaltet.")
+        log("Strombegrenzung bleibt {}.".format("ausgeschaltet" if args.limit_off else "eingeschaltet"))
 
     if args.shutdown:
         safe_shutdown(variac)
@@ -159,6 +167,9 @@ def parse_args(argv=None):
                         help="auto = Zeitintervall, manual = auf Eingabe warten.")
     parser.add_argument("--interval", type=float, default=5.0,
                         help="Wartezeit zwischen Schritten in Sekunden (nur auto).")
+    parser.add_argument("--limit-off", action="store_true",
+                        help="Sequenz ohne Strombegrenzung fahren "
+                             "(Begrenzung wird beim Start ausgeschaltet).")
     parser.add_argument("--limit-off-after-last", action="store_true",
                         help="Strombegrenzung nach der letzten Spannung ausschalten.")
     parser.add_argument("--shutdown", action="store_true",

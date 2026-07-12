@@ -105,6 +105,40 @@ void cb_ValueAction(Action* act, ButtonEvent event) {
     }
 }
 
+// GitHub-#3: Plausibilitätsschwellen für die Kalibrier-Stützwerte (fest im Code).
+// Am Min-Punkt liegen bauartbedingt typisch 3–8 V an, am Max-Punkt 250–270 V.
+#define CAL_MIN_WARN_ABOVE_V   10.0f
+#define CAL_MAX_WARN_BELOW_V  250.0f
+#define CAL_MAX_WARN_ABOVE_V  270.0f
+
+/**
+ * @brief Plausibilitätsprüfung des Voltmeters beim Speichern eines Kalibrierpunkts (GitHub-#3).
+ * Warnt nur (Live-Log + Warnzeile im Setup-Screen), blockiert das Speichern nicht.
+ * @param act A_p1 (Min-Punkt) oder A_p2 (Max-Punkt).
+ */
+static void checkCalibrationPlausibility(Action* act) {
+    char warn[40] = "";
+    if (!isVoltageDataFresh()) {
+        // Der Spannungs-Stützwert wird nur bei frischem Messwert mitgeführt —
+        // ohne frische Daten wird also ein womöglich veralteter Wert gespeichert.
+        snprintf(warn, sizeof(warn), "Kein VM-Messwert - Wert veraltet?");
+        logMessage(LOG_WARN, "CAL: No fresh voltmeter reading at store - stored voltage may be stale");
+    } else {
+        float storedV;
+        portENTER_CRITICAL(&calibMux);
+        storedV = (act == A_p1) ? minVoltageAtMinPos : maxVoltageAtMaxPos;
+        portEXIT_CRITICAL(&calibMux);
+        if (act == A_p1 && storedV > CAL_MIN_WARN_ABOVE_V) {
+            snprintf(warn, sizeof(warn), "Min %.1fV (>10V) - VM pruefen!", storedV);
+            logMessage(LOG_WARN, "CAL: Min point stored at %.1f V (expected < %.0f V) - check voltmeter calibration", storedV, CAL_MIN_WARN_ABOVE_V);
+        } else if (act == A_p2 && (storedV < CAL_MAX_WARN_BELOW_V || storedV > CAL_MAX_WARN_ABOVE_V)) {
+            snprintf(warn, sizeof(warn), "Max %.0fV (250-270V) - VM pruefen!", storedV);
+            logMessage(LOG_WARN, "CAL: Max point stored at %.1f V (expected %.0f-%.0f V) - check voltmeter calibration", storedV, CAL_MAX_WARN_BELOW_V, CAL_MAX_WARN_ABOVE_V);
+        }
+    }
+    setSettingsWarning(warn); // "" löscht eine frühere Warnung wieder
+}
+
 /**
  * @brief Callback für Preset-Aktionen im Einstellungsmodus.
  * Bei kurzem Druck: Fährt die gespeicherte Stepper-Position an.
@@ -115,14 +149,21 @@ void cb_ValueAction(Action* act, ButtonEvent event) {
 void cb_SettingsValueAction(Action* act, ButtonEvent event) {
 if (event == ButtonEvent::RELEASED) {
         act->on();
-        // Hole den gespeicherten Wert aus dem Action-Objekt und fahre dorthin
+        // Hole den gespeicherten Wert aus dem Action-Objekt und fahre dorthin.
+        // GitHub-#3: nur innerhalb sicherer Bereiche (P1 = Min zwischen
+        // MINWIPERLIMIT und 0, P2 = Max oberhalb des Min-Punkts) und außerhalb
+        // von 0..2000 gedrosselt (Nähe der mechanischen Anschläge).
         int targetPosition = act->getValuePreset();
+        if (act == A_p1)      targetPosition = constrain(targetPosition, MINWIPERLIMIT, 0);
+        else if (act == A_p2) targetPosition = constrain(targetPosition, minWiperPos + 1, MAXWIPERLIMIT);
+        setCalibrationApproachSpeed(targetPosition);
         setWiperAbsolut(targetPosition);
         logMessage(LOG_INFO,"Moving to preset position: %d", targetPosition);
     }
     else if (event == ButtonEvent::LONGPRESSED) {
         int v = constrain((int)stepper.currentPosition(), MINWIPERLIMIT, MAXWIPERLIMIT);
         act->setValuePreset(v);
+        checkCalibrationPlausibility(act); // GitHub-#3: warnt nur, blockiert nicht
         saveConfiguration();
         logMessage(LOG_INFO,"Stored new setting %d to config (NVS) and Action object", v);
     }
@@ -163,11 +204,14 @@ void cb_RegAction(Action* act, ButtonEvent event) {
 }
 
 /**
- * @brief Callback für die Homing-Taste im Einstellungsmodus.
+ * @brief Callback für die ON/OFF-Taste im Einstellungsmodus.
+ * Schaltet nur die LED ein — der Ausgang ist im Setup-Modus fest an.
+ * (Hieß früher irreführend cb_SettingsHomingAction, ohne je ein Homing
+ * auszuführen; das Homing macht seit GitHub-#3 der Modus-Einstieg selbst.)
  * @param act Zeiger auf das auslösende Action-Objekt.
  * @param event Der Typ des Tasten-Events.
  */
-void cb_SettingsHomingAction(Action* act, ButtonEvent event) {
+void cb_SettingsOnOffAction(Action* act, ButtonEvent event) {
     if (event == ButtonEvent::PRESSED) {
         act->on();
     }
@@ -200,11 +244,19 @@ void userInputTask(void *parameter) {
     if (requestEnterSettingsMode) {
       requestEnterSettingsMode = false; // Flag sofort zurücksetzen
       logMessage(LOG_INFO,"Executing switch to SETTINGS MODE...");
+      // GitHub-#3: Vor der Kalibrierung definierten Zustand herstellen — Regelung
+      // aus und Referenzfahrt auf den Endschalter. Ohne Homing würde eine falsche
+      // Referenz die Min-/Max-Anfahrten in den mechanischen Anschlag schicken.
+      is_regulation_active = false;
       currentMode = MODE_SETTINGS;
-      initSettingsActions(); 
+      clearScreen();
+      drawHomingScreen();
+      homing(); // blockiert diesen Task; stepperTask + Display pausieren derweil
+      initSettingsActions();
       clearScreen();
       drawSettingsScreen();
-      cb_SettingsValueAction(A_p1, ButtonEvent::RELEASED);
+      initDisplayStruct(); // Anzeige-Cache invalidieren -> Werte neu zeichnen
+      cb_SettingsValueAction(A_p1, ButtonEvent::RELEASED); // Min-Punkt anfahren
     }
 
     if (currentMode == MODE_NORMAL) {
@@ -253,6 +305,9 @@ void userInputTask(void *parameter) {
               if (fresh) maxVoltageAtMaxPos = rms;
               portEXIT_CRITICAL(&calibMux);
           }
+
+          // GitHub-#3: nahe den mechanischen Anschlägen (außerhalb 0..2000) gedrosselt
+          setCalibrationApproachSpeed(pos);
 
           // wiperPos-Update + moveTo atomar (#5); im Settings-Modus ist dieser Task
           // der einzige Beweger, aber run() im Stepper-Task läuft parallel.
@@ -305,7 +360,7 @@ void initActions() {
  * Weist die speziellen Callbacks für die Kalibrierung zu.
  */
 void initSettingsActions() {
-    A_onoff->setCallBack(cb_SettingsHomingAction);
+    A_onoff->setCallBack(cb_SettingsOnOffAction);
     A_p1->setCallBack(cb_SettingsValueAction);
     A_p1->setGroup(g);
     A_p2->setCallBack(cb_SettingsValueAction);

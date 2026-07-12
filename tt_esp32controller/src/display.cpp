@@ -30,6 +30,21 @@ struct displayValues {
 
 static displayValues actDispValues;
 
+// Warnzeile im Setup-Screen (GitHub-#3): Plausibilitätswarnungen der Kalibrierung.
+static char settingsWarning[40] = "";
+static volatile bool settingsWarningDirty = false;
+
+/**
+ * @brief Setzt (oder löscht, bei "") die Warnzeile im Setup-Screen (GitHub-#3).
+ * Gezeichnet wird sie asynchron vom displayUpdateTask in updateSettingsDisplay().
+ * @param msg Warntext (ASCII, max. 39 Zeichen) oder "" zum Löschen.
+ */
+void setSettingsWarning(const char* msg) {
+    strncpy(settingsWarning, msg ? msg : "", sizeof(settingsWarning) - 1);
+    settingsWarning[sizeof(settingsWarning) - 1] = '\0';
+    settingsWarningDirty = true;
+}
+
 /**
  * @brief Sperrt den TFT-Mutex für exklusiven Display-Zugriff.
  * Muss vor einer Sequenz von Zeichenoperationen aufgerufen werden.
@@ -159,6 +174,13 @@ void updateSettingsDisplay() {
       actDispValues.setup2 = maxWiperPos;
       tft.setTextColor(TFT_WHITE, TFT_BLACK);
       tft.drawString((String)actDispValues.setup2, 220, 190, 4);
+  }
+  if (settingsWarningDirty) { // Warnzeile der Kalibrier-Plausibilität (GitHub-#3)
+      settingsWarningDirty = false;
+      tft.setTextDatum(TL_DATUM);
+      tft.setTextPadding(220); // überschreibt auch eine vorherige (längere) Warnung
+      tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+      tft.drawString(settingsWarning, 10, 225, 2);
   }
   tftEndWrite();   // << FREIGEBEN
 }
@@ -329,6 +351,7 @@ void drawSettingsScreen() {
   tft.drawString("P2:", 10, 160, 4);
   tft.drawString("P2S:", 10, 190, 4);
   tftEndWrite();   // << FREIGEBEN
+  settingsWarningDirty = true; // Warnzeile nach Komplett-Neuaufbau wieder zeichnen (GitHub-#3)
 }
 
 // ********************************************************************************
@@ -380,6 +403,13 @@ void displayUpdateTask(void *parameter) {
         clearScreen();
         drawSettingsScreen();
       }
+    }
+
+    // GitHub-#3: Während der Homing-Referenzfahrt (Kalibrier-Einstieg) zeigt der
+    // Screen "Homing..." — den übermalen wir nicht.
+    if (isHomingActive()) {
+      vTaskDelay(pdMS_TO_TICKS(100));
+      continue;
     }
 
     if (currentMode == MODE_NORMAL) {

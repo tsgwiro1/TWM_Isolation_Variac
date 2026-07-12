@@ -11,8 +11,12 @@ extern AccelStepper stepper;
 void initStepper();
 // Ticker-basierter "Wecker" für den stepperTask (ISR gibt Semaphore).
 void initStepperCallback();
-// Referenzfahrt auf den unteren Endanschlag (blockierend, nur in setup()).
+// Referenzfahrt auf den unteren Endanschlag (blockierend; aus setup() und beim
+// Kalibrier-Einstieg aus dem userInputTask — pausiert dann selbst den stepperTask, GitHub-#3).
 void homing();
+bool isHomingActive();
+// Kalibrier-Anfahrt: innerhalb 0..2000 normale Geschwindigkeit, außerhalb gedrosselt (GitHub-#3).
+void setCalibrationApproachSpeed(int targetPos);
 // Schleifer bewegen (Grenzen: kalibrierte min/max-Position; thread-safe, #5).
 void setWiperRelativ(int delta);
 void setWiperAbsolut(int value);

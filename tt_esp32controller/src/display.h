@@ -18,6 +18,7 @@ void drawLegend();
 void drawErrorScreen();
 void drawSettingsScreen();
 void initDisplayStruct();  // Anzeige-Cache invalidieren -> alles neu zeichnen
+void setSettingsWarning(const char* msg);  // Warnzeile im Setup-Screen, "" löscht (GitHub-#3)
 // RTOS-Task
 void displayUpdateTask(void *parameter);
 

@@ -85,7 +85,9 @@ paths:
           description: >
             toggle_output = Ausgang ein/aus, toggle_limit = Strombegrenzung,
             toggle_regulation = Regelung, recall_p1..p3 = Preset anfahren,
-            enter_settings = Settings-Modus am Gerät.
+            enter_settings = Settings-Modus am Gerät (führt zuerst eine
+            Homing-Referenzfahrt aus und fährt dann den Min-Punkt an;
+            Verlassen nur per Neustart).
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "400": { $ref: "#/components/responses/BadRequest" }

@@ -38,7 +38,7 @@ void cb_ValueAction(Action* act, ButtonEvent event);
 void cb_SettingsValueAction(Action* act, ButtonEvent event);
 void cb_x10Action(Action* act, ButtonEvent event);
 void cb_RegAction(Action* act, ButtonEvent event);
-void cb_SettingsHomingAction(Action* act, ButtonEvent event);
+void cb_SettingsOnOffAction(Action* act, ButtonEvent event);
 // Initialisierung (setup)
 void initActions();
 void initSettingsActions();

@@ -205,6 +205,16 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-12 — GitHub-#3 behoben (Kalibrier-Einstieg).** Wurzelursache: Der
+  Setup-Einstieg per REG-Taste beim Einschalten übersprang das Homing — die
+  zufällige physische Schleifer-Position wurde zur logischen 0 (0-V-Punkt
+  unerreichbar, Max-Anfahrt in den Anschlag). Fix nach Rogers Vorgaben: Homing
+  bei jedem Kalibrier-Einstieg (Gerät + API, mit Stepper-/Display-Pause),
+  P1/P2-Anfahrten geklemmt und außerhalb 0..2000 gedrosselt, Plausibilitäts-
+  warnung beim Speichern (Min > 10 V bzw. Max außerhalb 250–270 V → Warnung auf
+  Display/Log, Speichern nie blockiert; Min-Spannung bleibt gemessen, typisch
+  3–8 V). Doku (Kalibrierprozess) + API-Spec nachgezogen. Beide Envs bauen;
+  Gerätetest ausstehend.
 - **2026-07-12 — Testlauf-Befunde (GitHub-Issues 3–9): #5 + #4 behoben.** Michaels
   Testlauf lieferte 7 Issues. Behoben: GitHub-#5 (API-Doku „Unable to load the Spec" —
   `openapi.yaml` enthielt ungültiges YAML, unquotierte `[V]`/`[°C]` in Flow-Mappings;

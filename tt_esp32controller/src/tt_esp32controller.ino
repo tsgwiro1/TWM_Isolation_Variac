@@ -280,9 +280,16 @@ void setup() {
     if (!digitalRead(PIN_T_REG)) {
         logMessage(LOG_INFO, "SYSTEM: Setup button pressed, entering SETTINGS MODE");
         is_regulation_active = false;
+        // GitHub-#3: Auch im Setup-Einstieg zuerst die Referenz herstellen — ohne
+        // Homing würde die zufällige physische Schleifer-Position zur logischen 0
+        // und die Min-/Max-Anfahrten könnten in den mechanischen Anschlag fahren.
+        drawHomingScreen();
+        homing();
+        logMessage(LOG_INFO, "SYSTEM: Homing completed");
+        clearScreen();
         drawSettingsScreen();
         initSettingsActions();
-        A_p1->on();
+        cb_SettingsValueAction(A_p1, ButtonEvent::RELEASED); // Min-Punkt anfahren
         currentMode = MODE_SETTINGS;
     } else {
         logMessage(LOG_INFO, "SYSTEM: Starting in NORMAL MODE");

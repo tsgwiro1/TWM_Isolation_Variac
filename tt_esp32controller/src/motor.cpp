@@ -19,6 +19,16 @@ static SemaphoreHandle_t stepperSemaphore;
 #define STEPPERHOMINGSPEED2         10
 #define STEPPERHOMINGRETRACT        25
 
+// GitHub-#3: Anfahrten im Kalibriermodus laufen zwischen diesen Positionen mit
+// normaler Geschwindigkeit; außerhalb (Nähe der mechanischen Anschläge) gedrosselt.
+#define CALFASTZONEMIN              0
+#define CALFASTZONEMAX              2000
+#define STEPPERCALSLOWSPEED         150
+
+// Während des Homings pausiert: stepperTask überspringt run(), setWiperMove()
+// verwirft Bewegungsaufträge — homing() hat den Stepper dann exklusiv (GitHub-#3).
+static volatile bool stepperPaused = false;
+
 static void isr_stepper();
 
 /**
@@ -48,7 +58,14 @@ void initStepperCallback() {
  * kalibriert die Position auf 0 und lädt die gespeicherten Limits und Presets.
  */
 void homing() {
+    // Läuft seit GitHub-#3 auch aus dem userInputTask (Kalibrier-Einstieg per API),
+    // während stepperTask/motorControlTask aktiv sind — deshalb zuerst pausieren.
+    stepperPaused = true;
     stepperTicker.detach(); // Stoppt den Ticker/Wecker vor der manuellen Bewegung
+    // Ein evtl. gerade laufendes stepper.run() läuft unter stepperMux — einmal
+    // durch den Mux gehen garantiert, dass es beendet ist, bevor wir bewegen.
+    portENTER_CRITICAL(&stepperMux);
+    portEXIT_CRITICAL(&stepperMux);
 
     // find endstop fast - low side
     stepper.setSpeed(STEPPERHOMINGSPEED * -1.0);
@@ -69,9 +86,33 @@ void homing() {
     while (digitalRead(PIN_SW1)) {
         stepper.runSpeed();
     }
-    stepper.setCurrentPosition(0);
+    stepper.setCurrentPosition(0); // setzt auch das moveTo-Ziel auf 0 (kein Nachlaufen)
     wiperPos = 0;
+    stepperPaused = false;
     initStepperCallback(); // Startet den Ticker/Wecker wieder für den normalen Betrieb
+}
+
+/**
+ * @brief Meldet, ob gerade eine Homing-Referenzfahrt läuft (GitHub-#3).
+ * Der displayUpdateTask übermalt dann den "Homing..."-Screen nicht.
+ */
+bool isHomingActive() {
+    return stepperPaused;
+}
+
+/**
+ * @brief Setzt die Stepper-Geschwindigkeit für eine Kalibrier-Anfahrt (GitHub-#3).
+ * Liegen Start- und Zielposition im bewährten Bereich (CALFASTZONEMIN..CALFASTZONEMAX),
+ * wird normal gefahren; außerhalb — nahe den mechanischen Anschlägen — gedrosselt.
+ * @param targetPos Die absolute Zielposition der bevorstehenden Bewegung.
+ */
+void setCalibrationApproachSpeed(int targetPos) {
+    int curPos = (int)stepper.currentPosition();
+    bool outside = targetPos < CALFASTZONEMIN || targetPos > CALFASTZONEMAX
+                || curPos    < CALFASTZONEMIN || curPos    > CALFASTZONEMAX;
+    portENTER_CRITICAL(&stepperMux);
+    stepper.setMaxSpeed(outside ? STEPPERCALSLOWSPEED : STEPPERMAXSPEED);
+    portEXIT_CRITICAL(&stepperMux);
 }
 
 // ********************************************************************************
@@ -102,6 +143,8 @@ void setWiperAbsolut(int value) {
  * (serialisiert gegen stepper.run() im Stepper-Task und gegen andere Aufrufer).
  */
 void setWiperMove(int value, bool relative) {
+    if (stepperPaused) return; // Homing läuft — Bewegungsaufträge verwerfen (GitHub-#3)
+
     int minPos, maxPos;
     float minV, maxV;
     getCalibration(minPos, maxPos, minV, maxV);
@@ -313,7 +356,7 @@ void stepperTask(void *parameter) {
     if (xSemaphoreTake(stepperSemaphore, portMAX_DELAY) == pdTRUE) {
       
       // Sobald er aufgeweckt wurde, erledigt er seine Arbeit:
-      if (hardwareInitialized) {
+      if (hardwareInitialized && !stepperPaused) { // Pause: homing() bewegt exklusiv (GitHub-#3)
         // Unter stepperMux: AccelStepper ist nicht thread-safe — run() darf nicht
         // mitten in ein moveTo() aus einem anderen Task fallen (#5).
         portENTER_CRITICAL(&stepperMux);

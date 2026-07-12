@@ -31,26 +31,28 @@
 		</p>
 
 		<ol>
-			<li><strong>Setup-Modus starten:</strong> 
+			<li><strong>Setup-Modus starten:</strong>
 				<ul>
 					<li>Am Gerät: Gerät ausschalten, <strong>REG-Taste gedrückt halten</strong> und wieder einschalten.</li>
 					<li>Per Web: Den API-Befehl <code>POST /api/command?action=enter_settings</code> aufrufen (siehe API-Doku).</li>
+					<li>Beim Start läuft automatisch eine <strong>Referenzfahrt (Homing)</strong> auf den unteren Endschalter — sie garantiert eine gültige Positionsreferenz. Anschließend fährt der Schleifer selbständig zum gespeicherten Min-Punkt (P1 ist vorgewählt).</li>
 				</ul>
 			</li>
-			<li><strong>Min-Position (Nullpunkt) kalibrieren:</strong> 
+			<li><strong>Min-Position (Nullpunkt) kalibrieren:</strong>
 				<ul>
-					<li>Drücke kurz die Taste <strong>P1</strong>.</li>
-					<li>Fahre den Motor mit dem Drehregler an den unteren mechanischen Anschlag (0V). *Tipp: Encoder drücken für x10 Geschwindigkeit.*</li>
+					<li>Drücke kurz die Taste <strong>P1</strong> (fährt den gespeicherten Min-Punkt an).</li>
+					<li>Fahre den Motor mit dem Drehregler auf den 0V-Punkt des Trafos (knapp unterhalb des Endschalters). *Tipp: Encoder drücken für x10 Geschwindigkeit.*</li>
 					<li>Halte die Taste <strong>P1 lange gedrückt</strong>. Die Position und die Spannung sind nun als Minimum gespeichert.</li>
 				</ul>
 			</li>
-			<li><strong>Max-Position kalibrieren:</strong> 
+			<li><strong>Max-Position kalibrieren:</strong>
 				<ul>
-					<li>Drücke kurz die Taste <strong>P2</strong>.</li>
+					<li>Drücke kurz die Taste <strong>P2</strong> (fährt den gespeicherten Max-Punkt an; oberhalb von Position 2000 gedrosselt).</li>
 					<li>Fahre den Motor an den oberen mechanischen Anschlag (Maximalspannung).</li>
 					<li>Halte die Taste <strong>P2 lange gedrückt</strong>. Die Position und die Spannung sind nun als Maximum gespeichert.</li>
 				</ul>
 			</li>
+			<li><strong>Plausibilitätsprüfung:</strong> Beim Speichern prüft das Gerät den Messwert des Voltmeters (Min: &lt; 10&nbsp;V erwartet, Max: 250–270&nbsp;V erwartet). Bei Abweichung erscheint eine Warnung auf dem Display und im Live-Log — das Speichern wird nicht blockiert, aber die Voltmeter-Kalibrierung sollte dann geprüft werden.</li>
 			<li><strong>Abschluss:</strong> Führe einen Neustart des Geräts durch. Das System nutzt nun eine lineare Interpolation zwischen diesen beiden Punkten.</li>
 		</ol>
 

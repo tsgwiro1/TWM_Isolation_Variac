@@ -17,6 +17,18 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
   Configs ohne den Block laufen unverändert mit den Defaults.
 
 ### Behoben
+- **Endpunkt-Kalibrierung: Homing beim Einstieg + sichere Anfahrten** (GitHub-Issue #3):
+  Der Einstieg in den Setup-Modus (REG-Taste beim Einschalten wie auch
+  `enter_settings` per API) führt jetzt zuerst eine **Homing-Referenzfahrt** aus.
+  Bisher wurde beim Geräte-Einstieg die zufällige physische Schleifer-Position
+  stillschweigend zur logischen 0 — der echte 0-V-Punkt war dann unerreichbar und
+  die automatische Max-Anfahrt konnte in den mechanischen Anschlag fahren.
+  Zusätzlich: P1-/P2-Anfahrten auf sichere Bereiche geklemmt, Bewegungen außerhalb
+  Position 0..2000 gedrosselt, und beim Speichern eines Kalibrierpunkts prüft eine
+  **Plausibilitätsprüfung** den Voltmeter-Messwert (Min: < 10 V, Max: 250–270 V
+  erwartet; warnt auf Display + Live-Log, blockiert nicht). Während des Homings
+  sind Stepper-Task und Display sauber pausiert; `cb_SettingsHomingAction` (machte
+  nie ein Homing) heißt jetzt `cb_SettingsOnOffAction`.
 - **API-Doku lud nicht** (GitHub-Issue #5): `openapi.yaml` enthielt ungültiges YAML
   (unquotierte `[V]`/`[°C]`-Einheiten in Flow-Mappings) — RapiDoc meldete
   „Unable to load the Spec". Beschreibungen gequotet, Spec parst wieder.

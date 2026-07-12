@@ -15,11 +15,21 @@
 		</div>
 
 		<h1>3. Systemeinstellungen & Kalibrierung</h1>
-		<p>Die gesamte Konfiguration wird in der Datei <code>/config.json</code> im LittleFS-Speicher verwaltet. Änderungen können über die Einstellungsseite im Webinterface oder direkt per API vorgenommen werden.</p>
+		<p>Die gesamte Konfiguration (inkl. Kalibrierung und Presets) wird im <strong>NVS-Speicher</strong> des ESP32 verwaltet und überlebt dadurch auch Filesystem-Updates. Änderungen können über die Einstellungsseite im Webinterface oder direkt per API vorgenommen werden (<code>GET/POST /api/config</code>, siehe API-Doku).</p>
 
 		<h2>Kalibrierungsprozess</h2>
 		<p>Damit die Software weiß, bei welcher physischen Motorposition welche Ausgangsspannung anliegt, müssen die Endanschläge kalibriert werden.</p>
-		
+
+		<p style="border-left: 4px solid #cf6679; padding: 8px 12px; background: rgba(207,102,121,0.1);">
+			<strong>Wichtig — Reihenfolge:</strong> Zuerst das <strong>Voltmeter</strong> kalibrieren
+			(Skalierungsfaktor/Offset im Abschnitt „Voltmeter" auf der Einstellungsseite),
+			<strong>erst danach</strong> die Endpunkte. Die Endpunkt-Kalibrierung speichert die
+			<em>gemessene</em> Spannung an der Min-/Max-Position — misst das Voltmeter falsch,
+			werden später alle Sollwerte und Presets ungenau angefahren
+			(z.&nbsp;B. Preset 230&nbsp;V &rarr; Ausgang nur 211&nbsp;V).
+			Nach einer Voltmeter-Neukalibrierung müssen die Endpunkte erneut kalibriert werden.
+		</p>
+
 		<ol>
 			<li><strong>Setup-Modus starten:</strong> 
 				<ul>
@@ -46,7 +56,10 @@
 
 		<h2>Systemparameter</h2>
 		<ul>
-			<li><strong>Grob-Anfahrt Schwellenwert (V):</strong> Ist die Differenz zwischen aktueller Spannung und neuem Sollwert größer als dieser Wert (z.B. 20V), fährt der Motor die Position zuerst grob mit voller Geschwindigkeit an, bevor die langsame PID-Feinregelung übernimmt.</li>
+			<li><strong>Regelung: Deadband (V):</strong> Toleranzband um den Sollwert. Solange die gemessene Spannung innerhalb dieses Bandes liegt, korrigiert die Regelung nicht (verhindert ständiges Nachstellen).</li>
+			<li><strong>Regelung: Dämpfung (0.1–1.0):</strong> Anteil der berechneten Korrektur, der pro Regelschritt tatsächlich gefahren wird. Kleinere Werte regeln sanfter, größere schneller (1.0 = volle Korrektur).</li>
+			<li><strong>Regelung: Beruhigungszeit (ms):</strong> Wartezeit nach einer Korrekturbewegung, bevor die Messung erneut bewertet wird (Messwert muss sich stabilisieren).</li>
+			<li><strong>Regelung: Anfahr-Marge (V):</strong> Die schnelle Grob-Anfahrt stoppt um diese Marge vor dem Ziel (beim Hochfahren darunter, beim Runterfahren darüber); die restliche Differenz schließen die Fein-Korrekturen — verhindert Überschwingen.</li>
 			<li><strong>Debug-Ausgaben:</strong> Aktiviert erweiterte Statusmeldungen über den seriellen Port (USB) und das Live-Log im Webinterface.</li>
 		</ul>
 	</div>

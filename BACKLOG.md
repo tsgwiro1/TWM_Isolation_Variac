@@ -205,6 +205,14 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-12 — Testlauf-Befunde (GitHub-Issues 3–9): #5 + #4 behoben.** Michaels
+  Testlauf lieferte 7 Issues. Behoben: GitHub-#5 (API-Doku „Unable to load the Spec" —
+  `openapi.yaml` enthielt ungültiges YAML, unquotierte `[V]`/`[°C]` in Flow-Mappings;
+  gequotet + Parser-Check) und GitHub-#4 (Doku-Hinweis: Voltmeter **vor** den Endpunkten
+  kalibrieren, sonst falsche Spannungs-Stützwerte → Presets ungenau). Offen: GitHub-#9
+  (Voltmeter-Panel ohne Reaktion — Rückfragen an Michael gestellt), GitHub-#3
+  (Kalibrier-UX Min-Fenster/Auto-Anfahrt — Design-Entscheid ausstehend), GitHub-#6/7/8
+  (Tools, zurückgestellt). Achtung: GitHub-Issue-Nummern ≠ BACKLOG-IDs.
 - **2026-07-05 — #9 vorbereitet (16-MB-Partitionierung) → Paket F code-seitig komplett.**
   `partitions_16mb.csv` (nur FS wächst auf ~9,9 MB, alle anderen Offsets identisch →
   NVS-Konfig und Firmware überleben den Umstieg) + `Partitionierung-16MB.md`

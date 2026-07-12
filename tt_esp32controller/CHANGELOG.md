@@ -16,6 +16,17 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
   Defaults = bisherige Werte (1,0 V / 0,8 / 150 ms / 5,0 V); ältere gespeicherte
   Configs ohne den Block laufen unverändert mit den Defaults.
 
+### Behoben
+- **API-Doku lud nicht** (GitHub-Issue #5): `openapi.yaml` enthielt ungültiges YAML
+  (unquotierte `[V]`/`[°C]`-Einheiten in Flow-Mappings) — RapiDoc meldete
+  „Unable to load the Spec". Beschreibungen gequotet, Spec parst wieder.
+- **Doku: Kalibrier-Reihenfolge ergänzt** (GitHub-Issue #4): Hinweis in der
+  Einstellungs-Doku, dass das Voltmeter vor den Endpunkten kalibriert werden muss
+  (sonst werden falsche Spannungs-Stützwerte gespeichert und Presets ungenau angefahren).
+  Dabei zwei veraltete Stellen derselben Seite korrigiert: Konfiguration liegt im NVS
+  (nicht mehr in `/config.json`), Systemparameter beschreiben jetzt die vier
+  Regelparameter aus #31 statt des entfernten Grob-Anfahrt-Schwellenwerts.
+
 ### Entfernt
 - Ungenutztes Konfigfeld `system.coarse_move_threshold` (Überbleibsel der alten
   PID-/Preset-Logik) aus Config, Settings-Seite und API-Schema entfernt. (#31)

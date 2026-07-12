@@ -38,11 +38,11 @@ paths:
               schema:
                 type: object
                 properties:
-                  voltage_actual:   { type: number, description: Gemessene Ausgangsspannung [V] }
+                  voltage_actual:   { type: number, description: "Gemessene Ausgangsspannung [V]" }
                   voltage_fresh:    { type: boolean, description: Messwert ist aktuell (< 250 ms alt) }
-                  voltage_setpoint: { type: number, description: Sollspannung [V] }
-                  temperature:      { type: number, description: Schleifer-Temperatur [°C] }
-                  stepper_position: { type: integer, description: Aktuelle Stepper-Position [Schritte] }
+                  voltage_setpoint: { type: number, description: "Sollspannung [V]" }
+                  temperature:      { type: number, description: "Schleifer-Temperatur [°C]" }
+                  stepper_position: { type: integer, description: "Aktuelle Stepper-Position [Schritte]" }
                   is_hardware_ok:   { type: boolean }
                   fw_version:       { type: string }
                   states:
@@ -434,8 +434,8 @@ components:
           properties:
             min_pos:     { type: integer, description: Stepper-Position am unteren Endanschlag }
             max_pos:     { type: integer, description: Stepper-Position am oberen Endanschlag }
-            min_voltage: { type: number, description: Spannung an min_pos [V] }
-            max_voltage: { type: number, description: Spannung an max_pos [V] }
+            min_voltage: { type: number, description: "Spannung an min_pos [V]" }
+            max_voltage: { type: number, description: "Spannung an max_pos [V]" }
         presets:
           type: object
           properties:

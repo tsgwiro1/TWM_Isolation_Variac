@@ -13,9 +13,11 @@ info:
     **Live-Log:** zusätzlich zum REST-API liefert der WebSocket `ws://<host>/ws`
     die Log-Meldungen live (beim Verbinden zuerst die RAM-Historie).
   version: "4.1.0"
+# Relative Server-URL (GitHub-#5): "TRY" geht damit immer an den Host, über den
+# die Doku-Seite geöffnet wurde (IP oder mDNS-Name) — same-origin, kein CORS.
 servers:
-  - url: http://twm_variac.local
-    description: Gerät im lokalen Netz (mDNS)
+  - url: /
+    description: Das Gerät, von dem diese Doku-Seite geladen wurde
 
 tags:
   - name: Status & Steuerung

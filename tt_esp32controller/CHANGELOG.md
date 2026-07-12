@@ -32,6 +32,10 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
 - **API-Doku lud nicht** (GitHub-Issue #5): `openapi.yaml` enthielt ungültiges YAML
   (unquotierte `[V]`/`[°C]`-Einheiten in Flow-Mappings) — RapiDoc meldete
   „Unable to load the Spec". Beschreibungen gequotet, Spec parst wieder.
+  Nachtrag: „TRY" schlug mit „Failed to fetch (CORS or Network Issue)" fehl, wenn
+  die Seite über die IP statt `twm_variac.local` geöffnet war (absolute Server-URL
+  in der Spec → Cross-Origin). Server-URL jetzt relativ (`/`) — „TRY" geht immer
+  an den Host, über den die Doku-Seite geladen wurde.
 - **Doku: Kalibrier-Reihenfolge ergänzt** (GitHub-Issue #4): Hinweis in der
   Einstellungs-Doku, dass das Voltmeter vor den Endpunkten kalibriert werden muss
   (sonst werden falsche Spannungs-Stützwerte gespeichert und Presets ungenau angefahren).

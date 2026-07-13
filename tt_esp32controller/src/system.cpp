@@ -32,7 +32,7 @@ void setFanSpeed(uint8_t v) {
     v = constrain(v, MINFANPWM, MAXFANPWM);
     // Konvertiere den 0-100% Wert auf die 8-bit Auflösung (0-255)
     uint32_t dutyCycle = map(v, 0, 100, 0, 255);
-    ledcWrite(FAN_PWM_CHANNEL, dutyCycle);
+    ledcWrite(PIN_FANPWM, dutyCycle);
 }
 
 /**

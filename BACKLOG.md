@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-07-12 · **Gesamt: 27 / 34 Punkte erledigt**
+**Stand:** 2026-07-13 · **Gesamt: 28 / 34 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -46,8 +46,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 - [x] **D — Robustheit / Nebenläufigkeit**
   - [x] #4 Logging thread-safe
   - [x] #5 Geteilte Zustände schützen
-- [ ] **E — API-Vereinfachung & -Bereinigung**
-  - [ ] #22 API vereinfachen & bereinigen (REST-Konventionen + OpenAPI-Spec + Doku-Seite)
+- [x] **E — API-Vereinfachung & -Bereinigung**
+  - [x] #22 API vereinfachen & bereinigen (REST-Konventionen + OpenAPI-Spec + Doku-Seite)
 - [ ] **F — Struktur & Modernisierung**
   - [x] #10 Modularisierung
   - [x] #15 Typos (`Whiper`→`Wiper`, `corse`→`coarse`)
@@ -205,6 +205,17 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-13 — #22 abgehakt → Paket E fertig (28/34); Testanleitung entfernt.**
+  Michaels Nachtest der API-Doku ist grün: RapiDoc lädt (YAML-Fix), TRY funktioniert
+  auch bei Zugriff per IP (relative Server-URL), und die Voltmeter-Endpoints liefern
+  Live-JSON — damit ist auch das Backend hinter GitHub-#9 verifiziert; das Issue wird
+  geschlossen („wird durch Web-Redesign Paket G ersetzt", altes Frontend wird nicht
+  mehr gefixt). #12 ist damit im Kern miterledigt (openapi.yaml als Single Source,
+  Doku-Seite auf dem Gerät); dort verbleibt nur das Abräumen der Alt-Doku (Teil #24).
+  `Testanleitung-V4.0.0.md` gelöscht (Zweck erfüllt; Historie behält die Datei).
+  **Noch offene Nachtests (unkritisch, Befunde werden unabhängig gefixt):**
+  Kalibrier-Ablauf GitHub-#3 (Setup-Einstieg → Homing → Anfahrten → Plausibilitäts-
+  warnung) sowie die Tools-Retests GitHub-#6/#7 (Endwert-Anzeige, Limit-Wahl).
 - **2026-07-12 — Testlauf T1–T3a/T6/T8 bestanden → #10/#15/#14/#31 abgehakt (27/34).**
   Rogers Freigabe nach Michaels Testlauf: Version/Konfig-Erhalt, Hauptseite,
   Settings inkl. Regelparameter, Breaking-Change-Negativtest und Regression sind
@@ -327,7 +338,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
-| 22 | API | API vereinfachen & bereinigen (REST + OpenAPI) | (a) Redundante/wenig sinnvolle Endpoints zusammenführen oder entfernen (z. B. Überschneidung `/data` ↔ `/api/status`; Nutzen von `/api/files`, `/api/files/delete` prüfen). (b) **REST-Konventionen**: GET nur lesen, zustandsändernde Aktionen auf POST/PUT umstellen (betrifft u. a. `/api/reboot`, `/api/calibration/save`, `/api/voltmeter/*` — inkl. Anpassung aller `fetch()`-Aufrufe in den Webseiten), ressourcen-orientierte Pfade, einheitliche Antwort-Hülle `{status, message, …}` + Fehlercodes. (c) **`openapi.yaml`** parallel zum Umbau schreiben (Design-Artefakt + Doku-Quelle). (d) **Interaktive Doku-Seite** auf dem Gerät: kleine HTML-Seite + RapiDoc/Swagger-UI (per CDN oder lokal, 16 MB Flash vorhanden), Gerät serviert die `openapi.yaml`. Basis für #13/#23; zahlt auf #11 (CSRF/REST-Hygiene) ein. | L | offen |
+| 22 | API | API vereinfachen & bereinigen (REST + OpenAPI) | (a) Redundante/wenig sinnvolle Endpoints zusammenführen oder entfernen (z. B. Überschneidung `/data` ↔ `/api/status`; Nutzen von `/api/files`, `/api/files/delete` prüfen). (b) **REST-Konventionen**: GET nur lesen, zustandsändernde Aktionen auf POST/PUT umstellen (betrifft u. a. `/api/reboot`, `/api/calibration/save`, `/api/voltmeter/*` — inkl. Anpassung aller `fetch()`-Aufrufe in den Webseiten), ressourcen-orientierte Pfade, einheitliche Antwort-Hülle `{status, message, …}` + Fehlercodes. (c) **`openapi.yaml`** parallel zum Umbau schreiben (Design-Artefakt + Doku-Quelle). (d) **Interaktive Doku-Seite** auf dem Gerät: kleine HTML-Seite + RapiDoc/Swagger-UI (per CDN oder lokal, 16 MB Flash vorhanden), Gerät serviert die `openapi.yaml`. Basis für #13/#23; zahlt auf #11 (CSRF/REST-Hygiene) ein. | L | **erledigt** *(am Gerät verifiziert: Web/Tools-Testlauf + RapiDoc-TRY inkl. Voltmeter-Endpoints)* |
 
 ## Paket F — Struktur & Modernisierung
 

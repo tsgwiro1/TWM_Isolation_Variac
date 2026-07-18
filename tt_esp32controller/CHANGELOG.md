@@ -23,6 +23,18 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
 - **Live-Daten über WebSocket** (#13): Statuswerte werden vom Gerät gepusht
   statt per HTTP-Polling abgefragt (Grundlage für Gauge/Trend im Dashboard).
 
+### Behoben
+- **Presets gingen bei der Endpunkt-Kalibrierung verloren:** Beim Speichern
+  eines Kalibrierpunkts im Setup-Modus schrieb `saveConfiguration()` die
+  Presets als 0/0/0 ins NVS (im Setup-Modus tragen die P1/P2-Objekte
+  Kalibrier-Positionen statt Preset-Spannungen; der alte Code wich deshalb auf
+  Nullen aus). Jetzt werden die gespeicherten Presets unverändert aus dem NVS
+  übernommen. Altlast, aufgefallen beim Nachtest von GitHub-Issue #3.
+- **API-Doku: Aktionen von `POST /api/command` auffindbar gemacht** (u. a.
+  `enter_settings`): Die Aktionsnamen stehen jetzt im Endpoint-Titel (die
+  RapiDoc-Suche durchsucht keine Parameter-Werte) plus ausführliche
+  Beschreibung je Aktion.
+
 ## [V4.1.0] – 2026-07-13
 
 ### Hinzugefügt

@@ -370,9 +370,23 @@ void saveConfiguration() {
     doc["presets"]["p2"] = A_p2->getValuePreset();
     doc["presets"]["p3"] = A_p3->getValuePreset();
   } else {
-    doc["presets"]["p1"] = 0;
-    doc["presets"]["p2"] = 0;
-    doc["presets"]["p3"] = 0;
+    // Im Settings-Modus tragen A_p1/A_p2 Kalibrier-POSITIONEN (Schritte), keine
+    // Preset-Spannungen — deshalb die gespeicherten Presets unverändert aus dem
+    // NVS übernehmen. (Bugfix: hier wurde früher 0/0/0 geschrieben, wodurch die
+    // Presets bei jedem Speichern eines Kalibrierpunkts verloren gingen.)
+    JsonDocument cur;
+    String raw = configRawJson();
+    if (raw.length() > 0 &&
+        deserializeJson(cur, raw) == DeserializationError::Ok &&
+        !cur["presets"].isNull()) {
+      doc["presets"]["p1"] = (int)(cur["presets"]["p1"] | 0);
+      doc["presets"]["p2"] = (int)(cur["presets"]["p2"] | 0);
+      doc["presets"]["p3"] = (int)(cur["presets"]["p3"] | 0);
+    } else {
+      doc["presets"]["p1"] = 0;
+      doc["presets"]["p2"] = 0;
+      doc["presets"]["p3"] = 0;
+    }
   }
 
   // #35: In den NVS schreiben (überlebt uploadfs/OTA). Lokale Preferences-Instanz,

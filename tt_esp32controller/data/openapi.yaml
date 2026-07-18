@@ -79,7 +79,19 @@ paths:
   /api/command:
     post:
       tags: [Status & Steuerung]
-      summary: Geräte-Aktion auslösen
+      # Aktionen im Titel, damit die RapiDoc-Suche sie findet (sie durchsucht
+      # nur Pfade und Titel, keine Parameter-Enums).
+      summary: "Geräte-Aktion auslösen: toggle_output / toggle_limit / toggle_regulation / recall_p1..p3 / enter_settings"
+      description: |
+        Löst eine Aktion aus (Query-Parameter `action`):
+        - `toggle_output` — Ausgangsrelais ein-/ausschalten
+        - `toggle_limit` — Strombegrenzung ein-/ausschalten
+        - `toggle_regulation` — Spannungsregelung ein-/ausschalten
+        - `recall_p1` / `recall_p2` / `recall_p3` — Preset-Spannung anfahren
+        - `enter_settings` — Settings-/Kalibriermodus am Gerät starten:
+          führt zuerst eine Homing-Referenzfahrt auf den Endschalter aus und
+          fährt dann den gespeicherten Min-Punkt an (P1 vorgewählt).
+          Verlassen nur per Neustart (`POST /api/reboot`).
       parameters:
         - name: action
           in: query
@@ -87,12 +99,7 @@ paths:
           schema:
             type: string
             enum: [toggle_output, toggle_limit, toggle_regulation, recall_p1, recall_p2, recall_p3, enter_settings]
-          description: >
-            toggle_output = Ausgang ein/aus, toggle_limit = Strombegrenzung,
-            toggle_regulation = Regelung, recall_p1..p3 = Preset anfahren,
-            enter_settings = Settings-Modus am Gerät (führt zuerst eine
-            Homing-Referenzfahrt aus und fährt dann den Min-Punkt an;
-            Verlassen nur per Neustart).
+          description: Auszulösende Aktion (siehe Beschreibung oben).
       responses:
         "200": { $ref: "#/components/responses/Success" }
         "400": { $ref: "#/components/responses/BadRequest" }

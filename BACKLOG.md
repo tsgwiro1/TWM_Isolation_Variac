@@ -205,6 +205,15 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-14 — GitHub-#3 am Gerät verifiziert (Roger); Preset-Bugfix bestätigt.**
+  Kalibrier-Ablauf funktioniert wie gebaut (Setup-Einstieg → Homing → Anfahrten →
+  Plausibilitätswarnung); Issue wird geschlossen. Dabei entdeckte Altlast behoben
+  und nachgetestet: `saveConfiguration()` nullte beim Speichern eines
+  Kalibrierpunkts im Setup-Modus die Presets (P1/P2 tragen dort Positionen statt
+  Spannungen; Commit `01d93e2` übernimmt die Presets jetzt aus dem NVS —
+  Presets überleben die Kalibrierung). Außerdem `POST /api/command`-Aktionen
+  (u. a. `enter_settings`) in der API-Doku sichtbar/suchbar gemacht (`4d39b0c`).
+  Offene Nachtests damit nur noch: Tools GitHub-#6/#7 (inkl. `.ps1` auf Windows).
 - **2026-07-13 — Paket G gestartet: V4.2.0 + Tag `v4.1.0`; #23 + #13 umgesetzt
   (Gerätetest ausstehend).** Grundlage ist Rogers Claude-Design-Entwurf
   („ESP32 Variac design review"); entschieden: Vanilla-Nachbau statt

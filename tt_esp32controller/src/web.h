@@ -7,8 +7,11 @@
 
 extern AsyncWebServer server;
 extern AsyncWebSocket ws;
+extern AsyncWebSocket wsStatus;  // Live-Statuswerte fürs Dashboard (#13)
 
 // Registriert alle Routen (REST-API + statische Dateien) und startet den Server.
 void initWebServer();
+// Pusht den Status an alle /ws_status-Clients; periodisch aus loop() aufrufen (#13).
+void webPushStatus();
 
 #endif // WEB_H

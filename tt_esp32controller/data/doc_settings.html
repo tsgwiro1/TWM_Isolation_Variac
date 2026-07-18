@@ -2,68 +2,102 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Variac Doku - Einstellungen</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Variac Doku – Einstellungen</title>
+    <script>
+        (function(){ try {
+            var t = localStorage.getItem('variac-theme');
+            document.documentElement.dataset.theme = (t === 'light' || t === 'dark') ? t : 'dark';
+            var a = localStorage.getItem('variac-accent');
+            document.documentElement.dataset.accent = a || 'teal';
+        } catch (e) { document.documentElement.dataset.theme = 'dark'; document.documentElement.dataset.accent = 'teal'; } })();
+    </script>
+    <link rel="stylesheet" href="app.css">
 </head>
-<body class="doc-body">
-	<div class="doc-container">
-		<div class="doc-nav">
-			<a href="doc_usage.html">1. Bedienung</a>
-			<a href="doc_api.html">2. API</a>
-			<a href="doc_settings.html" style="color:#bb86fc">3. Einstellungen</a>
-			<a href="/" style="float:right">X Schließen</a>
-		</div>
+<body>
+<div class="wrap wrap-narrow">
 
-		<h1>3. Systemeinstellungen & Kalibrierung</h1>
-		<p>Die gesamte Konfiguration (inkl. Kalibrierung und Presets) wird im <strong>NVS-Speicher</strong> des ESP32 verwaltet und überlebt dadurch auch Filesystem-Updates. Änderungen können über die Einstellungsseite im Webinterface oder direkt per API vorgenommen werden (<code>GET/POST /api/config</code>, siehe API-Doku).</p>
+    <!-- HEADER -->
+    <header class="hdr">
+        <div class="hdr-brand">
+            <div class="logo">&#8776;V</div>
+            <div>
+                <div class="hdr-title">Dokumentation</div>
+                <div class="hdr-sub">TWM Isolation Variac &middot; Einstellungen</div>
+            </div>
+        </div>
+        <div class="hdr-actions">
+            <button class="icon-btn" id="theme-btn" title="Dark / Light">&#9788;</button>
+            <div class="menu-anchor">
+                <button class="icon-btn" title="Akzentfarbe">&#9673;</button>
+                <div class="menu" id="accent-menu">
+                    <div class="menu-label">Akzentfarbe</div>
+                </div>
+            </div>
+            <a class="icon-btn" href="index.html" title="Zum Dashboard" style="font-size:18px;">&#8962;</a>
+        </div>
+    </header>
 
-		<h2>Kalibrierungsprozess</h2>
-		<p>Damit die Software weiß, bei welcher physischen Motorposition welche Ausgangsspannung anliegt, müssen die Endanschläge kalibriert werden.</p>
+    <nav class="doc-nav">
+        <a href="doc_usage.html">1. Bedienung</a>
+        <a href="doc_api.html">2. API</a>
+        <a href="doc_settings.html" class="active">3. Einstellungen</a>
+    </nav>
 
-		<p style="border-left: 4px solid #cf6679; padding: 8px 12px; background: rgba(207,102,121,0.1);">
-			<strong>Wichtig — Reihenfolge:</strong> Zuerst das <strong>Voltmeter</strong> kalibrieren
-			(Skalierungsfaktor/Offset im Abschnitt „Voltmeter" auf der Einstellungsseite),
-			<strong>erst danach</strong> die Endpunkte. Die Endpunkt-Kalibrierung speichert die
-			<em>gemessene</em> Spannung an der Min-/Max-Position — misst das Voltmeter falsch,
-			werden später alle Sollwerte und Presets ungenau angefahren
-			(z.&nbsp;B. Preset 230&nbsp;V &rarr; Ausgang nur 211&nbsp;V).
-			Nach einer Voltmeter-Neukalibrierung müssen die Endpunkte erneut kalibriert werden.
-		</p>
+    <section class="panel doc">
+        <h1>3. Systemeinstellungen &amp; Kalibrierung</h1>
+        <p>Die gesamte Konfiguration (inkl. Kalibrierung und Presets) wird im <strong>NVS-Speicher</strong> des ESP32 verwaltet und überlebt dadurch auch Filesystem-Updates. Änderungen können über die Einstellungsseite im Webinterface oder direkt per API vorgenommen werden (<code>GET/POST /api/config</code>, siehe API-Doku).</p>
 
-		<ol>
-			<li><strong>Setup-Modus starten:</strong>
-				<ul>
-					<li>Am Gerät: Gerät ausschalten, <strong>REG-Taste gedrückt halten</strong> und wieder einschalten.</li>
-					<li>Per Web: Den API-Befehl <code>POST /api/command?action=enter_settings</code> aufrufen (siehe API-Doku).</li>
-					<li>Beim Start läuft automatisch eine <strong>Referenzfahrt (Homing)</strong> auf den unteren Endschalter — sie garantiert eine gültige Positionsreferenz. Anschließend fährt der Schleifer selbständig zum gespeicherten Min-Punkt (P1 ist vorgewählt).</li>
-				</ul>
-			</li>
-			<li><strong>Min-Position (Nullpunkt) kalibrieren:</strong>
-				<ul>
-					<li>Drücke kurz die Taste <strong>P1</strong> (fährt den gespeicherten Min-Punkt an).</li>
-					<li>Fahre den Motor mit dem Drehregler auf den 0V-Punkt des Trafos (knapp unterhalb des Endschalters). *Tipp: Encoder drücken für x10 Geschwindigkeit.*</li>
-					<li>Halte die Taste <strong>P1 lange gedrückt</strong>. Die Position und die Spannung sind nun als Minimum gespeichert.</li>
-				</ul>
-			</li>
-			<li><strong>Max-Position kalibrieren:</strong>
-				<ul>
-					<li>Drücke kurz die Taste <strong>P2</strong> (fährt den gespeicherten Max-Punkt an; oberhalb von Position 2000 gedrosselt).</li>
-					<li>Fahre den Motor an den oberen mechanischen Anschlag (Maximalspannung).</li>
-					<li>Halte die Taste <strong>P2 lange gedrückt</strong>. Die Position und die Spannung sind nun als Maximum gespeichert.</li>
-				</ul>
-			</li>
-			<li><strong>Plausibilitätsprüfung:</strong> Beim Speichern prüft das Gerät den Messwert des Voltmeters (Min: &lt; 10&nbsp;V erwartet, Max: 250–270&nbsp;V erwartet). Bei Abweichung erscheint eine Warnung auf dem Display und im Live-Log — das Speichern wird nicht blockiert, aber die Voltmeter-Kalibrierung sollte dann geprüft werden.</li>
-			<li><strong>Abschluss:</strong> Führe einen Neustart des Geräts durch. Das System nutzt nun eine lineare Interpolation zwischen diesen beiden Punkten.</li>
-		</ol>
+        <h2>Kalibrierungsprozess</h2>
+        <p>Damit die Software weiß, bei welcher physischen Motorposition welche Ausgangsspannung anliegt, müssen die Endanschläge kalibriert werden.</p>
 
-		<h2>Systemparameter</h2>
-		<ul>
-			<li><strong>Regelung: Deadband (V):</strong> Toleranzband um den Sollwert. Solange die gemessene Spannung innerhalb dieses Bandes liegt, korrigiert die Regelung nicht (verhindert ständiges Nachstellen).</li>
-			<li><strong>Regelung: Dämpfung (0.1–1.0):</strong> Anteil der berechneten Korrektur, der pro Regelschritt tatsächlich gefahren wird. Kleinere Werte regeln sanfter, größere schneller (1.0 = volle Korrektur).</li>
-			<li><strong>Regelung: Beruhigungszeit (ms):</strong> Wartezeit nach einer Korrekturbewegung, bevor die Messung erneut bewertet wird (Messwert muss sich stabilisieren).</li>
-			<li><strong>Regelung: Anfahr-Marge (V):</strong> Die schnelle Grob-Anfahrt stoppt um diese Marge vor dem Ziel (beim Hochfahren darunter, beim Runterfahren darüber); die restliche Differenz schließen die Fein-Korrekturen — verhindert Überschwingen.</li>
-			<li><strong>Debug-Ausgaben:</strong> Aktiviert erweiterte Statusmeldungen über den seriellen Port (USB) und das Live-Log im Webinterface.</li>
-		</ul>
-	</div>
+        <div class="callout">
+            <strong>Wichtig — Reihenfolge:</strong> Zuerst das <strong>Voltmeter</strong> kalibrieren
+            (Skalierungsfaktor/Offset im Abschnitt &bdquo;Voltmeter&ldquo; auf der Einstellungsseite),
+            <strong>erst danach</strong> die Endpunkte. Die Endpunkt-Kalibrierung speichert die
+            <em>gemessene</em> Spannung an der Min-/Max-Position — misst das Voltmeter falsch,
+            werden später alle Sollwerte und Presets ungenau angefahren
+            (z.&nbsp;B. Preset 230&nbsp;V &rarr; Ausgang nur 211&nbsp;V).
+            Nach einer Voltmeter-Neukalibrierung müssen die Endpunkte erneut kalibriert werden.
+        </div>
+
+        <ol>
+            <li><strong>Setup-Modus starten:</strong>
+                <ul>
+                    <li>Am Gerät: Gerät ausschalten, <strong>REG-Taste gedrückt halten</strong> und wieder einschalten.</li>
+                    <li>Per Web: Den API-Befehl <code>POST /api/command?action=enter_settings</code> aufrufen (siehe API-Doku).</li>
+                    <li>Beim Start läuft automatisch eine <strong>Referenzfahrt (Homing)</strong> auf den unteren Endschalter — sie garantiert eine gültige Positionsreferenz. Anschließend fährt der Schleifer selbständig zum gespeicherten Min-Punkt (P1 ist vorgewählt).</li>
+                </ul>
+            </li>
+            <li><strong>Min-Position (Nullpunkt) kalibrieren:</strong>
+                <ul>
+                    <li>Drücke kurz die Taste <strong>P1</strong> (fährt den gespeicherten Min-Punkt an).</li>
+                    <li>Fahre den Motor mit dem Drehregler auf den 0V-Punkt des Trafos (knapp unterhalb des Endschalters). <em>Tipp: Encoder drücken für x10 Geschwindigkeit.</em></li>
+                    <li>Halte die Taste <strong>P1 lange gedrückt</strong>. Die Position und die Spannung sind nun als Minimum gespeichert.</li>
+                </ul>
+            </li>
+            <li><strong>Max-Position kalibrieren:</strong>
+                <ul>
+                    <li>Drücke kurz die Taste <strong>P2</strong> (fährt den gespeicherten Max-Punkt an; oberhalb von Position 2000 gedrosselt).</li>
+                    <li>Fahre den Motor an den oberen mechanischen Anschlag (Maximalspannung).</li>
+                    <li>Halte die Taste <strong>P2 lange gedrückt</strong>. Die Position und die Spannung sind nun als Maximum gespeichert.</li>
+                </ul>
+            </li>
+            <li><strong>Plausibilitätsprüfung:</strong> Beim Speichern prüft das Gerät den Messwert des Voltmeters (Min: &lt; 10&nbsp;V erwartet, Max: 250&ndash;270&nbsp;V erwartet). Bei Abweichung erscheint eine Warnung auf dem Display und im Live-Log — das Speichern wird nicht blockiert, aber die Voltmeter-Kalibrierung sollte dann geprüft werden.</li>
+            <li><strong>Abschluss:</strong> Führe einen Neustart des Geräts durch. Das System nutzt nun eine lineare Interpolation zwischen diesen beiden Punkten.</li>
+        </ol>
+
+        <h2>Systemparameter</h2>
+        <ul>
+            <li><strong>Regelung: Deadband (V):</strong> Toleranzband um den Sollwert. Solange die gemessene Spannung innerhalb dieses Bandes liegt, korrigiert die Regelung nicht (verhindert ständiges Nachstellen).</li>
+            <li><strong>Regelung: Dämpfung (0.1–1.0):</strong> Anteil der berechneten Korrektur, der pro Regelschritt tatsächlich gefahren wird. Kleinere Werte regeln sanfter, größere schneller (1.0 = volle Korrektur).</li>
+            <li><strong>Regelung: Beruhigungszeit (ms):</strong> Wartezeit nach einer Korrekturbewegung, bevor die Messung erneut bewertet wird (Messwert muss sich stabilisieren).</li>
+            <li><strong>Regelung: Anfahr-Marge (V):</strong> Die schnelle Grob-Anfahrt stoppt um diese Marge vor dem Ziel (beim Hochfahren darunter, beim Runterfahren darüber); die restliche Differenz schließen die Fein-Korrekturen — verhindert Überschwingen.</li>
+            <li><strong>Debug-Ausgaben:</strong> Aktiviert erweiterte Statusmeldungen über den seriellen Port (USB) und das Live-Log im Webinterface.</li>
+        </ul>
+    </section>
+</div>
+<script src="app.js"></script>
+<script>document.addEventListener('DOMContentLoaded', initHeader);</script>
 </body>
 </html>

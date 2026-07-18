@@ -205,6 +205,22 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-13 — Paket G gestartet: V4.2.0 + Tag `v4.1.0`; #23 + #13 umgesetzt
+  (Gerätetest ausstehend).** Grundlage ist Rogers Claude-Design-Entwurf
+  („ESP32 Variac design review"); entschieden: Vanilla-Nachbau statt
+  React-Bundle, Fonts lokal (WOFF2, ~53 KB, offline-fähig), kein BOOT0-Button
+  mehr, Log-Download neu, Akzentfarbe in der UI umschaltbar (Default teal).
+  **#23:** Dashboard/Settings/Log komplett neu (app.css/app.js als gemeinsames
+  Design-System, Dark/Light + Akzent persistiert, Gauge + Spannungsverlauf-Chart,
+  Konfig-Backup/Restore, Voltmeter-Panel inkl. 2-Schritt-FW-Update).
+  **#13:** Neuer WebSocket `/ws_status` pusht den Status alle 500 ms
+  (eine JSON-Quelle mit `GET /api/status`); Dashboard nutzt ihn mit
+  automatischem Polling-Fallback. Auch die **doc_*-Seiten** aufs Design-System
+  gezogen (Theme/Akzent umschaltbar; RapiDoc wird per JS live aus den
+  CSS-Tokens eingefärbt und folgt dem Theme-Wechsel); das alte `style.css` ist
+  damit vollständig abgelöst und entfernt. Alle Seiten gegen einen
+  Mock-Controller (inkl. WebSocket) im Browser verifiziert; beide Firmware-Envs
+  bauen. Offen: Gerätetest.
 - **2026-07-13 — #22 abgehakt → Paket E fertig (28/34); Testanleitung entfernt.**
   Michaels Nachtest der API-Doku ist grün: RapiDoc lädt (YAML-Fix), TRY funktioniert
   auch bei Zugriff per IP (relative Server-URL), und die Voltmeter-Endpoints liefern

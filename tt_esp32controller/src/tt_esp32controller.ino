@@ -384,7 +384,14 @@ void loop() {
   // Diese Funktion muss im Loop aufgerufen werden, damit OTA Anfragen
   // empfangen und verarbeitet werden können.
   ArduinoOTA.handle();
-  
+
+  // Live-Status an die Dashboard-Clients pushen (#13, alle 500 ms)
+  static uint32_t lastStatusPush = 0;
+  if (millis() - lastStatusPush > 500) {
+    lastStatusPush = millis();
+    webPushStatus();
+  }
+
   // Alle 5 Sekunden die Stacks aller Tasks auf kritische Werte prüfen
   if (millis() - lastStackCheck > 5000) {
     lastStackCheck = millis();

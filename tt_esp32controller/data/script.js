@@ -1,102 +1,242 @@
-document.addEventListener('DOMContentLoaded', function() {
-    // Referenzen auf die HTML-Elemente
-    const istVoltageElement = document.getElementById('ist-voltage');
-    const sollVoltageElement = document.getElementById('soll-voltage');
-	const gaugeNeedle = document.getElementById('gauge-needle');
-    const newSollInput = document.getElementById('new-soll');
-    const setButton = document.getElementById('set-button');
-    const statusMessage = document.getElementById('status-message');
+// TWM Isolation Variac – Dashboard (#23): Live-Daten über WebSocket /ws_status (#13),
+// Fallback auf HTTP-Polling, Gauge + Trend als SVG.
 
-    // NEU: Referenzen auf die neuen Tasten
-    const btnOnoff = document.getElementById('btn-onoff');
-    const btnLimit = document.getElementById('btn-limit');
-    const btnReg = document.getElementById('btn-reg');
-    const btnP1 = document.getElementById('btn-p1');
-    const btnP2 = document.getElementById('btn-p2');
-    const btnP3 = document.getElementById('btn-p3');
+(function () {
+    'use strict';
 
-    // NEU: Helfer-Funktion, um einen Wert von einem Bereich in einen anderen umzurechnen
-    function mapRange(value, in_min, in_max, out_min, out_max) {
-        return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+    // ---- Konfiguration/Skalen (werden aus /api/config geladen) ----
+    var cfg = { vmax: 260, maxPos: 2500, tWarn: 70, tMax: 90 };
+
+    // ---- Trend-Puffer: [ms-Zeitstempel, Volt] ----
+    var TREND_MAX_S = 600;
+    var history = [];
+    var lastSetpoint = 0;
+
+    var ws = null;
+    var pollTimer = null;
+
+    // ---------- Gauge (Bogen bei 225° startend, 270° Umfang) ----------
+    function polar(deg, r) {
+        var rad = deg * Math.PI / 180;
+        return [120 + r * Math.sin(rad), 120 - r * Math.cos(rad)];
     }
 
-    // Funktion, um die Daten vom ESP32 zu holen und die Anzeige zu aktualisieren
-    // (#22: /data ist in /api/status aufgegangen)
-    function updateData() {
-        fetch('/api/status')
-            .then(response => response.json())
-            .then(data => {
-                // Werte aktualisieren
-                istVoltageElement.textContent = data.voltage_actual.toFixed(1);
-                sollVoltageElement.textContent = data.voltage_setpoint.toFixed(1);
+    function initGauge() {
+        var r = 92;
+        var s = polar(225, r), e = polar(135, r);
+        var d = 'M ' + s[0].toFixed(2) + ' ' + s[1].toFixed(2) +
+                ' A ' + r + ' ' + r + ' 0 1 1 ' + e[0].toFixed(2) + ' ' + e[1].toFixed(2);
+        $('g-track').setAttribute('d', d);
+        $('g-arc').setAttribute('d', d);
 
-                // Zeigerinstrument aktualisieren
-                const voltage = data.voltage_actual;
-                // Definiere den Bereich: 0V bis 260V entspricht -90 Grad bis +90 Grad
-                const angle = mapRange(voltage, 0, 260, -90, 90);
-                // Wende die Rotation auf die Nadel an
-                if (gaugeNeedle) { // Sicherstellen, dass das Element existiert
-                    gaugeNeedle.style.transform = `translate(-50%) rotate(${angle}deg)`;
-                }
-
-                // Tasten-Zustände aktualisieren
-                const st = data.states || {};
-                btnOnoff.classList.toggle('active', st.output_on);
-                btnLimit.classList.toggle('active', st.limit_on);
-                btnReg.classList.toggle('active', st.regulation_on);
-                btnP1.classList.toggle('active', st.p1_on);
-                btnP2.classList.toggle('active', st.p2_on);
-                btnP3.classList.toggle('active', st.p3_on);
-            })
-            .catch(error => console.error('Fehler beim Abrufen der Daten:', error));
+        var g = $('g-ticks');
+        g.innerHTML = '';
+        [0, 0.25, 0.5, 0.75, 1].forEach(function (t) {
+            var deg = 225 + t * 270;
+            var a = polar(deg, r), b = polar(deg, r - 11), l = polar(deg, r - 26);
+            var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', a[0].toFixed(1)); line.setAttribute('y1', a[1].toFixed(1));
+            line.setAttribute('x2', b[0].toFixed(1)); line.setAttribute('y2', b[1].toFixed(1));
+            line.setAttribute('stroke', 'var(--faint)'); line.setAttribute('stroke-width', '2');
+            g.appendChild(line);
+            var txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            txt.setAttribute('x', l[0].toFixed(1)); txt.setAttribute('y', (l[1] + 4).toFixed(1));
+            txt.setAttribute('fill', 'var(--dim)'); txt.setAttribute('font-size', '11');
+            txt.setAttribute('font-family', "'IBM Plex Mono', monospace"); txt.setAttribute('text-anchor', 'middle');
+            txt.textContent = Math.round(t * cfg.vmax);
+            g.appendChild(txt);
+        });
+        $('t-vmax').textContent = cfg.vmax;
+        $('t-vmid').textContent = Math.round(cfg.vmax / 2);
     }
 
-    // Funktion, um einen neuen Sollwert zu senden
-    function setSollValue() {
-        const voltage = newSollInput.value;
-        if (voltage === '' || isNaN(voltage)) {
-            statusMessage.textContent = 'Bitte gültigen Wert eingeben.';
-            return;
+    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+    // ---------- Anzeige aktualisieren ----------
+    function setChip(el, cls, text) {
+        el.className = 'chip ' + cls;
+        el.querySelector('span:last-child').textContent = text;
+    }
+
+    function render(st) {
+        var v = Number(st.voltage_actual) || 0;
+        var sp = Number(st.voltage_setpoint) || 0;
+        lastSetpoint = sp;
+
+        $('ist').textContent = v.toFixed(1);
+        $('soll').textContent = sp.toFixed(1);
+
+        var t = clamp(v / cfg.vmax, 0, 1);
+        $('g-arc').setAttribute('stroke-dasharray', (t * 100).toFixed(2) + ' 100');
+        $('g-needle').setAttribute('transform', 'rotate(' + (225 + t * 270).toFixed(2) + ' 120 120)');
+
+        // Messwert-Frische
+        if (st.voltage_fresh) {
+            $('fresh-dot').style.background = 'var(--ok)';
+            $('fresh-dot').style.animation = 'vpulse 1.6s ease-in-out infinite';
+            $('fresh-t').textContent = 'Messwert aktuell · <250 ms';
+            $('fresh-chip').style.color = 'var(--dim)';
+        } else {
+            $('fresh-dot').style.background = 'var(--warn)';
+            $('fresh-dot').style.animation = 'none';
+            $('fresh-t').textContent = 'Messwert veraltet!';
+            $('fresh-chip').style.color = 'var(--warn)';
         }
-        fetch(`/api/setpoint?voltage=${voltage}`, { method: 'POST' })
-            .then(response => {
-                if (response.ok) {
-                    statusMessage.textContent = `Sollwert auf ${voltage} V gesetzt.`;
-                    newSollInput.value = '';
-                    setTimeout(updateData, 500); 
-                } else {
-                    statusMessage.textContent = 'Fehler beim Setzen des Wertes.';
-                }
-            })
-            .catch(error => console.error('Fehler beim Senden:', error));
+
+        var states = st.states || {};
+        setChip($('chip-output'), states.output_on ? 'ok' : 'off',
+                states.output_on ? 'Ausgang Ein' : 'Ausgang Aus');
+
+        // Modus-Anzeige (Auto-Regelung / Handbetrieb)
+        $('mode-t').textContent = states.regulation_on ? 'Auto-Regelung' : 'Handbetrieb';
+        var mc = states.regulation_on ? 'var(--ok)' : 'var(--accent)';
+        $('mode-chip').style.color = mc;
+        $('mode-dot').style.background = mc;
+
+        $('btn-output').classList.toggle('active', !!states.output_on);
+        $('btn-limit').classList.toggle('active', !!states.limit_on);
+        $('btn-reg').classList.toggle('active', !!states.regulation_on);
+        $('btn-p1').classList.toggle('active', !!states.p1_on);
+        $('btn-p2').classList.toggle('active', !!states.p2_on);
+        $('btn-p3').classList.toggle('active', !!states.p3_on);
+
+        // Meter
+        var temp = Number(st.temperature) || 0;
+        var tempWarn = temp >= cfg.tWarn;
+        $('temp-v').textContent = temp.toFixed(1) + ' °C';
+        $('temp-v').style.color = tempWarn ? 'var(--warn)' : 'var(--ok)';
+        $('temp-bar').style.background = tempWarn ? 'var(--warn)' : 'var(--ok)';
+        $('temp-bar').style.width = (clamp(temp / cfg.tMax, 0, 1) * 100).toFixed(1) + '%';
+
+        var pos = Number(st.stepper_position) || 0;
+        $('pos-v').textContent = pos;
+        $('pos-bar').style.width = (clamp(pos / cfg.maxPos, 0, 1) * 100).toFixed(1) + '%';
+
+        if (st.fw_version) $('fw-foot').textContent = st.fw_version;
+
+        // Trend fortschreiben
+        var now = Date.now();
+        history.push([now, v]);
+        while (history.length && now - history[0][0] > TREND_MAX_S * 1000) history.shift();
+        renderTrend();
     }
 
-    // NEU: Generische Funktion, um einen Tasten-Befehl zu senden
-    function sendCommand(action) {
-        fetch(`/api/command?action=${action}`, { method: 'POST' })
-            .then(response => {
-                if (!response.ok) {
-                    console.error('Fehler beim Senden des Befehls:', action);
-                }
-                // Update-Anzeige leicht verzögert aufrufen, damit der ESP32 Zeit hat zu reagieren
-                setTimeout(updateData, 250);
-            })
-            .catch(error => console.error('Kommunikationsfehler:', error));
+    // ---------- Trend ----------
+    function renderTrend() {
+        var W = 560, pad = 6, top = 12, bot = 146;
+        var rangeS = parseInt($('trend-range').value, 10);
+        var now = Date.now();
+        var pts = [];
+        for (var i = 0; i < history.length; i++) {
+            var age = (now - history[i][0]) / 1000;
+            if (age > rangeS) continue;
+            var x = (W - pad) - (age / rangeS) * (W - 2 * pad);
+            var y = bot - clamp(history[i][1] / cfg.vmax, 0, 1) * (bot - top);
+            pts.push([x, y]);
+        }
+        var line = pts.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
+        $('t-line').setAttribute('points', line);
+        if (pts.length) {
+            $('t-area').setAttribute('points',
+                pts[0][0].toFixed(1) + ',' + bot + ' ' + line + ' ' + pts[pts.length - 1][0].toFixed(1) + ',' + bot);
+        } else {
+            $('t-area').setAttribute('points', '');
+        }
+        var spY = bot - clamp(lastSetpoint / cfg.vmax, 0, 1) * (bot - top);
+        $('t-sp').setAttribute('y1', spY.toFixed(1));
+        $('t-sp').setAttribute('y2', spY.toFixed(1));
     }
 
-    // Event Listener für die Tasten
-    setButton.addEventListener('click', setSollValue);
-    newSollInput.addEventListener('keypress', event => { if (event.key === 'Enter') setSollValue(); });
+    // ---------- Verbindung: WebSocket mit Polling-Fallback ----------
+    function startPolling() {
+        if (pollTimer) return;
+        pollTimer = setInterval(function () {
+            fetch('/api/status').then(function (r) { return r.json(); })
+                .then(function (st) {
+                    setChip($('chip-online'), 'warn', 'Polling');
+                    render(st);
+                })
+                .catch(function () { setChip($('chip-online'), 'warn', 'Getrennt'); });
+        }, 2000);
+    }
+    function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
 
-    // NEU: Event Listener für die neuen Tasten
-    btnOnoff.addEventListener('click', () => sendCommand('toggle_output'));
-    btnLimit.addEventListener('click', () => sendCommand('toggle_limit'));
-    btnReg.addEventListener('click', () => sendCommand('toggle_regulation'));
-    btnP1.addEventListener('click', () => sendCommand('recall_p1'));
-    btnP2.addEventListener('click', () => sendCommand('recall_p2'));
-    btnP3.addEventListener('click', () => sendCommand('recall_p3'));
+    function connectWs() {
+        ws = new WebSocket('ws://' + location.host + '/ws_status');
+        ws.onopen = function () {
+            stopPolling();
+            setChip($('chip-online'), 'ok', 'Online');
+        };
+        ws.onmessage = function (ev) {
+            try { render(JSON.parse(ev.data)); } catch (e) { /* fehlerhafte Nachricht ignorieren */ }
+        };
+        ws.onclose = function () {
+            setChip($('chip-online'), 'warn', 'Getrennt');
+            startPolling();                    // Anzeige lebt per HTTP weiter
+            setTimeout(connectWs, 3000);       // und wir versuchen den WS erneut
+        };
+    }
 
-    // Daten-Update-Schleife und erster Aufruf
-    setInterval(updateData, 2000);
-    updateData();
-});
+    // ---------- Bedienung ----------
+    function dashMsg(text, ok) {
+        var el = $('dash-status');
+        el.textContent = text;
+        el.className = 'status-line' + (ok ? ' ok' : '');
+        clearTimeout(dashMsg.timer);
+        if (text) dashMsg.timer = setTimeout(function () { el.textContent = ''; }, 4000);
+    }
+
+    function command(action) {
+        apiPost('/api/command?action=' + action)
+            .then(function (d) { if (d.status !== 'success') dashMsg('Fehler: ' + (d.message || '')); })
+            .catch(function () { dashMsg('Kommunikationsfehler.'); });
+    }
+
+    function setSoll() {
+        var v = parseFloat($('soll-input').value);
+        if (isNaN(v)) { dashMsg('Bitte gültigen Wert eingeben.'); return; }
+        apiPost('/api/setpoint?voltage=' + encodeURIComponent(v))
+            .then(function (d) {
+                if (d.status === 'success') { dashMsg('Sollwert gesetzt.', true); $('soll-input').value = ''; }
+                else dashMsg('Fehler: ' + (d.message || ''));
+            })
+            .catch(function () { dashMsg('Kommunikationsfehler.'); });
+    }
+
+    // ---------- Init ----------
+    document.addEventListener('DOMContentLoaded', function () {
+        initHeader();
+        initGauge();
+
+        $('btn-output').addEventListener('click', function () { command('toggle_output'); });
+        $('btn-limit').addEventListener('click', function () { command('toggle_limit'); });
+        $('btn-reg').addEventListener('click', function () { command('toggle_regulation'); });
+        $('btn-p1').addEventListener('click', function () { command('recall_p1'); });
+        $('btn-p2').addEventListener('click', function () { command('recall_p2'); });
+        $('btn-p3').addEventListener('click', function () { command('recall_p3'); });
+        $('btn-setsoll').addEventListener('click', setSoll);
+        $('soll-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') setSoll(); });
+        $('trend-range').addEventListener('change', renderTrend);
+
+        // Skalen/Presets aus der Konfiguration; Gauge danach neu beschriften
+        fetch('/api/config').then(function (r) { return r.json(); })
+            .then(function (c) {
+                if (c.calibration) {
+                    cfg.vmax = Math.max(50, Math.min(Number(c.calibration.max_voltage) || 260, 260));
+                    cfg.maxPos = Number(c.calibration.max_pos) || cfg.maxPos;
+                }
+                if (c.presets) {
+                    ['p1', 'p2', 'p3'].forEach(function (k) {
+                        $(k + '-val').textContent = (c.presets[k] != null) ? Number(c.presets[k]).toFixed(1) : '–';
+                    });
+                }
+                $('pos-max').textContent = cfg.maxPos;
+                initGauge();
+            })
+            .catch(function () { /* Defaults behalten */ });
+
+        connectWs();
+    });
+})();

@@ -2,51 +2,169 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 Variac Steuerung</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Isolation Variac</title>
+    <script>
+        // Theme/Akzent VOR dem ersten Paint setzen (kein Aufblitzen des falschen Themes)
+        (function(){ try {
+            var t = localStorage.getItem('variac-theme');
+            document.documentElement.dataset.theme = (t === 'light' || t === 'dark') ? t : 'dark';
+            var a = localStorage.getItem('variac-accent');
+            document.documentElement.dataset.accent = a || 'teal';
+        } catch (e) { document.documentElement.dataset.theme = 'dark'; document.documentElement.dataset.accent = 'teal'; } })();
+    </script>
+    <link rel="stylesheet" href="app.css">
 </head>
 <body>
-    <div class="container">
-		<a href="/settings.html" class="settings-link" title="Einstellungen">&#9881;</a>
-		<a href="/doc_usage.html" target="_blank" class="help-link" title="Dokumentation">&#63;</a>
-        <h1>Variac Steuerung</h1>
+<div class="wrap">
 
-        <div class="display-container">
-			<div class="display-group" id="ist-group">
-				<h2>IST Spannung</h2>
-				<div class="gauge-container">
-					<div class="gauge">
-						<div class="needle" id="gauge-needle"></div>
-						<div class="gauge-center"></div>
-					</div>
-				</div>
-				<p><span id="ist-voltage">--.-</span> V</p>
-			</div>
-            <div class="display-group" id="soll-group">
-                <h2>SOLL Spannung</h2>
-                <p><span id="soll-voltage">--.-</span> V</p>
+    <!-- HEADER -->
+    <header class="hdr">
+        <div class="hdr-brand">
+            <div class="logo">&#8776;V</div>
+            <div>
+                <div class="hdr-title">ISOLATION&nbsp;VARIAC</div>
+                <div class="hdr-sub">TWM &middot; Trenn-Stelltrafo &middot; Steuerung</div>
             </div>
         </div>
+        <div class="hdr-actions">
+            <div class="chip off" id="chip-online"><span class="dot"></span><span id="chip-online-t">Verbinde &hellip;</span></div>
+            <div class="chip off" id="chip-output"><span class="dot"></span><span id="chip-output-t">Ausgang &ndash;</span></div>
+            <button class="icon-btn" id="theme-btn" title="Dark / Light">&#9788;</button>
+            <div class="menu-anchor">
+                <button class="icon-btn" title="Akzentfarbe">&#9673;</button>
+                <div class="menu" id="accent-menu">
+                    <div class="menu-label">Akzentfarbe</div>
+                </div>
+            </div>
+            <a class="icon-btn" href="settings.html" title="Einstellungen">&#9881;</a>
+            <a class="icon-btn" href="log.html" title="Live Log" style="font-size:15px;">&#9636;</a>
+            <div class="menu-anchor">
+                <button class="icon-btn" title="Dokumentation" style="font-weight:600;">?</button>
+                <div class="menu">
+                    <div class="menu-label">Dokumentation</div>
+                    <a href="doc_usage.html" target="_blank">Bedienung</a>
+                    <a href="doc_settings.html" target="_blank">Einstellungen</a>
+                    <a href="doc_api.html" target="_blank">API-Referenz</a>
+                </div>
+            </div>
+        </div>
+    </header>
 
-        <div class="input-group">
-            <label for="new-soll">Neuer Sollwert:</label>
-            <input type="number" id="new-soll" step="0.1" placeholder="z.B. 12.5">
-            <button id="set-button">Setzen</button>
-        </div>
-		
-		<div class="button-grid">
-            <button id="btn-onoff">ON / OFF</button>
-            <button id="btn-limit">LIMIT</button>
-            <button id="btn-reg">REG</button>
-            <button id="btn-p1">P1</button>
-            <button id="btn-p2">P2</button>
-            <button id="btn-p3">P3</button>
-        </div>
-		        
-        <p id="status-message"></p>
+    <!-- MAIN -->
+    <div class="vgrid">
+
+        <!-- HERO GAUGE -->
+        <section class="panel a-gauge" style="position:relative;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                <span style="font-size:12px; letter-spacing:0.09em; text-transform:uppercase; color:var(--dim);">IST-Spannung &middot; Ausgang</span>
+                <span id="mode-chip" style="display:inline-flex; align-items:center; gap:6px; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--dim);">
+                    <span id="mode-dot" style="width:6px; height:6px; border-radius:50%; background:var(--dim);"></span><span id="mode-t">&ndash;</span>
+                </span>
+            </div>
+            <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap; justify-content:center;">
+                <div style="flex:0 0 auto; width:300px; max-width:100%; position:relative;">
+                    <svg id="gauge" viewBox="0 0 240 220" style="width:100%; height:auto; display:block;">
+                        <path id="g-track" fill="none" stroke="var(--track)" stroke-width="15" stroke-linecap="round"></path>
+                        <path id="g-arc" fill="none" stroke="var(--accent)" stroke-width="15" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100" style="transition:stroke-dasharray .4s ease-out;"></path>
+                        <g id="g-ticks"></g>
+                        <line id="g-needle" x1="120" y1="120" x2="120" y2="42" stroke="var(--warn)" stroke-width="3.5" stroke-linecap="round" transform="rotate(225 120 120)" style="transition:transform .4s ease-out;"></line>
+                        <circle cx="120" cy="120" r="9" fill="var(--panel)" stroke="var(--line2)" stroke-width="3"></circle>
+                    </svg>
+                    <div style="position:absolute; left:0; right:0; bottom:6px; text-align:center;">
+                        <div class="mono" style="font-size:46px; font-weight:600; line-height:1; letter-spacing:-0.01em;"><span id="ist">&ndash;</span><span style="font-size:20px; color:var(--dim); margin-left:4px;">V</span></div>
+                    </div>
+                </div>
+                <div style="flex:1 1 160px; min-width:150px; display:flex; flex-direction:column; gap:10px;">
+                    <div style="background:var(--inset); border:1px solid var(--line); border-radius:9px; padding:13px 15px;">
+                        <div style="font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--dim);">Sollwert</div>
+                        <div class="mono" style="font-size:27px; font-weight:600; margin-top:3px;"><span id="soll">&ndash;</span><span style="font-size:14px; color:var(--dim); margin-left:3px;">V</span></div>
+                    </div>
+                    <div id="fresh-chip" style="display:flex; align-items:center; gap:8px; padding:2px 2px; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--dim);">
+                        <span id="fresh-dot" style="width:7px; height:7px; border-radius:50%; background:var(--faint);"></span><span id="fresh-t">Messwert &ndash;</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MAIN CONTROLS -->
+        <section class="panel a-controls">
+            <div style="font-size:13px; letter-spacing:0.1em; text-transform:uppercase; font-weight:600; margin-bottom:14px;">Steuerung</div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
+                <button class="ctrl-btn" id="btn-output">On / Off</button>
+                <button class="ctrl-btn" id="btn-limit">Limit</button>
+                <button class="ctrl-btn" id="btn-reg">Reg</button>
+            </div>
+        </section>
+
+        <!-- SETPOINT -->
+        <section class="panel a-setpoint">
+            <div style="font-size:12px; letter-spacing:0.09em; text-transform:uppercase; color:var(--dim); margin-bottom:12px;">Sollwert setzen</div>
+            <div style="display:flex; gap:10px;">
+                <input type="number" step="0.1" min="0" placeholder="z. B. 110.0" id="soll-input" class="num-flex" style="font-size:18px; padding:12px 14px;">
+                <button class="btn primary" id="btn-setsoll" style="text-transform:uppercase; font-size:14px; padding:0 20px;">Setzen</button>
+            </div>
+            <div style="font-size:11px; letter-spacing:0.07em; text-transform:uppercase; color:var(--dim); margin:16px 0 9px;">Presets</div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
+                <button class="preset-btn" id="btn-p1">P1<span class="val" id="p1-val">&ndash;</span></button>
+                <button class="preset-btn" id="btn-p2">P2<span class="val" id="p2-val">&ndash;</span></button>
+                <button class="preset-btn" id="btn-p3">P3<span class="val" id="p3-val">&ndash;</span></button>
+            </div>
+            <div class="status-line" id="dash-status" style="margin-top:12px; min-height:1.2em;"></div>
+        </section>
+
+        <!-- TREND -->
+        <section class="panel a-trend">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:12px; letter-spacing:0.09em; text-transform:uppercase; color:var(--dim);">Spannungsverlauf</span>
+                    <select class="range" id="trend-range">
+                        <option value="30">30 s</option>
+                        <option value="60">60 s</option>
+                        <option value="300" selected>5 min</option>
+                        <option value="600">10 min</option>
+                    </select>
+                </div>
+                <div style="display:flex; gap:16px; font-size:11px; letter-spacing:0.05em; text-transform:uppercase; color:var(--dim);">
+                    <span style="display:inline-flex; align-items:center; gap:6px;"><span style="width:14px; height:3px; background:var(--accent); border-radius:2px;"></span>Ist</span>
+                    <span style="display:inline-flex; align-items:center; gap:6px;"><span style="width:14px; height:0; border-top:2px dashed var(--dim);"></span>Soll</span>
+                </div>
+            </div>
+            <svg id="trend" viewBox="0 0 560 160" style="width:100%; height:auto; display:block; overflow:visible;">
+                <line x1="6" y1="12" x2="554" y2="12" stroke="var(--line)" stroke-width="1"></line>
+                <line x1="6" y1="79" x2="554" y2="79" stroke="var(--line)" stroke-width="1"></line>
+                <line x1="6" y1="146" x2="554" y2="146" stroke="var(--line)" stroke-width="1"></line>
+                <text x="8" y="9" fill="var(--faint)" font-size="10" font-family="'IBM Plex Mono', monospace" id="t-vmax"></text>
+                <text x="8" y="76" fill="var(--faint)" font-size="10" font-family="'IBM Plex Mono', monospace" id="t-vmid"></text>
+                <text x="8" y="143" fill="var(--faint)" font-size="10" font-family="'IBM Plex Mono', monospace">0</text>
+                <polygon id="t-area" points="" fill="var(--accent)" opacity="0.10"></polygon>
+                <polyline id="t-line" points="" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></polyline>
+                <line id="t-sp" x1="6" y1="-10" x2="554" y2="-10" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="5 5"></line>
+            </svg>
+        </section>
+
+        <!-- METERS -->
+        <section class="panel a-meters" style="padding:15px 16px; display:flex; flex-direction:column; gap:12px;">
+            <div>
+                <div class="meter-head">
+                    <span class="k">Schleifer-Temperatur</span>
+                    <span class="v" id="temp-v" style="color:var(--ok);">&ndash; &deg;C</span>
+                </div>
+                <div class="meter-bar"><div class="fill" id="temp-bar" style="background:var(--ok);"></div></div>
+            </div>
+            <div>
+                <div class="meter-head">
+                    <span class="k">Stepper-Position</span>
+                    <span class="v"><span id="pos-v">&ndash;</span> <span style="color:var(--faint); font-weight:400;">/ <span id="pos-max">&ndash;</span></span></span>
+                </div>
+                <div class="meter-bar"><div class="fill" id="pos-bar"></div></div>
+            </div>
+        </section>
+
+        <div class="foot" id="fw-foot">&nbsp;</div>
     </div>
-
-    <script src="script.js"></script>
+</div>
+<script src="app.js"></script>
+<script src="script.js"></script>
 </body>
 </html>

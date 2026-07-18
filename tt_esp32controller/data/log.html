@@ -1,66 +1,75 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Variac Live Log</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Variac – Live Log</title>
+    <script>
+        (function(){ try {
+            var t = localStorage.getItem('variac-theme');
+            document.documentElement.dataset.theme = (t === 'light' || t === 'dark') ? t : 'dark';
+            var a = localStorage.getItem('variac-accent');
+            document.documentElement.dataset.accent = a || 'teal';
+        } catch (e) { document.documentElement.dataset.theme = 'dark'; document.documentElement.dataset.accent = 'teal'; } })();
+    </script>
+    <link rel="stylesheet" href="app.css">
     <style>
-        body { 
-            margin: 0; 
-            padding: 20px; 
-            font-family: -apple-system, sans-serif; 
-            background-color: #121212; 
-            color: #e0e0e0; 
-            text-align: center; 
-        }
-        .header { 
-            margin-bottom: 20px; 
-        }
-        .header h2 { 
-            color: #bb86fc; 
-            margin: 0 0 15px 0; 
-            font-size: 2em; 
-        }
-        .checkbox-label { 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            font-size: 1.1em; 
-            cursor: pointer; 
-            color: #03dac6; 
-        }
-        .checkbox-label input[type="checkbox"] { 
-            width: 18px; 
-            height: 18px; 
-            cursor: pointer; 
-            accent-color: #03dac6; 
-        }
-        .log-window { 
-            width: 100%; 
-            height: calc(100vh - 140px); 
-            background-color: #1e1e1e; 
-            color: #03dac6; 
-            font-family: 'Courier New', Courier, monospace; 
-            padding: 15px; 
-            border: 1px solid #555; 
-            border-radius: 8px; 
-            resize: none; 
-            box-sizing: border-box; 
-            overflow-y: auto; 
-        }
+        /* Die Log-Seite füllt die Viewport-Höhe, das Log-Fenster scrollt intern. */
+        body { height: 100vh; overflow: hidden; }
+        .wrap { height: 100%; display: flex; flex-direction: column; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h2>System Live Log</h2>
-        <label class="checkbox-label">
-            <input type="checkbox" id="autoScrollCheck" checked>
-            Auto-Scroll aktivieren
-        </label>
-    </div>
-    
-    <textarea id="liveLogWindow" class="log-window" readonly></textarea>
+<div class="wrap">
 
-    <script src="log.js"></script>
+    <!-- HEADER -->
+    <header class="hdr" style="margin-bottom:16px;">
+        <div class="hdr-brand">
+            <div class="logo">&#8776;V</div>
+            <div>
+                <div class="hdr-title">Live Log</div>
+                <div class="hdr-sub">TWM Isolation Variac &middot; System-Stream</div>
+            </div>
+        </div>
+        <div class="hdr-actions">
+            <div class="chip off" id="chip-ws"><span class="dot"></span><span>Verbinde &hellip;</span></div>
+            <button class="icon-btn" id="theme-btn" title="Dark / Light">&#9788;</button>
+            <div class="menu-anchor">
+                <button class="icon-btn" title="Akzentfarbe">&#9673;</button>
+                <div class="menu" id="accent-menu">
+                    <div class="menu-label">Akzentfarbe</div>
+                </div>
+            </div>
+            <a class="icon-btn" href="index.html" title="Zum Dashboard" style="font-size:18px;">&#8962;</a>
+            <a class="icon-btn" href="settings.html" title="Einstellungen">&#9881;</a>
+            <div class="menu-anchor">
+                <button class="icon-btn" title="Dokumentation" style="font-weight:600;">?</button>
+                <div class="menu">
+                    <div class="menu-label">Dokumentation</div>
+                    <a href="doc_usage.html" target="_blank">Bedienung</a>
+                    <a href="doc_settings.html" target="_blank">Einstellungen</a>
+                    <a href="doc_api.html" target="_blank">API-Referenz</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- TOOLBAR -->
+    <div class="log-toolbar">
+        <span style="font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--dim); white-space:nowrap;"><span id="line-count">0</span> Zeilen</span>
+        <div style="flex:1;"></div>
+        <label style="display:inline-flex; align-items:center; gap:9px; font-size:13px; color:var(--dim); cursor:pointer;">
+            Auto-Scroll
+            <button class="toggle on" id="autoscroll" type="button"><span class="knob"></span></button>
+        </label>
+        <a class="btn sm" href="/api/log?download">Log-Datei herunterladen</a>
+        <button class="btn sm" id="btn-clear">Leeren</button>
+    </div>
+
+    <!-- LOG WINDOW -->
+    <div class="log-win" id="log-win"></div>
+</div>
+<script src="app.js"></script>
+<script src="log.js"></script>
 </body>
 </html>

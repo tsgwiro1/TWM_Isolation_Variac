@@ -6,7 +6,24 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.ino`.
 
-## [V4.1.0] – in Entwicklung
+## [V4.2.0] – in Entwicklung
+
+### Geändert
+- **Web-Oberfläche komplett neu** (#23, Paket G): Neues, responsives Design für
+  Dashboard (bisher index), Einstellungen und Live-Log auf Basis des
+  Claude-Design-Entwurfs — Dark/Light-Theme und Akzentfarbe umschaltbar
+  (persistiert im Browser), Schriften lokal eingebettet (offline-fähig).
+  Neu dabei: Spannungsverlauf-Chart, Konfiguration sichern/wiederherstellen,
+  Log-Datei-Download. Der BOOT0-Diagnose-Button entfällt.
+  Auch die Doku-Seiten (Bedienung/API/Einstellungen) tragen das neue Design
+  inkl. Theme-/Akzentwechsel; RapiDoc wird live aus den Design-Tokens
+  eingefärbt. Das alte `style.css` ist vollständig abgelöst und entfernt.
+
+### Hinzugefügt
+- **Live-Daten über WebSocket** (#13): Statuswerte werden vom Gerät gepusht
+  statt per HTTP-Polling abgefragt (Grundlage für Gauge/Trend im Dashboard).
+
+## [V4.1.0] – 2026-07-13
 
 ### Hinzugefügt
 - **Regelparameter konfigurierbar** (#31): Deadband, Dämpfung, Beruhigungszeit und

@@ -17,7 +17,52 @@
 
 AsyncWebServer server(80); // Server auf Port 80 erstellen
 AsyncWebSocket ws("/ws");
+AsyncWebSocket wsStatus("/ws_status"); // Live-Statuswerte fürs Dashboard (#13)
 static Ticker rebootTicker;
+
+/**
+ * @brief Baut das Status-JSON (eine Quelle für GET /api/status und den
+ * WebSocket-Push /ws_status, #13).
+ */
+static String buildStatusJson() {
+  JsonDocument doc;
+
+  doc["voltage_actual"] = received_rms_value;
+  doc["voltage_fresh"] = isVoltageDataFresh();
+  doc["voltage_setpoint"] = setpoint_voltage;
+  doc["temperature"] = wiperTemp;
+  doc["stepper_position"] = wiperPos;
+  doc["is_hardware_ok"] = hardwareInitialized;
+  doc["fw_version"] = FW;
+
+  JsonObject states = doc["states"].to<JsonObject>();
+  if (hardwareInitialized) {
+    states["output_on"] = (bool)A_onoff->getState();
+    states["limit_on"] = (bool)A_limit->getState();
+    states["regulation_on"] = (bool)A_reg->getState();
+    // Preset-Tasten-Zustände (ehemals in /data; /data ist in /api/status aufgegangen, #22)
+    states["p1_on"] = (bool)A_p1->getState();
+    states["p2_on"] = (bool)A_p2->getState();
+    states["p3_on"] = (bool)A_p3->getState();
+  }
+
+  String jsonString;
+  serializeJson(doc, jsonString);
+  return jsonString;
+}
+
+/**
+ * @brief Pusht den aktuellen Status an alle /ws_status-Clients (#13).
+ * Wird periodisch aus loop() aufgerufen (Haupttask — textAll ist dort sicher).
+ * Räumt nebenbei tote WebSocket-Clients beider Endpunkte ab.
+ */
+void webPushStatus() {
+  ws.cleanupClients();
+  wsStatus.cleanupClients();
+  if (wsStatus.count() > 0) {
+    wsStatus.textAll(buildStatusJson());
+  }
+}
 
 /**
  * @brief Initialisiert den Webserver und definiert alle Routen (URLs).
@@ -72,32 +117,9 @@ void initWebServer() {
     }
   });
 
-  // API-Route für den kompletten Gerätestatus
+  // API-Route für den kompletten Gerätestatus (gleiche Quelle wie /ws_status, #13)
   server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request){
-    JsonDocument doc; // Etwas mehr Platz für die zusätzlichen Daten
-
-    doc["voltage_actual"] = received_rms_value;
-    doc["voltage_fresh"] = isVoltageDataFresh();
-    doc["voltage_setpoint"] = setpoint_voltage;
-    doc["temperature"] = wiperTemp;
-    doc["stepper_position"] = wiperPos;
-    doc["is_hardware_ok"] = hardwareInitialized;
-    doc["fw_version"] = FW; 
-    
-    JsonObject states = doc["states"].to<JsonObject>();
-    if (hardwareInitialized) {
-      states["output_on"] = (bool)A_onoff->getState();
-      states["limit_on"] = (bool)A_limit->getState();
-      states["regulation_on"] = (bool)A_reg->getState();
-      // Preset-Tasten-Zustände (ehemals in /data; /data ist in /api/status aufgegangen, #22)
-      states["p1_on"] = (bool)A_p1->getState();
-      states["p2_on"] = (bool)A_p2->getState();
-      states["p3_on"] = (bool)A_p3->getState();
-    }
-    
-    String jsonString;
-    serializeJson(doc, jsonString);
-    request->send(200, "application/json", jsonString);
+    request->send(200, "application/json", buildStatusJson());
   });
 
   // API-Route: Voltmeter-Version über den seriellen Link abfragen (Paket J)
@@ -368,6 +390,7 @@ void initWebServer() {
 
     // Verabschiede alle WebSocket-Clients sauber
     ws.closeAll();
+    wsStatus.closeAll();
 
     // Starte einen einmaligen Timer, der den Neustart nach 200ms auslöst.
     // Die Funktion kehrt sofort zurück, damit die HTTP-Antwort in der Zwischenzeit gesendet werden kann.
@@ -521,8 +544,17 @@ void initWebServer() {
       }
   });
 
-  // WebSocket an den Server binden
+  // Status-WebSocket (#13): beim Verbinden sofort einen Status schicken,
+  // damit das Dashboard ohne Wartezeit rendert; danach pusht loop() periodisch.
+  wsStatus.onEvent([](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len){
+      if (type == WS_EVT_CONNECT) {
+          client->text(buildStatusJson());
+      }
+  });
+
+  // WebSockets an den Server binden
   server.addHandler(&ws);
+  server.addHandler(&wsStatus);
 
   // Starte den Server
   server.begin();

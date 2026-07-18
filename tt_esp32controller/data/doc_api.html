@@ -2,45 +2,64 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>REST API Dokumentation - TWM Isolation Variac</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Variac Doku – API-Referenz</title>
+    <script>
+        (function(){ try {
+            var t = localStorage.getItem('variac-theme');
+            document.documentElement.dataset.theme = (t === 'light' || t === 'dark') ? t : 'dark';
+            var a = localStorage.getItem('variac-accent');
+            document.documentElement.dataset.accent = a || 'teal';
+        } catch (e) { document.documentElement.dataset.theme = 'dark'; document.documentElement.dataset.accent = 'teal'; } })();
+    </script>
+    <link rel="stylesheet" href="app.css">
     <script type="module" src="rapidoc-min.js"></script>
     <style>
-        /* RapiDoc soll die volle Breite unterhalb der Nav nutzen */
-        .doc-container-api {
-            max-width: 1400px;
-            margin: 20px auto;
-            padding: 0 20px;
-        }
         rapi-doc {
             width: 100%;
-            height: calc(100vh - 120px);
+            height: calc(100vh - 190px);
+            border: 1px solid var(--line);
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: var(--shadow);
         }
     </style>
 </head>
-<body class="doc-body">
-    <div class="doc-container-api">
-    <div class="doc-nav">
+<body>
+<div class="wrap">
+
+    <!-- HEADER -->
+    <header class="hdr">
+        <div class="hdr-brand">
+            <div class="logo">&#8776;V</div>
+            <div>
+                <div class="hdr-title">Dokumentation</div>
+                <div class="hdr-sub">TWM Isolation Variac &middot; API-Referenz</div>
+            </div>
+        </div>
+        <div class="hdr-actions">
+            <button class="icon-btn" id="theme-btn" title="Dark / Light">&#9788;</button>
+            <div class="menu-anchor">
+                <button class="icon-btn" title="Akzentfarbe">&#9673;</button>
+                <div class="menu" id="accent-menu">
+                    <div class="menu-label">Akzentfarbe</div>
+                </div>
+            </div>
+            <a class="icon-btn" href="index.html" title="Zum Dashboard" style="font-size:18px;">&#8962;</a>
+        </div>
+    </header>
+
+    <nav class="doc-nav">
         <a href="doc_usage.html">1. Bedienung</a>
-        <a href="doc_api.html" style="color:#bb86fc">2. API</a>
+        <a href="doc_api.html" class="active">2. API</a>
         <a href="doc_settings.html">3. Einstellungen</a>
-        <a href="/" style="float:right">X Schließen</a>
-    </div>
+    </nav>
 
     <!-- Interaktive API-Doku (#22): Quelle ist /openapi.yaml (Single Source of Truth).
-         RapiDoc liegt lokal im LittleFS (rapidoc-min.js) - funktioniert ohne Internet. -->
-    <rapi-doc
+         RapiDoc liegt lokal im LittleFS (rapidoc-min.js) - funktioniert ohne Internet.
+         Die Farben werden per JS aus dem aktiven Theme/Akzent gesetzt (#23). -->
+    <rapi-doc id="rapidoc"
         spec-url="/openapi.yaml"
-        theme="dark"
-        bg-color="#1e1e1e"
-        text-color="#e0e0e0"
-        primary-color="#bb86fc"
-        nav-bg-color="#161616"
-        nav-text-color="#e0e0e0"
-        nav-hover-text-color="#03dac6"
         render-style="focused"
         show-header="false"
         allow-spec-url-load="false"
@@ -50,6 +69,34 @@
         default-schema-tab="schema"
         schema-style="table">
     </rapi-doc>
-    </div>
+</div>
+<script src="app.js"></script>
+<script>
+    // RapiDoc dem aktiven Theme/Akzent angleichen (Farben aus den app.css-Tokens).
+    function applyRapidocTheme() {
+        var rd = document.getElementById('rapidoc');
+        if (!rd) return;
+        var cs = getComputedStyle(document.documentElement);
+        var v = function (name) { return cs.getPropertyValue(name).trim(); };
+        var dark = document.documentElement.dataset.theme !== 'light';
+        rd.setAttribute('theme', dark ? 'dark' : 'light');
+        rd.setAttribute('bg-color', v('--panel'));
+        rd.setAttribute('text-color', v('--text'));
+        rd.setAttribute('primary-color', v('--accent'));
+        rd.setAttribute('nav-bg-color', v('--bg'));
+        rd.setAttribute('nav-text-color', v('--text'));
+        rd.setAttribute('nav-hover-text-color', v('--accent'));
+        rd.setAttribute('regular-font', "'Space Grotesk', system-ui, sans-serif");
+        rd.setAttribute('mono-font', "'IBM Plex Mono', monospace");
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        initHeader();
+        applyRapidocTheme();
+        // Auf Theme-/Akzentwechsel reagieren (data-Attribute am <html> beobachten)
+        new MutationObserver(applyRapidocTheme).observe(document.documentElement, {
+            attributes: true, attributeFilter: ['data-theme', 'data-accent']
+        });
+    });
+</script>
 </body>
 </html>

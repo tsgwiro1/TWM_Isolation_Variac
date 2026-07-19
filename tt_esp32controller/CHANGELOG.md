@@ -6,7 +6,7 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.ino`.
 
-## [V4.2.0] – in Entwicklung
+## [V4.2.0] – 2026-07-19
 
 ### Geändert
 - **Web-Oberfläche komplett neu** (#23, Paket G): Neues, responsives Design für

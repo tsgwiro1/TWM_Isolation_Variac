@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-07-13 · **Gesamt: 28 / 34 Punkte erledigt**
+**Stand:** 2026-07-19 · **Gesamt: 30 / 34 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -56,9 +56,9 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [x] #31 Regelparameter konfigurierbar
 - [x] **K — Konfiguration ins NVS**
   - [x] #35 Konfiguration/Kalibrierung ins NVS (Preferences)
-- [ ] **G — Web-Oberfläche: neues Design**
-  - [ ] #23 Web-Oberfläche neu gestalten
-  - [ ] #13 Live-Daten über WebSocket
+- [x] **G — Web-Oberfläche: neues Design**
+  - [x] #23 Web-Oberfläche neu gestalten
+  - [x] #13 Live-Daten über WebSocket
 - [ ] **H — Sicherheit (optional)**
   - [ ] #11 Auth & REST-Hygiene
 - [x] **J — Voltmeter-Fernsteuerung via Controller**
@@ -205,6 +205,14 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-19 — Paket G am Gerät abgenommen → #23 + #13 abgehakt (30/34); V4.2.0
+  abgeschlossen + Tag `v4.2.0`.** Roger hat das komplette Redesign am Gerät
+  durchgetestet (Dashboard mit WS-Livedaten, Settings inkl. Kalibrierung/Presets/
+  Backup, Live-Log, Doku-Seiten mit Theme/Akzent, RapiDoc). Nachträge während des
+  Tests: benannte Browser-Tabs (ein Tab je Seite, Safari-kompatibel), Preset-
+  Bugfix, API-Doku-Auffindbarkeit. Tags `v4.0.0`/`v4.1.0` liegen verifiziert auf
+  GitHub. Offen bleiben: Tools-Nachtests GitHub-#6/#7, BACKLOG-#9 (USB-Flash),
+  dann Pakete H (#11) und I (#24/#12-Rest).
 - **2026-07-14 — GitHub-#3 am Gerät verifiziert (Roger); Preset-Bugfix bestätigt.**
   Kalibrier-Ablauf funktioniert wie gebaut (Setup-Einstieg → Homing → Anfahrten →
   Plausibilitätswarnung); Issue wird geschlossen. Dabei entdeckte Altlast behoben
@@ -391,8 +399,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
-| 23 | Frontend | Web-Oberfläche neu gestalten | Frisches, professionelles, responsives Design (index/settings/log/doc): konsistentes Styling, klare Bedienung, gegen die bereinigte API (#22). | L | offen |
-| 13 | Frontend | Live-Daten über WebSocket | 2-s-Polling von `/data` durch WS-Push ersetzen (weniger Last, flüssigere Anzeige). Teil des Redesigns. | M | offen |
+| 23 | Frontend | Web-Oberfläche neu gestalten | Frisches, professionelles, responsives Design (index/settings/log/doc): konsistentes Styling, klare Bedienung, gegen die bereinigte API (#22). | L | **erledigt** *(am Gerät verifiziert; V4.2.0)* |
+| 13 | Frontend | Live-Daten über WebSocket | 2-s-Polling von `/data` durch WS-Push ersetzen (weniger Last, flüssigere Anzeige). Teil des Redesigns. | M | **erledigt** *(am Gerät verifiziert; `/ws_status`, V4.2.0)* |
 
 ## Paket H — Sicherheit (optional)
 

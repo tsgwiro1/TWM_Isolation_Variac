@@ -6,6 +6,18 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.ino`.
 
+## [V4.3.1] – 2026-07-19
+
+### Behoben
+- **Mobile-Layout Einstellungsseite:** Die Status-Felder im Voltmeter-Panel
+  (Skalierungsfaktor/ADC-Nullpunkt) liefen auf schmalen Displays über den
+  Panel-Rand hinaus — das Grid darf jetzt schrumpfen (`minmax(0,1fr)`) und
+  stapelt unter 560 px einspaltig.
+- **Navigation auf Mobilgeräten:** Auf iOS und Android wechselte der Klick auf
+  Home-/Settings-/Log-Icon nicht zum bereits offenen Tab (mobile Browser
+  unterstützen programmatischen Tab-Wechsel nicht) — Mobilgeräte navigieren
+  jetzt klassisch im selben Tab; benannte Tabs bleiben ein Desktop-Feature.
+
 ## [V4.3.0] – 2026-07-19
 
 ### Dokumentation

@@ -36,11 +36,21 @@ var TAB_NAMES = {
 
 var namedTabs = {}; // von diesem Tab geöffnete Fenster-Handles (Name -> window)
 
+// Mobile Browser können per Script nicht zuverlässig zwischen Tabs wechseln
+// (focus() auf fremde Fenster wird ignoriert; ob window.open(url, name) den
+// benannten Tab nach vorne holt, variiert je Browser). Auf Mobilgeräten deshalb
+// klassisch im selben Tab navigieren — benannte Tabs sind ein Desktop-Feature.
+// Deckt iOS/iPadOS (alle Browser dort nutzen WebKit; iPadOS meldet sich als
+// "MacIntel", ist aber am Multi-Touch erkennbar) und Android ab.
+var IS_MOBILE = /Android|iP(hone|ad|od)/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 function openInNamedTab(e) {
     var a = e.currentTarget;
     var name = a.dataset.tab;
     if (!name || !window.open) return; // Fallback: native target-Navigation
     e.preventDefault();
+    if (IS_MOBILE) { location.href = a.href; return; }
     var norm = function (path) {
         var p = path.split('/').pop();
         return p === '' ? 'index.html' : p;

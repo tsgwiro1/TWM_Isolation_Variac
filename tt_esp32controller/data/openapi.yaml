@@ -4,6 +4,9 @@ info:
   description: |
     REST-API des Trennstelltransformator-Controllers (ESP32-S3).
 
+    **Versionierung:** Die API-Version wird nur erhöht, wenn sich die API selbst ändert —
+    sie kann daher hinter der Firmware-Version zurückbleiben (z. B. API 4.2.0 bei FW 4.3.0).
+
     **Konventionen:**
     - `GET` liest nur — ändert nie Zustand.
     - Zustandsändernde Aktionen sind `POST` (bzw. `DELETE`), Parameter als Query-String.

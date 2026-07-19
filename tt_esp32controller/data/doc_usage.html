@@ -53,21 +53,22 @@
         <ul>
             <li><strong>Drehregler (Encoder):</strong>
                 <ul>
-                    <li><em>Drehen:</em> Verändert die Soll-Spannung manuell.</li>
-                    <li><em>Drücken:</em> Schaltet die Drehgeschwindigkeit zwischen <strong>Fein (x1)</strong> und <strong>Grob (x10)</strong> um. Ideal für schnelle Spannungswechsel.</li>
+                    <li><em>Drehen:</em> Verändert die Soll-Spannung manuell. Manuelle Steuerung hat Vorrang: Ein aktives Preset wird verlassen (seine LED erlischt) und die automatische Regelung pausiert. Etwa 1 Sekunde nach der letzten Drehung wird die erreichte Spannung als neuer Sollwert übernommen und ausgeregelt (bei aktivem REG anschließend gehalten).</li>
+                    <li><em>Drücken:</em> Schaltet die Drehgeschwindigkeit zwischen <strong>Fein (x1)</strong> und <strong>Grob (x10)</strong> um. Die <strong>LED der Encoder-Taste</strong> zeigt den Modus an: <em>LED an = Grob (x10)</em>, <em>LED aus = Fein (x1)</em>.</li>
                 </ul>
             </li>
             <li><strong>Tasten P1, P2, P3 (Presets):</strong>
                 <ul>
-                    <li><em>Kurz drücken:</em> Fährt die gespeicherte Spannung (Sollwert) an.</li>
-                    <li><em>Lang drücken (ca. 2 Sekunden):</em> Speichert die aktuell anliegende Spannung auf diesem Preset-Platz ab. Zur Bestätigung leuchtet die LED kurz auf.</li>
+                    <li><em>Kurz drücken:</em> Fährt die gespeicherte Spannung (Sollwert) an. Die <strong>LED der Taste leuchtet</strong>, solange das Preset aktiv ist; die LEDs der anderen Preset-Tasten erlöschen (es ist immer nur ein Preset aktiv).</li>
+                    <li><em>LED erlischt:</em> Sobald danach manuell verstellt wird (Drehregler oder Sollwert-Eingabe im Webinterface), erlischt die Preset-LED — der Ausgang folgt dann nicht mehr dem Preset.</li>
+                    <li><em>Lang drücken (ca. 2 Sekunden):</em> Speichert die aktuell <em>gemessene</em> Spannung auf diesem Preset-Platz ab; zur Bestätigung leuchtet die LED auf. Voraussetzung sind aktuelle Voltmeter-Daten — fehlen sie, wird nicht gespeichert (Hinweis im Live-Log).</li>
                 </ul>
             </li>
             <li><strong>Funktionstasten:</strong>
                 <ul>
                     <li><strong>ON/OFF:</strong> Schaltet das Haupt-Ausgangsrelais ein oder aus.</li>
                     <li><strong>LIMIT:</strong> Aktiviert oder deaktiviert die hardwareseitige Strombegrenzung.</li>
-                    <li><strong>REG:</strong> Aktiviert oder deaktiviert die automatische PID-Spannungsregelung.</li>
+                    <li><strong>REG:</strong> Aktiviert oder deaktiviert die automatische Spannungsregelung (Vorsteuerung mit anschließender Feinkorrektur auf den Sollwert).</li>
                 </ul>
             </li>
         </ul>
@@ -81,13 +82,13 @@
         </ul>
 
         <h2>Status-LED Blinkcodes</h2>
-        <p>Die LED auf dem Controller zeigt den aktuellen Systemzustand an:</p>
+        <p>Die LED auf dem Controller-Board dient als Diagnosewerkzeug und zeigt jederzeit den aktuellen Betriebs- oder Fehlerzustand an:</p>
         <ul>
-            <li><strong>Einzelner Puls (Herzschlag):</strong> Normalbetrieb, alles fehlerfrei.</li>
-            <li><strong>Gleichmäßiges Blinken (0,5s):</strong> Verbindet mit dem lokalen WLAN.</li>
-            <li><strong>Doppel-Blinken:</strong> Konfigurationsmodus (WiFiManager AP ist aktiv).</li>
-            <li><strong>Sehr schnelles Blinken:</strong> OTA-Firmware-Update läuft. Gerät nicht ausschalten!</li>
-            <li><strong>SOS-Morsesignal:</strong> Hardware-Fehler (z.B. MCP23017 Port-Expander nicht gefunden).</li>
+            <li><strong>Einzelner Puls (Herzschlag):</strong> Kurzes Aufblitzen (0,1&nbsp;s an, 2,9&nbsp;s aus) — Normalbetrieb, alles fehlerfrei. Alle Tasks arbeiten wie vorgesehen.</li>
+            <li><strong>Gleichmäßiges Blinken (0,5&nbsp;s an / 0,5&nbsp;s aus):</strong> Das Gerät startet und verbindet sich mit dem konfigurierten WLAN. Geht nach einem normalen Start nach wenigen Sekunden in den Herzschlag über.</li>
+            <li><strong>Schneller Doppel-Blink, dann 1&nbsp;s Pause:</strong> Konfigurationsmodus — das WLAN wurde nicht gefunden oder das Passwort ist falsch. Das Gerät öffnet den eigenen Access Point <strong>&bdquo;TWM_IsolationVariac&ldquo;</strong>. <em>Aktion:</em> Mit Smartphone/PC mit diesem Netzwerk verbinden und im Portal die WLAN-Zugangsdaten eingeben.</li>
+            <li><strong>Sehr schnelles Blinken (0,15&nbsp;s):</strong> OTA-Update läuft — der Controller empfängt gerade Firmware oder Dateisystem über das Netzwerk. <em>KRITISCH: Gerät jetzt keinesfalls vom Strom trennen oder neustarten, sonst wird die Firmware beschädigt!</em></li>
+            <li><strong>SOS-Morsesignal (3&times; kurz, 3&times; lang, 3&times; kurz):</strong> Schwerwiegender Hardware- oder Initialisierungsfehler. Mögliche Ursachen: MCP23017 Port-Expander antwortet nicht auf dem I2C-Bus; LittleFS-Dateisystem nicht mountbar; TFT-Display/Mutex-Initialisierung fehlgeschlagen; OTA-Update fehlgeschlagen (Details im Live-Log).</li>
         </ul>
     </section>
 </div>

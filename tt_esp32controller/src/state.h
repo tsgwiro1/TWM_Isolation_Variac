@@ -7,9 +7,9 @@
 
 // Firmware-Version (entspricht dem CHANGELOG)
 #ifdef SIM
-#define FW  "Firmware V4.2.1 (SIM)"
+#define FW  "Firmware V4.3.0 (SIM)"
 #else
-#define FW  "Firmware V4.2.1"
+#define FW  "Firmware V4.3.0"
 #endif
 
 // System

@@ -1,6 +1,6 @@
 # Controller ↔ Voltmeter – Link-Protokoll & FW-Update (Paket J)
 
-**Stand:** 2026-06-20
+**Stand:** 2026-07-19 (Paket J abgeschlossen; API-Methoden gemäß V4-REST-Konventionen)
 
 Serielle Verbindung zwischen ESP32-**Controller** und STM32F103-**Voltmeter**.
 
@@ -38,7 +38,7 @@ Floats werden als rohe 4 Byte little-endian übertragen (ESP32 und STM32 sind be
 | 0x22 | CAL3_FINISH | – | `[ok(1)][m(float)][b(float)]` | Regression, EEPROM; min. 2 Punkte |
 | 0x30 | REBOOT | – | 1 Byte ACK | dann `NVIC_SystemReset()` |
 | 0x31 | RESET_DEFAULTS | – | 1 Byte ok | Faktor/Offset auf Standard + EEPROM |
-| 0x40 | ENTER_BOOTLOADER | – | 1 Byte ACK | VM-Seite **umgesetzt** (#30 Schritt 1): ACK, dann Sprung ins ROM-System-Memory `0x1FFFF000`. Controller-Host (AN3155) noch offen. |
+| 0x40 | ENTER_BOOTLOADER | – | 1 Byte ACK | ACK, dann Sprung ins ROM-System-Memory `0x1FFFF000` (Basis für das FW-Update via Controller, #30). |
 
 Während blockierender Befehle (RECAL/CAL3_MEASURE) pausiert der RMS-Stream → der Controller
 erkennt das über `isVoltageDataFresh()` (Timeout 250 ms) und hält die Regelung an.
@@ -49,31 +49,39 @@ erkennt das über `isVoltageDataFresh()` (Timeout 250 ms) und hält die Regelung
 |------|--------|
 | `GET /api/voltmeter/version` | GET_VERSION |
 | `GET /api/voltmeter/status` | GET_STATUS |
-| `GET /api/voltmeter/factor?value=` | SET_FACTOR |
-| `GET /api/voltmeter/offset?value=` | SET_OFFSET |
-| `GET /api/voltmeter/autozero` | RECAL |
-| `GET /api/voltmeter/cal3/measure?index=&voltage=` | CAL3_MEASURE |
-| `GET /api/voltmeter/cal3/finish` | CAL3_FINISH |
-| `GET /api/voltmeter/reboot` | REBOOT |
-| `GET /api/voltmeter/reset-defaults` | RESET_DEFAULTS |
+| `POST /api/voltmeter/factor?value=` | SET_FACTOR |
+| `POST /api/voltmeter/offset?value=` | SET_OFFSET |
+| `POST /api/voltmeter/autozero` | RECAL |
+| `POST /api/voltmeter/cal3/measure?index=&voltage=` | CAL3_MEASURE |
+| `POST /api/voltmeter/cal3/finish` | CAL3_FINISH |
+| `POST /api/voltmeter/reboot` | REBOOT |
+| `POST /api/voltmeter/reset-defaults` | RESET_DEFAULTS |
+| `POST /api/voltmeter/update/upload` | – (FW-Binary → LittleFS) |
+| `POST /api/voltmeter/update/start` | ENTER_BOOTLOADER + AN3155-Flash |
+| `GET /api/voltmeter/update/status` | – (Fortschritt/Status) |
+| `GET /api/voltmeter/update/fileversion` | – (Version aus hochgeladener .bin) |
 
+Vollständige Parameter/Antworten: `openapi.yaml` bzw. die API-Doku-Seite auf dem Gerät.
 Controller-Helper: `voltmeterRequest(cmd, payload, len, timeoutMs)` sendet und wartet (mit
-`delay()`-Yield, damit der `communicationTask` die Antwort parst). Bedienfeld vorläufig in
-`settings.html` (finale UI in Paket G/#23).
+`delay()`-Yield, damit der `communicationTask` die Antwort parst). Bedienfeld: Abschnitt
+„Voltmeter" auf der Einstellungsseite (seit Paket G im finalen Design).
 
-## #30 – Voltmeter-FW-Update via Controller (ROM-Bootloader, geplant)
+## #30 – Voltmeter-FW-Update via Controller (ROM-Bootloader)
+
+**Umgesetzt und am Gerät end-to-end verifiziert (2026-06-21)** — inkl. Nachweis, dass das
+emulierte EEPROM (Kalibrierung) den Flashvorgang übersteht.
 
 Nutzt den **eingebauten STM32-UART-Bootloader** (AN3155) auf USART1. Recovery-Strategie:
 **App-Sprung-only** (keine BOOT0/NRST-Steuerung) → ein Fehlflash mit nicht reagierender App
-braucht Öffnen + ST-Link. Daher **am offenen Gerät entwickeln und verifizieren, erst danach versiegeln.**
+braucht Öffnen + ST-Link.
 
-**Ablauf (Umsetzungsstand markiert):**
-1. ✅ **FW-Binary hochladen** (Web, POST multipart) → LittleFS `/voltmeter_fw.bin`
+**Ablauf:**
+1. **FW-Binary hochladen** (Web, POST multipart) → LittleFS `/voltmeter_fw.bin`
    (`/api/voltmeter/update/upload`).
-2. ✅ **ENTER_BOOTLOADER** (CMD 0x40): VM sendet ACK, dann Sprung ins System-Memory `0x1FFFF000`
+2. **ENTER_BOOTLOADER** (CMD 0x40): VM sendet ACK, dann Sprung ins System-Memory `0x1FFFF000`
    (IRQs aus, SysTick/NVIC deinit, `HAL_RCC_DeInit`, MSP = `*0x1FFFF000`, PC = `*0x1FFFF004`, springen).
    → `jumpToSystemBootloader()` in der Voltmeter-FW.
-3. ✅ **Controller = AN3155-Host** auf `Serial1` (`voltmeterUpdateTask`, `communicationTask`
+3. **Controller = AN3155-Host** auf `Serial1` (`voltmeterUpdateTask`, `communicationTask`
    währenddessen suspendiert, Ausgang/Regelung aus):
    - Umschalten auf **8E1** (Bootloader nutzt gerade Parität!), 115200.
    - `0x7F` → ACK `0x79` (Auto-Baud); **Get (0x00)** zur Erkennung Standard- (0x43) vs. Extended-Erase (0x44).
@@ -81,20 +89,17 @@ braucht Öffnen + ST-Link. Daher **am offenen Gerät entwickeln und verifizieren
      die letzte Flash-Page (Page 127 = emuliertes EEPROM = Kalibrierung) erhalten bleibt.
    - **Write Memory** (0x31, 256-Byte-Blöcke ab `0x08000000`, 4-Byte-aligned, je Checksumme + ACK) → **Go** (0x21, `0x08000000`).
    - zurück auf **8N1**, `communicationTask` resume, RMS-Empfang läuft weiter.
-4. ✅ **Web-UI** (`settings.html`): Upload → „Update starten" → Fortschritt-Polling
+4. **Web-UI** (`settings.html`): Upload → „Update starten" → Fortschritt-Polling
    (`/api/voltmeter/update/status`) → Erfolg/Fehler.
    - **Versionserkennung (#33):** Die Voltmeter-FW enthält den Magic-Tag `@@VMFW@@<FW-String>`
      (`__attribute__((used))`). Der Controller scannt die hochgeladene `.bin`
      (`/api/voltmeter/update/fileversion`) und zeigt die Datei-Version dauerhaft an; beim Start
      wird gegen die laufende Version (`GET_VERSION`) verglichen.
-5. ✅ **Schutz**: .bin vor dem Flashen plausibilisiert (Größe ≤124 KB, MSP im RAM, Reset-Vektor im Flash);
+5. **Schutz**: .bin vor dem Flashen plausibilisiert (Größe ≤124 KB, MSP im RAM, Reset-Vektor im Flash);
    Ausgang während Update aus.
 
-**Offen:** Ende-zu-Ende-Verifikation **am offenen Gerät** (ST-Link als Rettung). Die Sprung-Sequenz
-und der AN3155-Dialog sind ungetestet, bis das erste Mal real geflasht wurde.
-
-**Ende-zu-Ende-Test:** leicht geänderte Voltmeter-FW (Versions-String) per Web flashen →
-`GET_VERSION` muss danach die neue Version liefern.
+**Verifikation (durchgeführt):** leicht geänderte Voltmeter-FW (Versions-String) per Web
+geflasht → `GET_VERSION` lieferte danach die neue Version; Kalibrierung blieb erhalten.
 
 ## Referenzen
 - Backlog: [`../../BACKLOG.md`](../../BACKLOG.md) – Paket J (#27–#30).

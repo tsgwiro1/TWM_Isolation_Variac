@@ -6,6 +6,22 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.ino`.
 
+## [V4.3.0] – 2026-07-19
+
+### Dokumentation
+- **Doku konsolidiert** (#24, #12, Paket I): Veraltete docx-Dokumente entfernt
+  (alte REST-API-Doku V3.11, Kalibrieranleitung V3.11, Status-LED, Voltmeter-
+  Designnotizen) — deren Informationsgehalt steckt jetzt vollständig in der
+  Doku auf dem Gerät (`doc_usage`/`doc_settings`) bzw. in Markdown-Dokumenten
+  im Repo. Status-LED-Blinkmuster neu als `documentation/Status-LED.md`.
+  README und `Link-Protokoll.md` auf den aktuellen Stand gebracht.
+- **Geräte-Doku vervollständigt** (Review-Nachträge): LED-Verhalten von
+  Encoder- und Preset-Tasten beschrieben; Einstellungs-Doku mit vollständiger
+  Feldreferenz inkl. Voltmeter-Abschnitt (Status, Kalibrierung, FW-Update)
+  und ausführlichem Kapitel zur 3-Punkt-Kalibrierung. Korrekturen:
+  `POST /api/config` wirkt sofort (kein Neustart nötig), Auto-Zero läuft bei
+  jedem Voltmeter-Start automatisch und erfordert keine Endpunkt-Neukalibrierung.
+
 ## [V4.2.1] – 2026-07-19
 
 ### Infrastruktur

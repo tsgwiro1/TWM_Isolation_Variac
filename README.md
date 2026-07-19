@@ -28,7 +28,7 @@ Arbeitsstand und geplante Aufgaben:
 Der Controller wird mit **PlatformIO** (VS Code, Erweiterung „PlatformIO IDE") gebaut.
 Alle Befehle im Ordner `tt_esp32controller/` ausführen.
 
-Es gibt zwei Environments – kein Umkommentieren mehr nötig:
+Es gibt drei Environments – kein Umkommentieren mehr nötig:
 
 | Environment | Zweck |
 |-------------|-------|
@@ -88,11 +88,36 @@ Alle Befehle im Ordner `tt_voltmeter/` ausführen. Geflasht wird per **ST-Link (
 ```bash
 pio run                     # bauen
 pio run -t upload           # via ST-Link flashen
-pio device monitor          # Konsole/Kalibrierung (Serial = USART1, PA9/PA10)
+pio device monitor          # Konsole/Kalibrierung (USB-CDC, USB-Port der Blue Pill)
 ```
 
-Schnittstellen: **USART2** (PA2/PA3) ist die Datenleitung zum Controller, **USART1** (PA9/PA10)
-die serielle Konsole für Befehle und Kalibrierung.
+Schnittstellen: **USART1** (PA9/PA10) ist der bidirektionale Befehls-/Datenlink zum Controller
+(darüber läuft auch das Voltmeter-FW-Update via Controller), die serielle **Konsole** für
+Befehle und Kalibrierung läuft über die native **USB-CDC** (PA11/PA12). Details:
+[`tt_voltmeter/documentation/Link-Protokoll.md`](tt_voltmeter/documentation/Link-Protokoll.md).
+
+## Dokumentation
+
+Die **Bedienungs-, Einstellungs- und API-Dokumentation** liegt auf dem Gerät selbst und ist
+im Webinterface verlinkt (`http://twm_variac.local/doc_usage.html`): Bedienung inkl.
+Status-LED-Blinkcodes, interaktive API-Referenz (aus
+[`openapi.yaml`](tt_esp32controller/data/openapi.yaml) — der Single Source of Truth für die
+REST-/WebSocket-API) sowie Systemeinstellungen und Kalibrierung.
+
+Ergänzende Dokumente im Repo:
+
+| Dokument | Inhalt |
+|----------|--------|
+| [`tt_esp32controller/documentation/Status-LED.md`](tt_esp32controller/documentation/Status-LED.md) | Status-LED-Blinkmuster und Fehlerursachen |
+| [`tt_esp32controller/documentation/USB CDC.md`](tt_esp32controller/documentation/USB%20CDC.md) | USB-CDC-Konfiguration, Download-Mode |
+| `tt_esp32controller/documentation/Modifikation Controller Print.docx` | Hardware-Umbau am Controller-Print für das AC-Voltmeter (12-V-Speisung an J6) |
+| `tt_esp32controller/documentation/Trinamic_*.PNG` | Referenz-Einstellungen des Trinamic-Schrittmotortreibers |
+| [`tt_voltmeter/documentation/Link-Protokoll.md`](tt_voltmeter/documentation/Link-Protokoll.md) | Controller↔Voltmeter-Protokoll, Befehlssatz, FW-Update via Controller |
+| [`tt_voltmeter/documentation/Hardware-Umbau-USART1.md`](tt_voltmeter/documentation/Hardware-Umbau-USART1.md) | Verlegung des Controller-Links auf USART1 |
+| `tt_voltmeter/documentation/The ZMPT101B AC Voltage Sensor Module.docx` | Referenz zum Spannungssensor-Modul |
+
+Änderungshistorie je Firmware: [`tt_esp32controller/CHANGELOG.md`](tt_esp32controller/CHANGELOG.md)
+und [`tt_voltmeter/CHANGELOG.md`](tt_voltmeter/CHANGELOG.md).
 
 ## Lizenz
 

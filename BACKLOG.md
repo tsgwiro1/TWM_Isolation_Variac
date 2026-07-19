@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-07-19 · **Gesamt: 31 / 34 Punkte erledigt**
+**Stand:** 2026-07-19 · **Gesamt: 33 / 34 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -23,7 +23,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | G — Web-Oberfläche | ✅ erledigt | 2/2 |
 | H — Sicherheit (optional) | ⬜ offen | 0/1 |
 | J — Voltmeter-Fernsteuerung via Controller | ✅ erledigt | 7/7 |
-| I — Dokumentation | ⬜ offen | 0/2 |
+| I — Dokumentation | ✅ erledigt | 2/2 |
 
 ### Checkliste
 
@@ -69,9 +69,9 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [x] #34 Spannungs-Offset über Web/API setzen
   - [x] #33 FW-Version aus .bin auslesen/anzeigen
   - [x] #32 LCD-Anzeige während Voltmeter-FW-Update
-- [ ] **I — Dokumentation aktualisieren**
-  - [ ] #24 Doku aktualisieren & vervollständigen
-  - [ ] #12 API-Doku Single-Source
+- [x] **I — Dokumentation aktualisieren**
+  - [x] #24 Doku aktualisieren & vervollständigen
+  - [x] #12 API-Doku Single-Source
 
 > Diese Checkliste ist die schnelle Abhak-Übersicht. Die Detailtabellen je Paket (unten)
 > tragen Beschreibung, Aufwand und denselben Status.
@@ -205,6 +205,26 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-19 — Paket I umgesetzt → #24 + #12 abgehakt (33/34); V4.3.0 aufs Gerät
+  geflasht.** Doku konsolidiert ohne Informationsverlust: vier veraltete docx entfernt
+  (REST-API V3.11, Kalibrieranleitung V3.11, Status-LED, Voltmeter-Designnotizen — das
+  Messprinzip steckt vollständig kommentiert im Voltmeter-Quellcode). Vorher übernommen:
+  Status-LED komplett (Blinkzeiten, Ursachen, Aktionen) in `doc_usage.html` **und** neu als
+  `documentation/Status-LED.md` (gegen `statusLedTask` verifiziert; neu: auch OTA-Fehler
+  setzt STATE_ERROR); Software-Kalibrierung als „Methode 2" in `doc_settings.html`;
+  „PID"-Formulierung korrigiert. `Link-Protokoll.md` gegen den Code abgeglichen
+  (GET→POST gemäß V4-REST, Update-Routen ergänzt, #30 als end-to-end-verifiziert
+  markiert). README: drei Environments, Voltmeter-Konsole = USB-CDC/USART1 = Link,
+  neuer Abschnitt „Dokumentation" mit Index. OTA-/SIM-Build ok, FW + FS per OTA aufs
+  Gerät, ausgelieferte Seiten verifiziert. **Review-Nachträge (Roger):** LED-Verhalten
+  dokumentiert (Encoder-Taste: an = x10; Preset-LEDs: aktiv/erlischt bei manueller
+  Verstellung/Bestätigung beim Speichern — gegen den Code verifiziert);
+  Einstellungs-Doku komplett: alle GUI-Felder gruppiert beschrieben + neuer Abschnitt
+  „Voltmeter (serieller Link)" (Status, manuelle/3-Punkt-Kalibrierung, Gerät,
+  FW-Update); Korrektur: `POST /api/config` wirkt sofort, Neustart-Schritt aus alter
+  docx entfernt. API-Version bleibt per Konvention bei 4.2.0 (folgt API-Änderungen,
+  nicht der FW) — Hinweis dazu in die openapi-Beschreibung aufgenommen.
+  Offen nur noch Paket H (#11, optional).
 - **2026-07-19 — #9 umgesetzt: 16-MB-Partitionierung am Gerät aktiv → Paket F
   komplett (31/34).** Prozedur U1–U7 durchlaufen: Konfig-Backup, USB-Flash
   (Bootloader + neue Tabelle + App), `uploadfs` (~9,9-MB-Image an 0x610000),
@@ -435,8 +455,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
-| 24 | Docs | Doku aktualisieren & vervollständigen | Alle Dokumente (Kalibrierung, REST-API, Status-LED, USB CDC, TFT-Settings, Build/Flash) auf den finalen Stand bringen, Lücken schließen, einheitliche Form & Ablage. | M | offen |
-| 12 | Docs | API-Doku Single-Source | Wird im Wesentlichen durch #22 gelöst: `openapi.yaml` als Single Source of Truth + Doku-Seite auf dem Gerät. Hier verbleibt nur: alte HTML-/docx-API-Doku entfernen bzw. auf die neue Seite verweisen. Teil von #24. | S | offen |
+| 24 | Docs | Doku aktualisieren & vervollständigen | Alle Dokumente (Kalibrierung, REST-API, Status-LED, USB CDC, TFT-Settings, Build/Flash) auf den finalen Stand bringen, Lücken schließen, einheitliche Form & Ablage. | M | **erledigt** |
+| 12 | Docs | API-Doku Single-Source | Wird im Wesentlichen durch #22 gelöst: `openapi.yaml` als Single Source of Truth + Doku-Seite auf dem Gerät. Hier verbleibt nur: alte HTML-/docx-API-Doku entfernen bzw. auf die neue Seite verweisen. Teil von #24. | S | **erledigt** |
 
 ---
 

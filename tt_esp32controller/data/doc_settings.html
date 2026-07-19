@@ -49,7 +49,7 @@
         <p>Die gesamte Konfiguration (inkl. Kalibrierung und Presets) wird im <strong>NVS-Speicher</strong> des ESP32 verwaltet und überlebt dadurch auch Filesystem-Updates. Änderungen können über die Einstellungsseite im Webinterface oder direkt per API vorgenommen werden (<code>GET/POST /api/config</code>, siehe API-Doku).</p>
 
         <h2>Kalibrierungsprozess</h2>
-        <p>Damit die Software weiß, bei welcher physischen Motorposition welche Ausgangsspannung anliegt, müssen die Endanschläge kalibriert werden.</p>
+        <p>Damit die Software weiß, bei welcher physischen Motorposition welche Ausgangsspannung anliegt, müssen die Endanschläge kalibriert werden. Es gibt zwei Methoden: die <strong>Hardware-Kalibrierung direkt am Gerät</strong> (ideal bei Erstinbetriebnahme oder wenn sich die Mechanik verschoben hat) und die <strong>Software-Kalibrierung über das Webinterface</strong> (für Feinjustierungen bei bekannten Werten).</p>
 
         <div class="callout">
             <strong>Wichtig — Reihenfolge:</strong> Zuerst das <strong>Voltmeter</strong> kalibrieren
@@ -61,6 +61,7 @@
             Nach einer Voltmeter-Neukalibrierung müssen die Endpunkte erneut kalibriert werden.
         </div>
 
+        <h2>Methode 1: Hardware-Kalibrierung (am Gerät)</h2>
         <ol>
             <li><strong>Setup-Modus starten:</strong>
                 <ul>
@@ -72,7 +73,7 @@
             <li><strong>Min-Position (Nullpunkt) kalibrieren:</strong>
                 <ul>
                     <li>Drücke kurz die Taste <strong>P1</strong> (fährt den gespeicherten Min-Punkt an).</li>
-                    <li>Fahre den Motor mit dem Drehregler auf den 0V-Punkt des Trafos (knapp unterhalb des Endschalters). <em>Tipp: Encoder drücken für x10 Geschwindigkeit.</em></li>
+                    <li>Fahre den Motor mit dem Drehregler auf den 0V-Punkt des Trafos (knapp unterhalb des Endschalters).</li>
                     <li>Halte die Taste <strong>P1 lange gedrückt</strong>. Die Position und die Spannung sind nun als Minimum gespeichert.</li>
                 </ul>
             </li>
@@ -87,14 +88,116 @@
             <li><strong>Abschluss:</strong> Führe einen Neustart des Geräts durch. Das System nutzt nun eine lineare Interpolation zwischen diesen beiden Punkten.</li>
         </ol>
 
-        <h2>Systemparameter</h2>
+        <h2>Methode 2: Software-Kalibrierung (über das Webinterface)</h2>
+        <p>Diese Methode eignet sich, wenn die genauen Schrittzahlen und Spannungen bereits bekannt sind oder nur kleine Feinjustierungen (z.&nbsp;B. Nachbessern der Spannungswerte) vorgenommen werden sollen, ohne den Motor manuell zu verfahren.</p>
+        <ol>
+            <li>Die Einstellungsseite im Webinterface öffnen (Zahnrad-Symbol im Dashboard).</li>
+            <li>Im Bereich <strong>Kalibrierung</strong> die vier Parameter direkt eingeben:
+                <ul>
+                    <li><strong>Min. Position (Schritte):</strong> Typischerweise 0 oder ein leicht negativer Wert (z.&nbsp;B. &minus;25).</li>
+                    <li><strong>Max. Position (Schritte):</strong> Der oberste mechanische Schrittwert (z.&nbsp;B. 2000).</li>
+                    <li><strong>Spannung bei Min. Pos. (V):</strong> Die Spannung, die real an der Minimalposition anliegt (z.&nbsp;B. 3.0).</li>
+                    <li><strong>Spannung bei Max. Pos. (V):</strong> Die Spannung an der Maximalposition (z.&nbsp;B. 255.0).</li>
+                </ul>
+            </li>
+            <li>Auf <strong>Speichern &amp; Anwenden</strong> klicken — die Werte werden validiert, im NVS gespeichert und sind <strong>sofort aktiv</strong> (kein Neustart nötig).</li>
+        </ol>
+
+        <h2>Die Einstellungsseite im Überblick</h2>
+        <p>Alle Felder und Aktionen der Seite &bdquo;Einstellungen&ldquo;, gruppiert nach Abschnitt. Änderungen werden erst mit <strong>Speichern &amp; Anwenden</strong> übernommen (Validierung, Ablage im NVS, sofort aktiv).</p>
+
+        <p><strong>System &amp; Regelung</strong></p>
         <ul>
+            <li><strong>Debug-Ausgaben aktivieren:</strong> Aktiviert erweiterte Statusmeldungen über den seriellen Port (USB) und das Live-Log im Webinterface.</li>
             <li><strong>Regelung: Deadband (V):</strong> Toleranzband um den Sollwert. Solange die gemessene Spannung innerhalb dieses Bandes liegt, korrigiert die Regelung nicht (verhindert ständiges Nachstellen).</li>
             <li><strong>Regelung: Dämpfung (0.1–1.0):</strong> Anteil der berechneten Korrektur, der pro Regelschritt tatsächlich gefahren wird. Kleinere Werte regeln sanfter, größere schneller (1.0 = volle Korrektur).</li>
             <li><strong>Regelung: Beruhigungszeit (ms):</strong> Wartezeit nach einer Korrekturbewegung, bevor die Messung erneut bewertet wird (Messwert muss sich stabilisieren).</li>
             <li><strong>Regelung: Anfahr-Marge (V):</strong> Die schnelle Grob-Anfahrt stoppt um diese Marge vor dem Ziel (beim Hochfahren darunter, beim Runterfahren darüber); die restliche Differenz schließen die Fein-Korrekturen — verhindert Überschwingen.</li>
-            <li><strong>Debug-Ausgaben:</strong> Aktiviert erweiterte Statusmeldungen über den seriellen Port (USB) und das Live-Log im Webinterface.</li>
         </ul>
+
+        <p><strong>Kalibrierung</strong></p>
+        <ul>
+            <li><strong>Min./Max. Position (Schritte)</strong> und <strong>Spannung bei Min./Max. Pos. (V):</strong> Die vier Stützwerte der Endpunkt-Kalibrierung (siehe oben). Die Hardware-Kalibrierung (Methode 1) füllt sie automatisch; für die Software-Kalibrierung (Methode 2) können sie hier direkt bearbeitet werden.</li>
+        </ul>
+
+        <p><strong>Presets</strong></p>
+        <ul>
+            <li><strong>Preset 1–3 (V):</strong> Die Spannungswerte der Tasten P1–P3. Alternativ lassen sie sich am Gerät durch langes Drücken der jeweiligen Taste mit der aktuell gemessenen Spannung belegen (siehe Bedienung).</li>
+        </ul>
+
+        <p><strong>Aktionen</strong></p>
+        <ul>
+            <li><strong>Speichern &amp; Anwenden:</strong> Überträgt alle geänderten Werte der Seite. Bei ungültigen Werten meldet das Gerät die Validierungsfehler; nichts wird übernommen.</li>
+            <li><strong>Neustart:</strong> Startet den Controller neu (z.&nbsp;B. zum Verlassen des Setup-Modus nach der Hardware-Kalibrierung).</li>
+        </ul>
+
+        <p><strong>Konfiguration sichern</strong></p>
+        <ul>
+            <li><strong>Konfig. herunterladen:</strong> Speichert die komplette Konfiguration (System, Regelung, Kalibrierung, Presets) als JSON-Datei — als Backup vor Experimenten oder Firmware-Umstellungen.</li>
+            <li><strong>Konfig. hochladen:</strong> Stellt eine gesicherte JSON-Konfiguration wieder her; die Werte werden validiert und sofort angewendet.</li>
+        </ul>
+
+        <h2>Voltmeter (serieller Link)</h2>
+        <p>Das Voltmeter (STM32) ist über den seriellen Link mit dem Controller verbunden und wird komplett von der Einstellungsseite aus verwaltet — Kalibrierung, Wartung und Firmware-Update, ohne das Gerät zu öffnen.</p>
+
+        <p><strong>Status</strong></p>
+        <ul>
+            <li><strong>Status aktualisieren:</strong> Fragt Version und Kalibrierwerte frisch vom Voltmeter ab.</li>
+            <li><strong>Installierte Version:</strong> Firmware-Version des Voltmeters.</li>
+            <li><strong>Skalierungsfaktor:</strong> Umrechnungsfaktor vom ADC-Messwert zur realen Spannung (Steigung der Kalibriergeraden).</li>
+            <li><strong>Spannungs-Offset (V):</strong> Additiver Korrekturwert auf das Messergebnis (Nullpunkt der Kalibriergeraden).</li>
+            <li><strong>ADC-Nullpunkt:</strong> Der ADC-Rohwert, der 0&nbsp;V entspricht (Arbeitspunkt der Messschaltung).</li>
+        </ul>
+
+        <p><strong>Manuelle Kalibrierung</strong></p>
+        <ul>
+            <li><strong>Faktor setzen / speichern:</strong> Skalierungsfaktor direkt vorgeben (Plausibilitätsbereich 100–1000). Wird dauerhaft im Voltmeter (EEPROM) gespeichert.</li>
+            <li><strong>Spannungs-Offset setzen / speichern:</strong> Offset direkt vorgeben (Plausibilitätsbereich &minus;50…+50&nbsp;V). Wird dauerhaft im Voltmeter gespeichert.</li>
+            <li><strong>Auto-Zero:</strong> Misst den ADC-Nullpunkt neu — dabei legt ein Relais den Messeingang kurz auf 0&nbsp;V. Läuft bei <strong>jedem Start des Voltmeters automatisch</strong>; die Taste stößt die Messung nur manuell erneut an. Dauert ca. 5&nbsp;Sekunden — währenddessen pausiert der Messwert-Stream und die Spannungsregelung hält automatisch an.</li>
+        </ul>
+
+        <p><strong>3-Punkt-Kalibrierung</strong></p>
+        <ul>
+            <li>Für jeden Punkt: bekannte Referenzspannung an den Eingang legen, den Referenzwert (V) eintragen und <strong>Messen</strong> klicken — das Voltmeter mittelt ca. 2&nbsp;Sekunden lang. Der genaue Ablauf ist im nächsten Kapitel beschrieben.</li>
+            <li><strong>Kalibrierung abschließen:</strong> Berechnet aus den Messpunkten per linearer Regression Faktor und Offset und speichert beide im Voltmeter. Mindestens 2 Punkte nötig; 3 Punkte erhöhen die Genauigkeit.</li>
+        </ul>
+
+        <p><strong>Gerät</strong></p>
+        <ul>
+            <li><strong>Neustart:</strong> Startet das Voltmeter neu (der Messwert-Stream setzt danach automatisch wieder ein).</li>
+            <li><strong>Werkseinstellungen:</strong> Setzt Skalierungsfaktor und Offset auf die Standardwerte zurück — danach ist eine Neukalibrierung nötig.</li>
+        </ul>
+
+        <h2>Ablauf: Voltmeter per 3-Punkt-Kalibrierung abgleichen</h2>
+        <p>Die 3-Punkt-Kalibrierung gleicht das Voltmeter gegen ein <strong>externes Referenz-Messgerät</strong> ab (genaues True-RMS-Multimeter am Variac-Ausgang). Aus den Messpunkten berechnet das Voltmeter per linearer Regression seine Kalibriergerade (Skalierungsfaktor und Offset) neu.</p>
+        <ol>
+            <li><strong>Vorbereitung:</strong> Multimeter am Ausgang anschließen, Ausgang einschalten.</li>
+            <li><strong>Referenzpunkte wählen:</strong> 2–3 Spannungen, über den Arbeitsbereich verteilt — typisch eine tiefe, eine mittlere und eine hohe, z.&nbsp;B. 50&nbsp;V, 125&nbsp;V und 230&nbsp;V. Die exakten Werte sind unwichtig; entscheidend ist die Verteilung.</li>
+            <li><strong>Je Punkt:</strong>
+                <ul>
+                    <li>Die Spannung mit dem Drehregler ungefähr auf den gewünschten Punkt einstellen.</li>
+                    <li>Die tatsächliche Ausgangsspannung mit dem <strong>Multimeter ablesen</strong> und diesen gemessenen Wert (nicht den Sollwert!) in das Referenz-Feld des Punkts eintragen.</li>
+                    <li><strong>Messen</strong> klicken — das Voltmeter mittelt seinen Rohmesswert ca. 2&nbsp;Sekunden lang und ordnet ihn dem eingetragenen Referenzwert zu. Währenddessen pausiert der Messwert-Stream kurz und die Regelung hält an; die Spannung darf in dieser Zeit nicht verstellt werden.</li>
+                </ul>
+            </li>
+            <li><strong>Wiederholen</strong> für die übrigen Punkte. Ein misslungener Punkt kann einfach erneut gemessen werden (überschreibt die vorherige Messung dieses Punkts).</li>
+            <li><strong>Kalibrierung abschließen</strong> klicken: Faktor und Offset werden aus den Punkten berechnet und dauerhaft im Voltmeter (EEPROM) gespeichert. Mindestens 2 Punkte sind nötig, 3 erhöhen die Genauigkeit.</li>
+            <li><strong>Danach:</strong> Die Endpunkte des Variac neu kalibrieren (siehe Kalibrierungsprozess oben), da sich die gemessenen Spannungen durch die neue Kalibriergerade verschoben haben.</li>
+        </ol>
+
+        <p><strong>Firmware-Update</strong></p>
+        <ul>
+            <li><strong>Schritt 1 — Firmware auf Controller laden:</strong> <code>.bin</code>-Datei auswählen und hochladen. Der Controller liest die Versionskennung aus der Datei und zeigt sie unter &bdquo;Version auf Controller&ldquo; an — so ist vor dem Flashen sichtbar, welche Version installiert würde (Vergleich mit &bdquo;Aktuell auf Voltmeter&ldquo;).</li>
+            <li><strong>Schritt 2 — Voltmeter programmieren:</strong> <strong>Update starten</strong> flasht das Voltmeter über den seriellen Link (STM32-ROM-Bootloader); der Fortschritt wird laufend angezeigt. Während des Updates ist der Ausgang aus und die Bedienung gesperrt; das Display zeigt den Fortschritt ebenfalls an. Die Kalibrierung des Voltmeters bleibt beim Update erhalten.</li>
+        </ul>
+
+        <div class="callout">
+            <strong>Wichtig:</strong> Nach einer Änderung von <strong>Skalierungsfaktor oder Offset</strong>
+            (manuell oder per 3-Punkt-Kalibrierung) müssen die <strong>Endpunkte des Variac neu kalibriert</strong>
+            werden (siehe Reihenfolge-Hinweis oben) — sonst werden Sollwerte und Presets ungenau angefahren.
+            Das <em>Auto-Zero</em> zählt nicht dazu: Es läuft ohnehin bei jedem Voltmeter-Start automatisch
+            und ändert die Kalibriergerade nicht.
+        </div>
     </section>
 </div>
 <script src="app.js"></script>

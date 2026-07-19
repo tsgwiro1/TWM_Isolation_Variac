@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-07-19 · **Gesamt: 30 / 34 Punkte erledigt**
+**Stand:** 2026-07-19 · **Gesamt: 31 / 34 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -48,11 +48,11 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   - [x] #5 Geteilte Zustände schützen
 - [x] **E — API-Vereinfachung & -Bereinigung**
   - [x] #22 API vereinfachen & bereinigen (REST-Konventionen + OpenAPI-Spec + Doku-Seite)
-- [ ] **F — Struktur & Modernisierung**
+- [x] **F — Struktur & Modernisierung**
   - [x] #10 Modularisierung
   - [x] #15 Typos (`Whiper`→`Wiper`, `corse`→`coarse`)
   - [x] #14 ArduinoJson v7
-  - [ ] #9 Partitionierung 16 MB _(vorbereitet; USB-Flash am Gerät ausstehend)_
+  - [x] #9 Partitionierung 16 MB
   - [x] #31 Regelparameter konfigurierbar
 - [x] **K — Konfiguration ins NVS**
   - [x] #35 Konfiguration/Kalibrierung ins NVS (Preferences)
@@ -205,6 +205,14 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-19 — #9 umgesetzt: 16-MB-Partitionierung am Gerät aktiv → Paket F
+  komplett (31/34).** Prozedur U1–U7 durchlaufen: Konfig-Backup, USB-Flash
+  (Bootloader + neue Tabelle + App), `uploadfs` (~9,9-MB-Image an 0x610000),
+  Verifikation: **NVS überlebte den Umstieg** (Kalibrierung/Presets identisch),
+  alle Webdateien inkl. Fonts da, **OTA funktioniert weiter**. Aufgeräumt:
+  16-MB-Layout nach `partitions.csv` konsolidiert, `partitions_16mb.csv` +
+  `Partitionierung-16MB.md` entfernt (Zweck erfüllt), platformio.ini bereinigt.
+  Offen im BACKLOG nur noch Paket H (#11) und I (#24/#12) + Tools-Nachtests.
 - **2026-07-19 — Paket G am Gerät abgenommen → #23 + #13 abgehakt (30/34); V4.2.0
   abgeschlossen + Tag `v4.2.0`.** Roger hat das komplette Redesign am Gerät
   durchgetestet (Dashboard mit WS-Livedaten, Settings inkl. Kalibrierung/Presets/
@@ -380,7 +388,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | 10 | Refactor | Modularisierung | `.ino` in Module aufteilen (`config`, `web`, `display`, `motor`, `comm`, `actions`, `logging`); ggf. `.ino`→`.cpp` + Forward-Declarations. | L | **erledigt** *(am Gerät verifiziert, Testlauf T1–T3a/T8)* |
 | 15 | Cosmetic | Typos | `Whiper`→`Wiper`, `CORSE`/`corse`→`coarse` konsistent umbenennen (zusammen mit #10, da gleiche Dateien). | S | **erledigt** *(am Gerät verifiziert)* |
 | 14 | Refactor | ArduinoJson v7 | Migration von `StaticJsonDocument` auf v7-API. | M | **erledigt** *(am Gerät verifiziert)* |
-| 9  | Build | Partitionierung 16 MB | Neue Tabelle `partitions_16mb.csv`: LittleFS 2 MB → ~9,9 MB, NVS/otadata/App-Slots an identischen Offsets (Konfig + Firmware überleben den Umstieg). Label bleibt bewusst `spiffs` (dasselbe Binary muss mit alter UND neuer Tabelle laufen) — stattdessen Kommentar in csv/Code. Umstiegs-/Rollback-Prozedur: `documentation/Partitionierung-16MB.md`. | M | **vorbereitet** *(USB-Flash am zugänglichen Gerät ausstehend; bis dahin bleibt `partitions.csv` aktiv)* |
+| 9  | Build | Partitionierung 16 MB | Neue Tabelle `partitions_16mb.csv`: LittleFS 2 MB → ~9,9 MB, NVS/otadata/App-Slots an identischen Offsets (Konfig + Firmware überleben den Umstieg). Label bleibt bewusst `spiffs` (dasselbe Binary muss mit alter UND neuer Tabelle laufen) — stattdessen Kommentar in csv/Code. Umstiegs-/Rollback-Prozedur: `documentation/Partitionierung-16MB.md`. | M | **erledigt** *(2026-07-19 per USB geflasht; NVS überlebte, OTA verifiziert; Tabelle nach `partitions.csv` konsolidiert)* |
 | 31 | Konfig | Regelparameter konfigurierbar | Regelparameter (`REG_FEEDFORWARD_UNDERSHOOT_V`, Damping, Deadband, Settle) statt `#define` über config.json/Settings einstellbar machen → Tuning pro Gerät ohne Code-Änderung (z. B. richtungsabhängige Hysterese). Dabei ungenutztes `coarse_move_threshold` aufräumen/umwidmen. | M | **erledigt** *(am Gerät verifiziert, Testlauf T3a)* |
 
 ## Paket K — Konfiguration ins NVS

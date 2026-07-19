@@ -1,6 +1,16 @@
+# TWM Isolation Variac – Partitionstabelle (volle 16 MB Flash, aktiv seit #9)
+#
+# Per USB-Flash am 2026-07-19 aufs Gerät gebracht (die Tabelle bei 0x8000 kann
+# nicht per OTA geschrieben werden). NVS-Konfiguration/Kalibrierung hat den
+# Umstieg von der alten 8-MB-Tabelle überlebt (identische Offsets), nur das
+# Filesystem wurde neu bespielt.
+#
+# Hinweis Label: Das Label bleibt bewusst "spiffs" (historisch), obwohl LittleFS
+# darauf läuft — die Firmware mountet über dieses Label.
+#
 # Name,   Type, SubType, Offset,  Size, Flags
 nvs,      data, nvs,     0x9000,  0x5000,
 otadata,  data, ota,     0xe000,  0x2000,
 app0,     app,  ota_0,   0x10000, 0x300000,
 app1,     app,  ota_1,   0x310000,0x300000,
-spiffs, data, spiffs,  0x610000,0x200000,
+spiffs,   data, spiffs,  0x610000,0x9F0000,

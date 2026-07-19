@@ -6,6 +6,16 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.ino`.
 
+## [V4.2.1] – 2026-07-19
+
+### Infrastruktur
+- **16-MB-Partitionierung aktiv** (#9): Die vorbereitete Tabelle wurde per
+  USB-Flash aufs Gerät gebracht — LittleFS wächst von 2 MB auf ~9,9 MB,
+  NVS/otadata/App-Slots blieben an identischen Offsets (Konfiguration und
+  Kalibrierung haben den Umstieg nachweislich überlebt, OTA funktioniert
+  weiter). Repo aufgeräumt: Layout nach `partitions.csv` konsolidiert,
+  `partitions_16mb.csv` und die Umstiegs-Doku entfernt.
+
 ## [V4.2.0] – 2026-07-19
 
 ### Geändert

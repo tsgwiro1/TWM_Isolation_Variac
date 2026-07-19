@@ -17,10 +17,10 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | B — Schnelle Bugfixes & Konsistenz | ✅ erledigt | 3/3 |
 | C — Regelung „snappy" | ✅ erledigt | 5/5 |
 | D — Robustheit / Nebenläufigkeit | ✅ erledigt | 2/2 |
-| E — API-Vereinfachung | ⬜ offen | 0/1 |
-| F — Struktur & Modernisierung | ⬜ offen | 0/5 |
+| E — API-Vereinfachung | ✅ erledigt | 1/1 |
+| F — Struktur & Modernisierung | ✅ erledigt | 5/5 |
 | K — Konfiguration ins NVS | ✅ erledigt | 1/1 |
-| G — Web-Oberfläche | ⬜ offen | 0/2 |
+| G — Web-Oberfläche | ✅ erledigt | 2/2 |
 | H — Sicherheit (optional) | ⬜ offen | 0/1 |
 | J — Voltmeter-Fernsteuerung via Controller | ✅ erledigt | 7/7 |
 | I — Dokumentation | ⬜ offen | 0/2 |

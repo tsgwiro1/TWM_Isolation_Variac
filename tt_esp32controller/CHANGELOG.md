@@ -18,6 +18,11 @@ Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.
   Auch die Doku-Seiten (Bedienung/API/Einstellungen) tragen das neue Design
   inkl. Theme-/Akzentwechsel; RapiDoc wird live aus den Design-Tokens
   eingefärbt. Das alte `style.css` ist vollständig abgelöst und entfernt.
+  Navigation als **benannte Browser-Tabs**: Dashboard, Einstellungen, Live-Log
+  und Doku öffnen je einen eigenen Tab — existiert er schon, wird dorthin
+  gewechselt statt einen weiteren zu öffnen (Safari-kompatibel über
+  `window.open(url, name)` + natives `target`; wiederholte Klicks aus demselben
+  Tab wechseln ohne Neuladen).
 
 ### Hinzugefügt
 - **Live-Daten über WebSocket** (#13): Statuswerte werden vom Gerät gepusht

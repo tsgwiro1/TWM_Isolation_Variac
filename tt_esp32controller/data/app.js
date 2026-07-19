@@ -23,9 +23,57 @@ function applyAccent(accent) {
     lsSet('variac-accent', accent);
 }
 
+// ---- Benannte Browser-Tabs: eine Seite = ein Tab ----
+// Links mit data-tab öffnen die Zielseite in einem benannten Tab. Existiert der
+// Tab schon, wird nur dorthin gewechselt (und nur neu geladen, wenn er gerade
+// eine andere Seite zeigt) — es entstehen keine Duplikat-Tabs.
+var TAB_NAMES = {
+    '': 'variac-dash', 'index.html': 'variac-dash',
+    'settings.html': 'variac-settings',
+    'log.html': 'variac-log',
+    'doc_usage.html': 'variac-doc', 'doc_api.html': 'variac-doc', 'doc_settings.html': 'variac-doc'
+};
+
+var namedTabs = {}; // von diesem Tab geöffnete Fenster-Handles (Name -> window)
+
+function openInNamedTab(e) {
+    var a = e.currentTarget;
+    var name = a.dataset.tab;
+    if (!name || !window.open) return; // Fallback: native target-Navigation
+    e.preventDefault();
+    var norm = function (path) {
+        var p = path.split('/').pop();
+        return p === '' ? 'index.html' : p;
+    };
+    // Kennt dieser Tab das Ziel-Fenster schon und zeigt es die richtige Seite,
+    // reicht ein Fokuswechsel — ganz ohne Neuladen.
+    var w = namedTabs[name];
+    try {
+        if (w && !w.closed && norm(w.location.pathname) === norm(a.pathname)) {
+            w.focus();
+            return;
+        }
+    } catch (err) { /* Handle unbrauchbar -> unten regulär öffnen */ }
+    // window.open MIT URL: existiert der benannte Tab, lädt der Browser die Seite
+    // dort und wechselt hin; sonst entsteht genau ein neuer Tab. (Safari reused
+    // benannte Tabs nur auf diesem Weg zuverlässig — nicht mit leerer URL.)
+    w = window.open(a.href, name);
+    if (!w) { location.href = a.href; return; } // Popup blockiert -> im selben Tab
+    namedTabs[name] = w;
+    if (w.focus) w.focus();
+}
+
 // Verdrahtet die Header-Bedienelemente (auf jeder Seite identisch aufgebaut).
 function initHeader() {
     applyTheme(currentTheme()); // Icon des Theme-Buttons initialisieren
+
+    // Eigenen Tab benennen — auch direkt geöffnete Tabs werden so wiederverwendet.
+    var page = location.pathname.split('/').pop();
+    if (TAB_NAMES[page] !== undefined) window.name = TAB_NAMES[page];
+
+    document.querySelectorAll('a[data-tab]').forEach(function (a) {
+        a.addEventListener('click', openInNamedTab);
+    });
 
     const themeBtn = document.getElementById('theme-btn');
     if (themeBtn) themeBtn.addEventListener('click', () => {

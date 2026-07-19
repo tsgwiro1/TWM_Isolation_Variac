@@ -205,6 +205,14 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-19 — Paket-H-Plan + Testanleitung V4.3.1 ins Repo.** `Paket-H-Plan.md`
+  (Root): abgestimmter Umsetzungsplan für #11 (Blöcke A–D, ~1 Arbeitstag, offene
+  Entscheidungen dokumentiert) — Umsetzung weiterhin „optional/später".
+  `documentation/Testanleitung-V4.3.1.md`: Gesamtabnahme Controller V4.3.1 +
+  Voltmeter V1.2.3, aufbauend T0–T15 (inkl. Tools-Retests GitHub-#6/#7 als
+  T15.1/T15.2), Befunde werden mit Testnummer referenziert; Dokument ist temporär
+  und wird nach bestandenem Test wieder entfernt. Zuvor: Nachträge V4.3.1
+  (Mobile-Fixes Layout + Navigation, am iPhone verifiziert) committet + getaggt.
 - **2026-07-19 — Paket I umgesetzt → #24 + #12 abgehakt (33/34); V4.3.0 aufs Gerät
   geflasht.** Doku konsolidiert ohne Informationsverlust: vier veraltete docx entfernt
   (REST-API V3.11, Kalibrieranleitung V3.11, Status-LED, Voltmeter-Designnotizen — das

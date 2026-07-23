@@ -186,11 +186,15 @@ input[type=number]::-webkit-inner-spin-button { opacity: 0.35; }
 .status-line.warn { color:var(--warn); }
 
 /* ---------- Dashboard-Grid ---------- */
-.vgrid { display:grid; gap:16px; grid-template-columns:1fr; grid-template-areas:"gauge" "controls" "setpoint" "trend" "meters"; }
+/* GitHub-#16: minmax(0,…) statt blossem 1fr — sonst darf die Spalte nicht unter die
+   breiteste Mindestbreite ihrer Inhalte schrumpfen und sprengt auf schmalen Displays
+   den Viewport (gemessen: 430 px statt 360 px, waagrechte Laufleiste auf Android).
+   Gleiches Muster wie bei .kv-grid. */
+.vgrid { display:grid; gap:16px; grid-template-columns:minmax(0,1fr); grid-template-areas:"gauge" "controls" "setpoint" "trend" "meters"; }
 .vgrid > .a-gauge { grid-area:gauge; } .vgrid > .a-controls { grid-area:controls; }
 .vgrid > .a-setpoint { grid-area:setpoint; } .vgrid > .a-trend { grid-area:trend; } .vgrid > .a-meters { grid-area:meters; }
 @media (min-width:880px) {
-  .vgrid { grid-template-columns:1.6fr 1fr; grid-template-areas:"gauge controls" "gauge setpoint" "trend meters"; align-items:start; }
+  .vgrid { grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); grid-template-areas:"gauge controls" "gauge setpoint" "trend meters"; align-items:start; }
 }
 .foot { grid-column:1/-1; text-align:center; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--faint); letter-spacing:0.05em; }
 

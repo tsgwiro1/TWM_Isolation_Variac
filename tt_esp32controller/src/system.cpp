@@ -17,7 +17,9 @@
 // während die Firmware bereits Alarm meldet.
 #define MAXFANTEMP 60
 #define NOSENSORFANSPEED 75
-#define FAN_PWM_CHANNEL 0
+// GitHub-#21: FAN_PWM_CHANNEL entfernt — seit der Umstellung auf die pin-basierte
+// LEDC-API (ledcAttach/ledcWrite mit PIN_FANPWM) gibt es keine Kanalnummer mehr.
+// Die Verwechslung Kanal/Pin war die Ursache des ursprünglichen Lüfter-Bugs.
 #define FAN_PWM_FREQ 25000
 #define FAN_PWM_RESOLUTION 8 // 8-bit = 0-255
 

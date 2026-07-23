@@ -14,8 +14,12 @@
     </script>
     <link rel="stylesheet" href="app.css">
     <style>
-        /* Die Log-Seite füllt die Viewport-Höhe, das Log-Fenster scrollt intern. */
-        body { height: 100vh; overflow: hidden; }
+        /* Die Log-Seite füllt die Viewport-Höhe, das Log-Fenster scrollt intern.
+           GitHub-#16: 100vh ist auf Mobilgeräten grösser als der sichtbare Bereich
+           (die Browserleiste zählt nicht mit) — zusammen mit overflow:hidden war das
+           untere Ende des Logs dort unerreichbar. 100dvh misst den tatsächlich
+           sichtbaren Bereich; die 100vh-Zeile bleibt als Fallback für alte Browser. */
+        body { height: 100vh; height: 100dvh; overflow: hidden; }
         .wrap { height: 100%; display: flex; flex-direction: column; }
     </style>
 </head>

@@ -6,6 +6,27 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
+## [V4.5.1] – 2026-07-23
+
+### Behoben
+- **Dashboard zu breit auf Android** (GitHub-#16): Auf schmalen Displays ragte die
+  Hauptseite über den Bildschirm hinaus und erzeugte eine waagrechte Laufleiste
+  (gemessen bei 360 px Viewport: 430 px Seitenbreite). Ursache war
+  `grid-template-columns: 1fr` beim Dashboard-Grid — `1fr` entspricht
+  `minmax(auto, 1fr)` und lässt die Spalte nicht unter die Mindestbreite ihrer
+  Inhalte schrumpfen. Mit `minmax(0, 1fr)` bleibt die Seite exakt im Viewport.
+  Einstellungs- und Log-Seite waren nicht betroffen, weil sie dieses Grid nicht nutzen.
+- **Live-Log unten abgeschnitten auf Mobilgeräten** (GitHub-#16): `100vh` ist dort
+  grösser als der tatsächlich sichtbare Bereich (die Browserleiste zählt nicht mit) —
+  zusammen mit `overflow: hidden` liessen sich die neuesten Meldungen nicht erreichen.
+  Die Seite nutzt jetzt `100dvh`, `100vh` bleibt als Fallback davor stehen.
+
+### Intern
+- **Totes `#define FAN_PWM_CHANNEL` entfernt** (GitHub-#21): Seit der Umstellung auf die
+  pin-basierte LEDC-API wird keine Kanalnummer mehr verwendet. Das Define lud dazu ein,
+  sie versehentlich wieder in einen `ledcWrite()`-Aufruf zu setzen — genau diese
+  Verwechslung von Kanal und Pin war die Ursache des ursprünglichen Lüfter-Bugs.
+
 ## [V4.5.0] – 2026-07-23
 
 ### Hinzugefügt

@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-07-19 · **Gesamt: 33 / 34 Punkte erledigt**
+**Stand:** 2026-07-23 · **Gesamt: 33 / 36 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -24,6 +24,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | H — Sicherheit (optional) | ⬜ offen | 0/1 |
 | J — Voltmeter-Fernsteuerung via Controller | ✅ erledigt | 7/7 |
 | I — Dokumentation | ✅ erledigt | 2/2 |
+| L — LCD-Optimierung | ⬜ offen | 0/2 |
 
 ### Checkliste
 
@@ -72,6 +73,9 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 - [x] **I — Dokumentation aktualisieren**
   - [x] #24 Doku aktualisieren & vervollständigen
   - [x] #12 API-Doku Single-Source
+- [ ] **L — LCD-Optimierung** *(Sammlung wächst noch, Plan: [`Paket-L-LCD-Optimierung.md`](Paket-L-LCD-Optimierung.md))*
+  - [ ] #36 WLAN-Status als Icon auf dem TFT
+  - [ ] #37 Temperaturanzeige mit Icon, ohne Nachkommastellen
 
 > Diese Checkliste ist die schnelle Abhak-Übersicht. Die Detailtabellen je Paket (unten)
 > tragen Beschreibung, Aufwand und denselben Status.
@@ -205,6 +209,21 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-23 — V4.4.0: Boot-Hänger behoben (GitHub-#13/#11) + neues Paket L.**
+  Aus dem Testlauf nach `Testanleitung-V4.3.1.md` kamen 11 neue GitHub-Issues
+  (#13–#23); alle gegen den Code analysiert, drei davon im Browser reproduziert.
+  Umgesetzt wurde zunächst nur der kritische Befund: `wm.autoConnect()` lief vor der
+  gesamten Hardware-Init, ein fehlgeschlagener Connect blockierte über das
+  Config-Portal bis zu 10 Minuten — Display schwarz, Tasten tot, Lüfter auf 100 %.
+  WLAN/Webserver/OTA laufen jetzt im eigenen `networkTask` nach Hardware und Homing.
+  Festgelegtes Verhalten ohne WLAN: ein Verbindungsversuch, dann Config-Portal, nach
+  dessen Timeout Funk aus und Weiterbetrieb ohne Web/API (neuer Versuch erst nach
+  Neustart). Mitgenommen: #20 (Dashboard-Temperaturschwellen folgen der Firmware,
+  60/70 °C, führende Quelle `MAXFANTEMP`), `STATE_WIFI_CONNECTING` → `STATE_STARTING`,
+  Status-LED-Doku nachgezogen. FW + Filesystem per OTA aufs Gerät, Gerätetest läuft.
+  Commit `e7b453f`. **Neues Paket L (LCD-Optimierung)** aufgenommen: #36 WLAN-Icon,
+  #37 Temperaturanzeige — Sammlung wächst noch, Plan in `Paket-L-LCD-Optimierung.md`.
+  Offen aus dem Testlauf bleiben: #14, #15, #16, #17, #18, #19, #21, #22, #23.
 - **2026-07-19 — Paket-H-Plan + Testanleitung V4.3.1 ins Repo.** `Paket-H-Plan.md`
   (Root): abgestimmter Umsetzungsplan für #11 (Blöcke A–D, ~1 Arbeitstag, offene
   Entscheidungen dokumentiert) — Umsetzung weiterhin „optional/später".
@@ -354,6 +373,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | **H** | Sicherheit (optional) | Absicherung API/OTA | 11 |
 | **J** | Voltmeter-Fernsteuerung via Controller | Menü/Kalibrierung/Status des Voltmeters über Web/API | 27, 28, 29, 30 |
 | **I** | Dokumentation aktualisieren | Vollständig, auf finalem Stand | 24, 12 |
+| **L** | LCD-Optimierung | Anzeige auf dem Gerät verbessern (Sammlung wächst) | 36, 37 |
 
 > Begründung: **A** zuerst — Migration ins saubere Repo + verlässliches Flash-/Test-Setup, danach passiert alle Arbeit dort. **B** räumt billige Fehler/Inkonsistenzen weg (inkl. #19, das in C gebraucht wird). **C** ist das Kernanliegen (Regelung) als zusammenhängender Block, mit Sim-Modus #20 als Enabler vorab. **D** härtet das Laufzeitverhalten. **E** schlankt die API, bevor **F** (Refactoring) und **G** (UI) darauf aufbauen — die UI wird gegen die *finale* API gebaut. **H** Sicherheit (laut Absprache optional). **J** (nachträglich aufgenommen) baut die Voltmeter-Fernsteuerung auf der finalen API/UI auf, kommt daher nach **G/H**. **I** Doku zuletzt, weil sie den endgültigen Stand von Code, API und UI beschreibt. *(Buchstabe J liegt vor I, weil später ergänzt — die Reihenfolge richtet sich nach der Tabelle, nicht nach dem Alphabet.)* **K** (Config ins NVS, später ergänzt) liegt bewusst **vor G**: das Web-Redesign braucht mehrere `uploadfs`, und ab K überlebt die Konfiguration/Kalibrierung diese.
 
@@ -465,6 +485,19 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 |----|-----------|-------|--------------|---------|--------|
 | 24 | Docs | Doku aktualisieren & vervollständigen | Alle Dokumente (Kalibrierung, REST-API, Status-LED, USB CDC, TFT-Settings, Build/Flash) auf den finalen Stand bringen, Lücken schließen, einheitliche Form & Ablage. | M | **erledigt** |
 | 12 | Docs | API-Doku Single-Source | Wird im Wesentlichen durch #22 gelöst: `openapi.yaml` als Single Source of Truth + Doku-Seite auf dem Gerät. Hier verbleibt nur: alte HTML-/docx-API-Doku entfernen bzw. auf die neue Seite verweisen. Teil von #24. | S | **erledigt** |
+
+---
+
+## Paket L — LCD-Optimierung
+
+> Sammelpaket: Die Punkte werden gesammelt und gemeinsam umgesetzt, weitere kommen
+> voraussichtlich dazu. Details, technischer Weg und offene Layout-Fragen im Plan
+> [`Paket-L-LCD-Optimierung.md`](Paket-L-LCD-Optimierung.md).
+
+| ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
+|----|-----------|-------|--------------|---------|--------|
+| 36 | Display | WLAN-Status als Icon auf dem TFT | Oben links den WLAN-Zustand als Icon zeigen: verbunden → Material Symbol `wifi`, eigener Config-AP aktiv → `wifi_find`, kein Netz (AP beendet) → Icon entfernen. Zustände sind seit V4.4.0 über `currentSystemState`/`WiFi.status()` unterscheidbar. Icons müssen als Bitmap (XBM) in die Firmware, da TFT_eSPI keine Web-Fonts kann. Kopfzeilen-Layout: Icon links, Titel neu zentriert, Temperatur rechts — Feinjustierung am Gerät. | S | offen |
+| 37 | Display | Temperaturanzeige mit Icon, ohne Nachkommastellen | Statt `34.00C` neu `34 °C` mit vorangestelltem Material Symbol `device_thermostat`. Offen: ob der TFT-Font das Grad-Zeichen enthält, sonst Kreis zeichnen. | S | offen |
 
 ---
 

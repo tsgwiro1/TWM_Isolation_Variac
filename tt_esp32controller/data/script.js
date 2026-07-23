@@ -4,8 +4,13 @@
 (function () {
     'use strict';
 
-    // ---- Konfiguration/Skalen (werden aus /api/config geladen) ----
-    var cfg = { vmax: 260, maxPos: 2500, tWarn: 70, tMax: 90 };
+    // ---- Konfiguration/Skalen (vmax/maxPos werden aus /api/config geladen) ----
+    // GitHub-#20: tWarn/tMax sind KEINE eigenen Schwellen, sondern spiegeln die
+    // Firmware wider. Führende Quelle ist src/system.cpp (MAXFANTEMP): ab dieser
+    // Temperatur läuft der Lüfter auf 100 % und die Firmware loggt einen Alarm —
+    // das Dashboard muss zum selben Zeitpunkt auf Warnfarbe wechseln.
+    // Bei Änderung in system.cpp diese Werte mitziehen.
+    var cfg = { vmax: 260, maxPos: 2500, tWarn: 60, tMax: 70 };
 
     // ---- Trend-Puffer: [ms-Zeitstempel, Volt] ----
     var TREND_MAX_S = 600;

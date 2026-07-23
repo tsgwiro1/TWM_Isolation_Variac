@@ -7,9 +7,9 @@
 
 // Firmware-Version (entspricht dem CHANGELOG)
 #ifdef SIM
-#define FW  "Firmware V4.3.1 (SIM)"
+#define FW  "Firmware V4.4.0 (SIM)"
 #else
-#define FW  "Firmware V4.3.1"
+#define FW  "Firmware V4.4.0"
 #endif
 
 // System
@@ -21,7 +21,8 @@ extern volatile bool requestEnterSettingsMode;
 
 // Systemzustände für die Status-LED
 enum SystemState {
-  STATE_WIFI_CONNECTING,
+  STATE_STARTING,        // Startphase: Hardware wird initialisiert (bis V4.3.1: STATE_WIFI_CONNECTING —
+                         // seit GitHub-#13 läuft der WLAN-Aufbau nicht mehr in dieser Phase)
   STATE_WIFIMANAGER_AP,
   STATE_NORMAL_OPERATION,
   STATE_OTA_UPDATE,
@@ -95,5 +96,10 @@ extern TaskHandle_t h_communicationTask;
 extern TaskHandle_t h_stepperTask;
 extern TaskHandle_t h_voltmeterUpdateTask;
 extern TaskHandle_t h_loggerTask;
+
+// GitHub-#13: Erst wenn der networkTask OTA aufgesetzt hat, darf loop() ArduinoOTA.handle()
+// aufrufen — vorher ist der Dienst nicht initialisiert. (Der networkTask selbst braucht
+// kein Handle: er beendet sich, sobald OTA steht.)
+extern volatile bool otaReady;
 
 #endif // STATE_H

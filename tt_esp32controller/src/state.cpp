@@ -5,7 +5,7 @@
 volatile bool hardwareInitialized = false;
 volatile SystemMode currentMode = MODE_NORMAL; // Standardmässig im Normalbetrieb starten
 volatile bool requestEnterSettingsMode = false;
-volatile SystemState currentSystemState = STATE_WIFI_CONNECTING;
+volatile SystemState currentSystemState = STATE_STARTING;
 
 volatile int wiperPos = 0;
 volatile int minWiperPos = 0;
@@ -37,3 +37,5 @@ TaskHandle_t h_communicationTask;
 TaskHandle_t h_stepperTask;
 TaskHandle_t h_voltmeterUpdateTask;
 TaskHandle_t h_loggerTask;
+
+volatile bool otaReady = false;

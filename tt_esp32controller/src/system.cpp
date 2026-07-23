@@ -11,6 +11,10 @@
 #define MINFANPWM 10
 #define MAXFANPWM 100
 #define MINFANTEMP 30
+// GitHub-#20: MAXFANTEMP ist die führende Temperatur-Schwelle des Systems (Lüfter auf
+// 100 % + Alarm im Log). Das Dashboard spiegelt sie in data/script.js (cfg.tWarn/tMax) —
+// bei einer Änderung hier dort mitziehen, sonst zeigt die Weboberfläche noch grün,
+// während die Firmware bereits Alarm meldet.
 #define MAXFANTEMP 60
 #define NOSENSORFANSPEED 75
 #define FAN_PWM_CHANNEL 0
@@ -101,7 +105,7 @@ void statusLedTask(void *parameter) {
 
   for (;;) { // Endlosschleife für den Task
     switch (currentSystemState) {
-      case STATE_WIFI_CONNECTING: // Langsames Blinken
+      case STATE_STARTING: // Langsames Blinken
         digitalWrite(PIN_ESP_STATUS, LOW);
         vTaskDelay(pdMS_TO_TICKS(500));
         digitalWrite(PIN_ESP_STATUS, HIGH);

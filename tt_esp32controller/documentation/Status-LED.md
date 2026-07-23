@@ -11,12 +11,16 @@ die Zustände definiert `SystemState` in [`../src/state.h`](../src/state.h).
 - **Bedeutung:** Das System läuft fehlerfrei im regulären Betrieb
   (`STATE_NORMAL_OPERATION`). Alle Tasks arbeiten wie vorgesehen.
 
-## 2. WLAN-Verbindung wird aufgebaut
+## 2. Startphase
 
 - **Blinkmuster:** Gleichmäßiges, ruhiges Blinken (0,5 s an, 0,5 s aus).
-- **Bedeutung:** Das Gerät startet gerade und versucht, eine Verbindung zum konfigurierten
-  WLAN-Netzwerk herzustellen (`STATE_WIFI_CONNECTING`). Dieser Zustand sollte nach einem
-  normalen Start nach wenigen Sekunden in den „Herzschlag" übergehen.
+- **Bedeutung:** Das Gerät initialisiert gerade seine Hardware (`STATE_STARTING`).
+  Der Zustand geht in den „Herzschlag" über, sobald der Port-Expander gefunden und die
+  Hardware bereit ist — üblicherweise nach wenigen Sekunden.
+- **Hinweis:** Seit V4.4.0 wird das WLAN erst *nach* der Hardware aufgebaut (GitHub-#13).
+  Dieses Muster steht deshalb für die Startphase des Geräts, nicht mehr für den
+  WLAN-Verbindungsaufbau — der läuft im Hintergrund, während die LED bereits den
+  Herzschlag zeigt.
 
 ## 3. Konfigurationsmodus (WiFiManager AP)
 
@@ -26,6 +30,10 @@ die Zustände definiert `SystemState` in [`../src/state.h`](../src/state.h).
   **„TWM_IsolationVariac"** geöffnet (`STATE_WIFIMANAGER_AP`).
 - **Aktion:** Mit Smartphone oder PC mit diesem Netzwerk verbinden und im Portal die
   korrekten WLAN-Zugangsdaten eingeben.
+- **Nach 10 Minuten ohne Eingabe:** Das Portal schließt, das Funkmodul wird abgeschaltet
+  und die LED kehrt zum Herzschlag zurück. Der Variac ist dann weiterhin voll bedienbar,
+  aber **ohne Weboberfläche und ohne API**. Für einen erneuten Verbindungsversuch das
+  Gerät neu starten.
 
 ## 4. Firmware-Update läuft (OTA)
 

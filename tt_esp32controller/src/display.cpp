@@ -212,7 +212,12 @@ void drawHomingScreen() {
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setTextDatum(CC_DATUM);
   tft.drawString("Homing...", 120, 140 ,4);
-  tft.drawString(WiFi.localIP().toString().c_str(), 120, 180, 2);
+  // GitHub-#13: Beim Start läuft das Homing vor dem WLAN-Aufbau — dann bleibt die
+  // Zeile leer statt "0.0.0.0" zu zeigen. Beim Kalibrier-Einstieg im laufenden
+  // Betrieb steht die Verbindung und die IP wird wie gewohnt angezeigt.
+  if (WiFi.status() == WL_CONNECTED) {
+    tft.drawString(WiFi.localIP().toString().c_str(), 120, 180, 2);
+  }
 
   tft.setTextDatum(BR_DATUM);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);

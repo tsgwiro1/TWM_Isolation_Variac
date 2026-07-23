@@ -4,7 +4,51 @@ Nennenswerte Änderungen an der Controller-Firmware (ESP32-S3).
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MINOR.PATCH),
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
-Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_esp32controller.ino`.
+Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
+
+## [V4.4.0] – 2026-07-23
+
+### Behoben
+- **Sporadischer Boot-Hänger** (GitHub-#13, #11): Das Gerät startete gelegentlich
+  nicht — Display schwarz, Tasten ohne Funktion, Lüfter auf 100 %. Ursache war die
+  Boot-Reihenfolge: `wm.autoConnect()` lief vor der gesamten Hardware-Init. Schlug
+  der WLAN-Connect fehl (nach Resets sporadisch möglich), blockierte das
+  WiFiManager-Config-Portal bis zu 10 Minuten und danach folgte ein Neustart — der
+  Boot kam nie bis zum Display-, Lüfter- und Task-Start. Der 4-Pin-Lüfter lief
+  dabei auf Volllast, weil sein PWM-Pin vor `initFAN()` floatet.
+
+### Geändert
+- **Netzwerk läuft neben der Hardware** (GitHub-#13): WLAN, Webserver und OTA sind
+  in einen eigenen `networkTask` (Core 0, 8 KB Stack) gewandert, der erst nach der
+  kompletten Hardware-Init und dem Homing startet. `setup()` bringt jetzt zuerst
+  LittleFS, Display, Sensorik, Lüfter, Stepper und alle Bedien-Tasks hoch — der
+  Variac startet damit immer sofort, unabhängig vom WLAN.
+- **Definiertes Verhalten ohne WLAN:** Ein Verbindungsversuch mit den gespeicherten
+  Zugangsdaten; schlägt er fehl, wird das protokolliert und das Config-Portal
+  (AP `TWM_IsolationVariac`) geöffnet. Läuft auch dieses in den Timeout, schaltet
+  der `networkTask` das Funkmodul ab und beendet sich — der Variac läuft ohne
+  Weboberfläche und ohne API normal weiter. Ein neuer Verbindungsversuch erfolgt
+  bewusst erst nach einem Neustart (früher: `ESP.restart()` in Endlosschleife).
+- **Webserver startet erst nach dem WLAN-Aufbau** — im Portal-Fall belegt der
+  WiFiManager selbst Port 80, ein früher gestarteter Webserver würde kollidieren.
+- **Homing-Bildschirm** zeigt die IP-Zeile nur noch, wenn eine Verbindung besteht.
+  Beim Start läuft das Homing jetzt vor dem WLAN-Aufbau; die Zeile bleibt dann leer,
+  statt „0.0.0.0" anzuzeigen.
+- **Systemzustand umbenannt:** `STATE_WIFI_CONNECTING` heißt jetzt `STATE_STARTING` —
+  er markiert seit der neuen Boot-Reihenfolge die Hardware-Startphase und nicht mehr
+  den WLAN-Aufbau. Rein intern, das Blinkmuster bleibt unverändert.
+- **Temperatur-Schwellen von Dashboard und Firmware angeglichen** (GitHub-#20): Das
+  Dashboard warnte erst ab 70 °C und skalierte bis 90 °C, während die Firmware ab
+  60 °C den Lüfter auf 100 % fährt und Alarm loggt — die Weboberfläche zeigte in
+  diesem Bereich noch grün. `cfg.tWarn`/`cfg.tMax` folgen jetzt der Firmware
+  (60/70 °C); führende Quelle ist `MAXFANTEMP` in `src/system.cpp`, beide Stellen
+  verweisen aufeinander.
+
+### Dokumentation
+- **Status-LED-Beschreibung nachgezogen** (`documentation/Status-LED.md` und
+  Geräte-Doku): Das ruhige Blinken steht jetzt für die Startphase (Hardware-Init)
+  statt für den WLAN-Aufbau, und beim Config-Portal ist beschrieben, was nach dem
+  10-Minuten-Timeout passiert.
 
 ## [V4.3.1] – 2026-07-19
 

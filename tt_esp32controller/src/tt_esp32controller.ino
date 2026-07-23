@@ -70,12 +70,20 @@ using namespace fs;
 uint32_t lastStackCheck = 0;
 const char* hostname = "twm_variac";
 
+static void networkTask(void *parameter);
+
 /**
  * @brief Standard Arduino setup()-Funktion. Wird einmal beim Start ausgeführt.
- * Initialisiert alle Hardware-Komponenten, startet das Netzwerk und erstellt die RTOS-Tasks.
+ * Initialisiert alle Hardware-Komponenten und erstellt die RTOS-Tasks.
+ *
+ * GitHub-#13/#11: Das Netzwerk wird hier NICHT mehr aufgebaut. Früher lief
+ * wm.autoConnect() vor der Hardware-Init — schlug der Connect fehl, blockierte das
+ * Config-Portal bis zu 10 Minuten, und das Gerät stand ohne Display, ohne Tasten und
+ * mit Lüfter auf 100 % da (PWM-Pin floatet vor initFAN()). Seit V4.4.0 kommt zuerst
+ * die komplette Hardware hoch; WLAN/OTA übernimmt danach der networkTask.
  */
 void setup() {
-  currentSystemState = STATE_WIFI_CONNECTING;
+  currentSystemState = STATE_STARTING;
 
   // #4: Logging-Infrastruktur ZUERST, damit ab dem ersten logMessage() alles über die
   // Queue läuft (Serial/Historie/WS/Flash nur noch im Logger-Task).
@@ -103,90 +111,16 @@ void setup() {
   logMessage(LOG_WARN, "SYSTEM: *** SIMULATION MODE - voltmeter input is simulated from stepper position ***");
 #endif
 
-  // Setze den DHCP-Hostnamen
-  // Dies ist der Name, der im Router angezeigt wird.
-  WiFi.setHostname(hostname);
-
-  // --- WiFiManager Initialisierung ---
-  // Erstellt eine WiFiManager Instanz.
-  WiFiManager wm;
-
-  // Setze den Timeout auf 600 Sekunden (10 Minuten)
-  wm.setConfigPortalTimeout(600);
-
-  // Callback für den AP-Modus hinzufügen
-   wm.setAPCallback([](WiFiManager *myWiFiManager) {
-    currentSystemState = STATE_WIFIMANAGER_AP;
-    logMessage(LOG_INFO, "WLAN: Entered WiFiManager config mode");
-  });
-
-  // Startet den Konfigurations-AP.
-  // Wenn die Verbindung nicht innerhalb des Timeouts hergestellt wird, startet der ESP neu.
-  if (!wm.autoConnect("TWM_IsolationVariac")) {
-    logMessage(LOG_ERROR, "WLAN: No WiFi config entered or credentials wrong! Rebooting...");
-    delay(3000);
-    // Neustart, um es erneut zu versuchen
-    ESP.restart();
-    delay(5000);
-  }
-
-  // Wenn die Verbindung erfolgreich war:
-  logMessage(LOG_INFO, "WLAN: Successfully connected to WiFi!");
-
-  // WiFi-Modem-Sleep deaktivieren: hält das Funkmodul wach -> schnelleres OTA
-  // und reaktiveres Web-Interface (geringfügig höhere Stromaufnahme).
-  WiFi.setSleep(false);
-
-  // --- OTA (Over-the-Air) Konfiguration ---
-  
-  // Hostname für den Netzwerk-Port in der Arduino IDE und den Zugang via mDNS
-  ArduinoOTA.setHostname(hostname);
-
-  // Optional aber empfohlen: Passwort für den Upload setzen
-  // ArduinoOTA.setPassword("dein_sicheres_passwort");
-
-  ArduinoOTA
-    .onStart([]() {
-      String type;
-      currentSystemState = STATE_OTA_UPDATE; // Zustand auf OTA-Update setzen
-      if (ArduinoOTA.getCommand() == U_FLASH)
-        type = "sketch";
-      else // U_SPIFFS
-        type = "filesystem";
-      logMessage(LOG_INFO, "OTA: Start updating %s", type.c_str());
-    })
-    .onEnd([]() {
-      currentSystemState = STATE_NORMAL_OPERATION; // Zurück zum Normalbetrieb
-      logMessage(LOG_INFO, "OTA: Update finished - Rebooting");
-      ws.closeAll();
-    })
-    .onProgress([](unsigned int progress, unsigned int total) {
-      logMessage(LOG_INFO, "OTA: Progress: %u%%\r", (progress / (total / 100)));
-    })
-    .onError([](ota_error_t error) {
-      currentSystemState = STATE_ERROR; // Fehlerzustand bei OTA-Problem
-      logMessage(LOG_ERROR, "OTA: Error[%u]: ", error);
-      if (error == OTA_AUTH_ERROR) logMessage(LOG_ERROR, "OTA: Auth failed");
-      else if (error == OTA_BEGIN_ERROR) logMessage(LOG_ERROR, "OTA: Begin failed");
-      else if (error == OTA_CONNECT_ERROR) logMessage(LOG_ERROR, "OTA: Connect failed");
-      else if (error == OTA_RECEIVE_ERROR) logMessage(LOG_ERROR, "OTA: Receive failed");
-      else if (error == OTA_END_ERROR) logMessage(LOG_ERROR, "OTA: End failed");
-    });
-
-  ArduinoOTA.begin();
-
-  logMessage(LOG_INFO, "SYSTEM: OTA & mDNS ready. Access at http://%s.local/", hostname);
-  logMessage(LOG_INFO, "SYSTEM: IP address: %s", WiFi.localIP().toString().c_str());
-
   // Initialisiere das LittleFS-Dateisystem
+  // GitHub-#13: vorgezogen — loadConfiguration() liest daraus, und der Webserver
+  // (später im networkTask) liefert die Seiten daraus aus. Beides darf nicht mehr
+  // hinter dem WLAN-Aufbau stehen.
   if(!LittleFS.begin(true, "/littlefs", 10, "spiffs")){
     logMessage(LOG_ERROR, "SYSTEM: Error mounting LittleFS");
     currentSystemState = STATE_ERROR; // Signalisiere einen Fehler
   } else {
     logMessage(LOG_INFO, "SYSTEM: LittleFS mounted successfully.");
   }
-
-  initWebServer();
 
   initDisplayStruct();
 	
@@ -370,7 +304,109 @@ void setup() {
         &h_stepperTask,
         1);                   // Auf Core 1, wo auch der User-Input läuft
 
+    // GitHub-#13: Netzwerk ganz zuletzt und in einem eigenen Task — die Bedienung steht
+    // damit unabhängig davon, ob und wann das WLAN kommt. Grosszügiger Stack, weil der
+    // WiFiManager im Portal-Fall einen eigenen Webserver mitbringt.
+    xTaskCreatePinnedToCore(
+        networkTask,
+        "Network",
+        8192,
+        NULL,
+        1,                    // niedrige Priorität, blockiert die meiste Zeit
+        NULL,                 // kein Handle: der Task beendet sich, sobald OTA steht
+        0);                   // Core 0, zusammen mit Logger/Display/Comm
+
     logMessage(LOG_INFO, "SYSTEM: START - RTOS tasks running");
+}
+
+/**
+ * @brief FreeRTOS Task: baut das WLAN auf und startet OTA/mDNS (GitHub-#13).
+ *
+ * Läuft bewusst NACH der kompletten Hardware-Init und macht GENAU EINEN Anlauf:
+ * Verbindungsversuch mit den gespeicherten Zugangsdaten, bei Misserfolg das
+ * Config-Portal (AP) bis zum Timeout. Klappt auch das nicht, schaltet der Task das
+ * Funkmodul ab und beendet sich — der Variac läuft ohne Web/API einfach weiter.
+ * Ein neuer Verbindungsversuch erfordert bewusst einen Neustart; endloses
+ * Weiterprobieren würde im Hintergrund Rechenzeit und Funk belegen, ohne dass am
+ * Gerät jemand davon erfährt.
+ */
+static void networkTask(void *parameter) {
+  WiFi.setHostname(hostname);   // Name, der im Router angezeigt wird
+
+  // Der WiFiManager muss den Task überleben, solange das Portal offen ist.
+  static WiFiManager wm;
+  wm.setConfigPortalTimeout(600);   // Portal nach 10 min schliessen
+  wm.setAPCallback([](WiFiManager *myWiFiManager) {
+    if (currentSystemState != STATE_ERROR) currentSystemState = STATE_WIFIMANAGER_AP;
+    logMessage(LOG_WARN, "WLAN: Connect failed - config portal open (AP 'TWM_IsolationVariac')");
+  });
+
+  if (!wm.autoConnect("TWM_IsolationVariac")) {
+    // Weder Verbindung noch Konfiguration über das Portal: Funk komplett abschalten
+    // und aufgeben. Die Bedienung am Gerät ist davon nicht betroffen.
+    logMessage(LOG_ERROR, "WLAN: No connection, config portal timed out - continuing WITHOUT network (no web, no API). Restart the device to try again.");
+    WiFi.softAPdisconnect(true);   // Config-AP abschalten
+    WiFi.mode(WIFI_OFF);
+    if (currentSystemState != STATE_ERROR) currentSystemState = STATE_NORMAL_OPERATION;
+    vTaskDelete(NULL);
+  }
+
+  logMessage(LOG_INFO, "WLAN: Successfully connected to WiFi!");
+  if (currentSystemState != STATE_ERROR) currentSystemState = STATE_NORMAL_OPERATION;
+
+  // WiFi-Modem-Sleep deaktivieren: hält das Funkmodul wach -> schnelleres OTA
+  // und reaktiveres Web-Interface (geringfügig höhere Stromaufnahme).
+  WiFi.setSleep(false);
+
+  // Webserver erst jetzt starten: Im Portal-Fall belegt der WiFiManager selbst
+  // Port 80 — ein vorher gestarteter AsyncWebServer würde damit kollidieren.
+  initWebServer();
+
+  // --- OTA (Over-the-Air) Konfiguration ---
+
+  // Hostname für den Netzwerk-Port in der Arduino IDE und den Zugang via mDNS
+  ArduinoOTA.setHostname(hostname);
+
+  // Optional aber empfohlen: Passwort für den Upload setzen
+  // ArduinoOTA.setPassword("dein_sicheres_passwort");
+
+  ArduinoOTA
+    .onStart([]() {
+      String type;
+      currentSystemState = STATE_OTA_UPDATE; // Zustand auf OTA-Update setzen
+      if (ArduinoOTA.getCommand() == U_FLASH)
+        type = "sketch";
+      else // U_SPIFFS
+        type = "filesystem";
+      logMessage(LOG_INFO, "OTA: Start updating %s", type.c_str());
+    })
+    .onEnd([]() {
+      currentSystemState = STATE_NORMAL_OPERATION; // Zurück zum Normalbetrieb
+      logMessage(LOG_INFO, "OTA: Update finished - Rebooting");
+      ws.closeAll();
+    })
+    .onProgress([](unsigned int progress, unsigned int total) {
+      logMessage(LOG_INFO, "OTA: Progress: %u%%\r", (progress / (total / 100)));
+    })
+    .onError([](ota_error_t error) {
+      currentSystemState = STATE_ERROR; // Fehlerzustand bei OTA-Problem
+      logMessage(LOG_ERROR, "OTA: Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) logMessage(LOG_ERROR, "OTA: Auth failed");
+      else if (error == OTA_BEGIN_ERROR) logMessage(LOG_ERROR, "OTA: Begin failed");
+      else if (error == OTA_CONNECT_ERROR) logMessage(LOG_ERROR, "OTA: Connect failed");
+      else if (error == OTA_RECEIVE_ERROR) logMessage(LOG_ERROR, "OTA: Receive failed");
+      else if (error == OTA_END_ERROR) logMessage(LOG_ERROR, "OTA: End failed");
+    });
+
+  ArduinoOTA.begin();
+  otaReady = true;   // ab jetzt darf loop() ArduinoOTA.handle() aufrufen
+
+  logMessage(LOG_INFO, "SYSTEM: OTA & mDNS ready. Access at http://%s.local/", hostname);
+  logMessage(LOG_INFO, "SYSTEM: IP address: %s", WiFi.localIP().toString().c_str());
+
+  // Aufgabe erledigt — der Task wird nicht mehr gebraucht (ArduinoOTA.handle() läuft
+  // in loop()) und gibt seinen 8-KB-Stack wieder frei.
+  vTaskDelete(NULL);
 }
 
 // ********************************************************************************
@@ -383,7 +419,8 @@ void setup() {
 void loop() {
   // Diese Funktion muss im Loop aufgerufen werden, damit OTA Anfragen
   // empfangen und verarbeitet werden können.
-  ArduinoOTA.handle();
+  // GitHub-#13: erst ab dem Moment, in dem der networkTask OTA aufgesetzt hat.
+  if (otaReady) ArduinoOTA.handle();
 
   // Live-Status an die Dashboard-Clients pushen (#13, alle 500 ms)
   static uint32_t lastStatusPush = 0;

@@ -6,7 +6,7 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
-## [V4.5.0] – in Entwicklung
+## [V4.5.0] – 2026-07-23
 
 ### Hinzugefügt
 - **WLAN-Status als Icon auf dem Display** (Paket L, #36): Links in der Kopfzeile zeigt

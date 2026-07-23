@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-07-23 · **Gesamt: 33 / 36 Punkte erledigt**
+**Stand:** 2026-07-23 · **Gesamt: 35 / 36 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -24,7 +24,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | H — Sicherheit (optional) | ⬜ offen | 0/1 |
 | J — Voltmeter-Fernsteuerung via Controller | ✅ erledigt | 7/7 |
 | I — Dokumentation | ✅ erledigt | 2/2 |
-| L — LCD-Optimierung | ⬜ offen | 0/2 |
+| L — LCD-Optimierung | ✅ erledigt | 2/2 |
 
 ### Checkliste
 
@@ -73,9 +73,9 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 - [x] **I — Dokumentation aktualisieren**
   - [x] #24 Doku aktualisieren & vervollständigen
   - [x] #12 API-Doku Single-Source
-- [ ] **L — LCD-Optimierung** *(Sammlung wächst noch, Plan: [`Paket-L-LCD-Optimierung.md`](Paket-L-LCD-Optimierung.md))*
-  - [ ] #36 WLAN-Status als Icon auf dem TFT
-  - [ ] #37 Temperaturanzeige mit Icon, ohne Nachkommastellen
+- [x] **L — LCD-Optimierung** *(Plan: [`Paket-L-LCD-Optimierung.md`](Paket-L-LCD-Optimierung.md); weitere Punkte können jederzeit dazukommen)*
+  - [x] #36 WLAN-Status als Icon auf dem TFT
+  - [x] #37 Temperaturanzeige mit Icon, ohne Nachkommastellen
 
 > Diese Checkliste ist die schnelle Abhak-Übersicht. Die Detailtabellen je Paket (unten)
 > tragen Beschreibung, Aufwand und denselben Status.
@@ -209,6 +209,18 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-23 — V4.5.0: Paket L umgesetzt und am Gerät abgenommen (35/36).**
+  #36 WLAN-Status als Icon in der Kopfzeile (verbunden / Config-AP / kein Symbol,
+  Neuzeichnen nur bei Zustandswechsel) und #37 Temperatur mit Thermometer-Icon,
+  ohne Nachkommastellen, mit Gradzeichen. Titel jetzt zentriert. Die Material-
+  Symbols-Icons liegen als XBM in der neuen `src/icons.h` (16 × 16 px, 96 Byte,
+  Apache 2.0) — TFT_eSPI kann keine Web-Fonts; das Gradzeichen wird als Kreis
+  gezeichnet, weil Font 2 nur ASCII 32–127 abdeckt. Kopfzeile vorab rechnerisch
+  geprüft (Titel 113 px, Temperaturgruppe ab 179 px): passt, breitere Gruppen
+  lassen das Icon weg. Nachgezogen: `drawLegend()` setzt sein Text-Datum jetzt
+  selbst — es erbte `TL_DATUM` von `drawBackground()`, wodurch der zentrierte
+  Titel die Beschriftungen aus dem Display schob (am Gerät aufgefallen, sofort
+  behoben). Commit `a72f7e2`.
 - **2026-07-23 — V4.4.0: Boot-Hänger behoben (GitHub-#13/#11) + neues Paket L.**
   Aus dem Testlauf nach `Testanleitung-V4.3.1.md` kamen 11 neue GitHub-Issues
   (#13–#23); alle gegen den Code analysiert, drei davon im Browser reproduziert.

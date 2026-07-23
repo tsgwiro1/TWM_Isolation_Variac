@@ -220,8 +220,9 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   dessen Timeout Funk aus und Weiterbetrieb ohne Web/API (neuer Versuch erst nach
   Neustart). Mitgenommen: #20 (Dashboard-Temperaturschwellen folgen der Firmware,
   60/70 °C, führende Quelle `MAXFANTEMP`), `STATE_WIFI_CONNECTING` → `STATE_STARTING`,
-  Status-LED-Doku nachgezogen. FW + Filesystem per OTA aufs Gerät, Gerätetest läuft.
-  Commit `e7b453f`. **Neues Paket L (LCD-Optimierung)** aufgenommen: #36 WLAN-Icon,
+  Status-LED-Doku nachgezogen. FW + Filesystem per OTA aufs Gerät; **am Gerät
+  abgenommen** — Start ohne erreichbares WLAN verifiziert, Variac kommt sofort
+  vollständig hoch. Commit `e7b453f`, Tag `v4.4.0`. **Neues Paket L (LCD-Optimierung)** aufgenommen: #36 WLAN-Icon,
   #37 Temperaturanzeige — Sammlung wächst noch, Plan in `Paket-L-LCD-Optimierung.md`.
   Offen aus dem Testlauf bleiben: #14, #15, #16, #17, #18, #19, #21, #22, #23.
 - **2026-07-19 — Paket-H-Plan + Testanleitung V4.3.1 ins Repo.** `Paket-H-Plan.md`

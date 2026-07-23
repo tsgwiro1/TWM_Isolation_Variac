@@ -9,12 +9,30 @@
 #include "motor.h"    // stepper.currentPosition()
 #include "actions.h"  // A_* Zustände/Presets für die Anzeige
 #include "system.h"   // wiperTemp
+#include "icons.h"    // XBM-Symbole für die Kopfzeile (Paket L)
 
 TFT_eSPI tft = TFT_eSPI();
 SemaphoreHandle_t tftMutex;  // Mutex zum Schutz des TFT-Displays
 
+// --- Kopfzeilen-Layout (Paket L, #36/#37) ---------------------------------
+// [wifi]            ISOLATION VARIAC            [thermo] 34 °C
+#define HDR_H          20    // Höhe des Navy-Balkens
+#define ICON_Y          2    // y-Position beider Icons (16 px hoch, mittig in 20 px)
+#define WIFI_ICON_X     2    // WLAN-Icon linksbündig
+#define TEMP_RIGHT    230    // Temperaturgruppe endet hier (rechtsbündig)
+// Ab hier darf für die Temperatur freigeräumt werden, ohne den Titel anzuschneiden:
+// "ISOLATION VARIAC" ist in Font 2 113 px breit, zentriert auf x=120 reicht es bis 176.
+// Die verbleibenden 52 px (178..230) fassen Icon + zwei Ziffern + "°C" (51 px). Passt
+// eine Gruppe nicht hinein (dreistellig oder "N/A"), entfällt das Icon — siehe
+// drawTempGroup(). So bleibt der Titel unter allen Umständen unversehrt.
+#define TEMP_ZONE_X   178
+
+// Welches WLAN-Symbol gerade gilt (#36)
+enum WifiIcon : uint8_t { WIFI_ICON_NONE, WIFI_ICON_CONNECTED, WIFI_ICON_AP, WIFI_ICON_UNSET = 255 };
+
 struct displayValues {
 	float temp;
+	uint8_t wifiIcon;
 	int stepperPos;
 	uint8_t encoder10x;
 	uint8_t outputOn;
@@ -63,6 +81,66 @@ void tftEndWrite() {
 }
 
 /**
+ * @brief Zeichnet die Temperaturgruppe rechts in der Kopfzeile (#37).
+ * Aufbau rechtsbündig: [Thermometer-Icon] [Wert ohne Nachkommastellen] [°] [C].
+ * Das Grad-Zeichen kommt als kleiner Kreis, weil Font 2 nur ASCII 32..127 kennt.
+ * Die Zone wird vorher geleert — die Gruppenbreite ändert sich mit der Stellenzahl.
+ */
+static void drawTempGroup(float temp, bool sensorOk) {
+    tft.fillRect(TEMP_ZONE_X, 0, 240 - TEMP_ZONE_X, HDR_H, TFT_NAVY);
+    tft.setTextColor(TFT_WHITE, TFT_NAVY);
+    tft.setTextPadding(0);
+    tft.setTextDatum(TL_DATUM);
+
+    const int degR = 2, degGap = 2, iconGap = 3;
+    String val   = sensorOk ? String(temp, 0) : String("N/A");   // ohne Nachkommastellen
+    int    wVal  = tft.textWidth(val, 2);
+    int    wUnit = sensorOk ? (degGap + 2 * degR + 2 + tft.textWidth("C", 2)) : 0;
+
+    // Icon nur zeichnen, solange die Gruppe in die reservierte Zone passt (siehe
+    // TEMP_ZONE_X). Sonst hat der Messwert Vorrang vor dem Symbol.
+    int  need     = ICON_W + iconGap + wVal + wUnit;
+    bool withIcon = (need <= TEMP_RIGHT - TEMP_ZONE_X);
+    if (!withIcon) need -= (ICON_W + iconGap);
+
+    int x = TEMP_RIGHT - need;
+    if (withIcon) {
+        tft.drawXBitmap(x, ICON_Y, icon_thermostat, ICON_W, ICON_H, TFT_WHITE, TFT_NAVY);
+        x += ICON_W + iconGap;
+    }
+    tft.drawString(val, x, 2, 2);
+    if (sensorOk) {
+        x += wVal + degGap;
+        tft.drawCircle(x + degR, 2 + degR + 2, degR, TFT_WHITE);   // "°" (Font 2 hat kein Grad-Zeichen)
+        x += 2 * degR + 2;
+        tft.drawString("C", x, 2, 2);
+    }
+}
+
+/**
+ * @brief Zeichnet das WLAN-Symbol links in der Kopfzeile (#36).
+ * Verbunden -> "wifi", eigener Config-AP offen -> "wifi_find", sonst kein Symbol.
+ */
+static void drawWifiIcon(uint8_t state) {
+    tft.fillRect(WIFI_ICON_X, ICON_Y, ICON_W, ICON_H, TFT_NAVY);
+    if (state == WIFI_ICON_CONNECTED) {
+        tft.drawXBitmap(WIFI_ICON_X, ICON_Y, icon_wifi, ICON_W, ICON_H, TFT_WHITE, TFT_NAVY);
+    } else if (state == WIFI_ICON_AP) {
+        tft.drawXBitmap(WIFI_ICON_X, ICON_Y, icon_wifi_find, ICON_W, ICON_H, TFT_WHITE, TFT_NAVY);
+    }
+    // WIFI_ICON_NONE: Fläche bleibt leer (Funk aus / keine Verbindung)
+}
+
+/**
+ * @brief Ermittelt das passende WLAN-Symbol aus dem aktuellen Systemzustand (#36).
+ */
+static uint8_t currentWifiIcon() {
+    if (currentSystemState == STATE_WIFIMANAGER_AP) return WIFI_ICON_AP;
+    if (WiFi.status() == WL_CONNECTED)              return WIFI_ICON_CONNECTED;
+    return WIFI_ICON_NONE;
+}
+
+/**
  * @brief Aktualisiert die Werte auf dem Display im normalen Betriebsmodus.
  */
 void updateDisplay() {
@@ -70,16 +148,20 @@ void updateDisplay() {
   tft.setTextDatum(TR_DATUM);
   tft.setTextPadding(100);
 
+  // WLAN-Symbol nur bei Zustandswechsel neu zeichnen (#36)
+  uint8_t wifiIcon = currentWifiIcon();
+  if (wifiIcon != actDispValues.wifiIcon) {
+      actDispValues.wifiIcon = wifiIcon;
+      drawWifiIcon(wifiIcon);
+      tft.setTextDatum(TR_DATUM);
+      tft.setTextPadding(100);
+  }
+
 	if (wiperTemp != actDispValues.temp){
 		actDispValues.temp = wiperTemp;
-		tft.setTextColor(TFT_WHITE, TFT_NAVY);
+        drawTempGroup(actDispValues.temp, tempSensorAvailable);
         tft.setTextDatum(TR_DATUM);
-        if (tempSensorAvailable) {
-		    tft.drawString((String)actDispValues.temp+"C", 230, 2, 2);
-        }
-        else {
-		    tft.drawString("N/A", 230, 2, 2);
-        }
+        tft.setTextPadding(100);
 	}
   if (received_rms_value != actDispValues.voltage) {
 		actDispValues.voltage = received_rms_value;
@@ -235,9 +317,11 @@ void drawBackground() {
 	tft.drawFastHLine(10, 110, 220, TFT_GOLD),
 	tft.drawFastHLine(10, 200, 220, TFT_GOLD),
 	
-	tft.setTextDatum(TL_DATUM);
+	// Paket L: Titel zentriert — links sitzt jetzt das WLAN-Symbol (#36),
+	// rechts die Temperaturgruppe (#37).
+	tft.setTextDatum(TC_DATUM);
 	tft.setTextColor(TFT_WHITE, TFT_NAVY);
-	tft.drawString("ISOLATION VARIAC", 10, 2, 2);
+	tft.drawString("ISOLATION VARIAC", 120, 2, 2);
   tftEndWrite();   // << FREIGEBEN
 }
 
@@ -246,6 +330,10 @@ void drawBackground() {
  */
 void drawLegend() {
   tftStartWrite(); // << SPERREN
+	// Datum explizit setzen: drawBackground() hinterlässt seit Paket L TC_DATUM
+	// (zentrierter Titel) — ohne das hier würden die Beschriftungen zentriert
+	// auf x=10 landen und links aus dem Display laufen.
+	tft.setTextDatum(TL_DATUM);
 	tft.setTextColor(TFT_WHITE, TFT_BLACK);
 	tft.drawString("Output:", 10, 40, 4);
 	tft.drawString("Target:", 10, 70, 4);
@@ -432,6 +520,7 @@ void displayUpdateTask(void *parameter) {
  */
 void initDisplayStruct() {
     actDispValues.temp = -1;
+    actDispValues.wifiIcon = WIFI_ICON_UNSET;   // erzwingt Neuzeichnen (#36)
     actDispValues.stepperPos = -1;
     actDispValues.encoder10x = -1;
     actDispValues.outputOn = -1;

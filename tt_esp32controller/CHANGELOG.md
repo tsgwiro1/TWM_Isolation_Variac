@@ -6,6 +6,28 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
+## [V4.5.0] – in Entwicklung
+
+### Hinzugefügt
+- **WLAN-Status als Icon auf dem Display** (Paket L, #36): Links in der Kopfzeile zeigt
+  ein Symbol den Netzzustand — verbunden (`wifi`), eigener Konfigurations-AP offen
+  (`wifi_find`) oder gar kein Symbol, wenn keine Verbindung besteht bzw. der AP nach
+  dem Timeout abgeschaltet wurde. Neu gezeichnet wird nur bei Zustandswechsel.
+
+### Geändert
+- **Temperaturanzeige** (Paket L, #37): Statt `34.00C` jetzt `34 °C` mit vorangestelltem
+  Thermometer-Symbol. Das Grad-Zeichen wird als kleiner Kreis gezeichnet, weil der
+  verwendete Font (Font 2) nur ASCII 32–127 abdeckt.
+- **Kopfzeile neu aufgeteilt:** Titel „ISOLATION VARIAC" jetzt zentriert, links das
+  WLAN-Symbol, rechts die Temperaturgruppe. Passt eine breitere Temperaturgruppe
+  (dreistelliger Wert oder `N/A`) nicht in den reservierten Bereich, entfällt das
+  Thermometer-Symbol — der Messwert hat Vorrang, der Titel bleibt unversehrt.
+
+### Intern
+- Neue `src/icons.h` mit den Symbolen als XBM-Bitmaps (16 × 16 px, zusammen 96 Byte).
+  Sie stammen aus Google Material Symbols (Apache 2.0) und mussten gerastert werden,
+  weil TFT_eSPI keine Web-Fonts darstellen kann.
+
 ## [V4.4.0] – 2026-07-23
 
 ### Behoben

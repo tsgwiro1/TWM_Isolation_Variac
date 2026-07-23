@@ -1,6 +1,7 @@
 # Paket L — LCD-Optimierung
 
-**Status:** offen (Sammeldokument, wächst noch) · **Stand:** 2026-07-23 · **Betrifft:** Controller-TFT
+**Status:** #36 + #37 umgesetzt in V4.5.0 (Gerätetest offen) · **Stand:** 2026-07-23 ·
+**Betrifft:** Controller-TFT
 
 Sammlung von Verbesserungen an der Anzeige auf dem Gerät (TFT 240 × 320, Portrait,
 `tft.setRotation(2)`). Die Punkte werden hier gesammelt und erst umgesetzt, wenn das
@@ -112,10 +113,19 @@ des Projekts vereinbar, verlangt aber einen Hinweis — bei Umsetzung einen Verm
 
 ## Offene Punkte
 
-- [x] Layout der Kopfzeile festlegen — Titel zentriert, WLAN-Icon links, Temperatur
-      rechts; Feinjustierung am Gerät (siehe L1)
-- [ ] Grad-Zeichen: Font prüfen, sonst Kreis zeichnen
-- [ ] Icon-Grösse endgültig festlegen (16 × 16 px vorgeschlagen)
+- [x] Layout der Kopfzeile festlegen — Titel zentriert (x = 120), WLAN-Icon links,
+      Temperatur rechts. Rechnerisch geprüft: Titel ist in Font 2 **113 px** breit,
+      belegt also 63…176; die Temperaturgruppe („34 °C" mit Icon, 51 px) beginnt bei
+      179 — passt. Breitere Gruppen (dreistellig ab 171, `N/A` ab 172) würden
+      kollidieren, deshalb entfällt dort das Icon.
+- [x] Grad-Zeichen: Font 2 geprüft (`firstchr_f16 32`, `nr_chrs_f16 96` → nur
+      ASCII 32…127, kein `°`) → wird als Kreis gezeichnet. *Alternative für später:*
+      TFT_eSPI kennt das Build-Flag `TFT_ESPI_GRAVE_IS_DEGREE`, das den Backtick
+      durch ein echtes Grad-Glyph ersetzt — nicht genutzt, weil es global auf alle
+      Fonts wirkt.
+- [x] Icon-Grösse festgelegt: 16 × 16 px (drei Icons = 96 Byte Flash)
+- [ ] Am Gerät prüfen, ob die Kopfzeile optisch aufgeht (2,5 px Luft zwischen Titel
+      und Temperaturgruppe — rechnerisch knapp, aber kollisionsfrei)
 - [ ] Weitere Punkte des Pakets sammeln
 
 ## Aufwand (Schätzung, Stand heute)

@@ -5,6 +5,7 @@
 volatile bool hardwareInitialized = false;
 volatile SystemMode currentMode = MODE_NORMAL; // Standardmässig im Normalbetrieb starten
 volatile bool requestEnterSettingsMode = false;
+volatile bool homingScreenActive = false;
 volatile SystemState currentSystemState = STATE_STARTING;
 
 volatile int wiperPos = 0;

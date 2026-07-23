@@ -248,6 +248,10 @@ void userInputTask(void *parameter) {
       // aus und Referenzfahrt auf den Endschalter. Ohne Homing würde eine falsche
       // Referenz die Min-/Max-Anfahrten in den mechanischen Anschlag schicken.
       is_regulation_active = false;
+      // GitHub-#18: Anzeige sperren, BEVOR der Modus wechselt. Sonst sieht der
+      // displayUpdateTask bereits MODE_SETTINGS, während homing() sein eigenes Flag
+      // noch nicht gesetzt hat, und malt den Settings-Screen über "Homing...".
+      homingScreenActive = true;
       currentMode = MODE_SETTINGS;
       clearScreen();
       drawHomingScreen();
@@ -256,6 +260,7 @@ void userInputTask(void *parameter) {
       clearScreen();
       drawSettingsScreen();
       initDisplayStruct(); // Anzeige-Cache invalidieren -> Werte neu zeichnen
+      homingScreenActive = false;   // fertig aufgebaut -> Display-Task darf wieder
       cb_SettingsValueAction(A_p1, ButtonEvent::RELEASED); // Min-Punkt anfahren
     }
 

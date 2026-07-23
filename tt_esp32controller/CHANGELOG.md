@@ -6,6 +6,18 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
+## [V4.5.2] – 2026-07-23
+
+### Behoben
+- **Überlagerte Anzeige beim Kalibrier-Einstieg über die API** (GitHub-#18): Während der
+  Homing-Referenzfahrt legte sich der Settings-Screen über den „Homing…"-Bildschirm.
+  Ursache war ein Zeitfenster: `currentMode` wechselte bereits auf `MODE_SETTINGS`,
+  während das bisherige Schutzflag erst in `homing()` selbst gesetzt wurde — dazwischen
+  sah der Display-Task einen Settings-Modus ohne laufendes Homing und zeichnete darüber.
+  Ein eigenes Anzeige-Flag (`homingScreenActive`) sperrt die Aktualisierung jetzt vom
+  Moduswechsel bis zum fertig aufgebauten Settings-Screen. Über die Taste am Gerät trat
+  der Fehler nicht auf, weil dort die RTOS-Tasks noch gar nicht laufen.
+
 ## [V4.5.1] – 2026-07-23
 
 ### Behoben

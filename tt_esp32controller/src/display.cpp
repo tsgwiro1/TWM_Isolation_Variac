@@ -500,7 +500,10 @@ void displayUpdateTask(void *parameter) {
 
     // GitHub-#3: Während der Homing-Referenzfahrt (Kalibrier-Einstieg) zeigt der
     // Screen "Homing..." — den übermalen wir nicht.
-    if (isHomingActive()) {
+    // GitHub-#18: homingScreenActive deckt zusätzlich das Fenster ab, in dem der
+    // Modus schon gewechselt hat, homing() aber noch nicht gestartet ist (und die
+    // Zeit danach, bis der Settings-Screen fertig aufgebaut ist).
+    if (isHomingActive() || homingScreenActive) {
       vTaskDelay(pdMS_TO_TICKS(100));
       continue;
     }

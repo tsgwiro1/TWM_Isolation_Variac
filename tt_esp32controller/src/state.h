@@ -7,9 +7,9 @@
 
 // Firmware-Version (entspricht dem CHANGELOG)
 #ifdef SIM
-#define FW  "Firmware V4.5.1 (SIM)"
+#define FW  "Firmware V4.5.2 (SIM)"
 #else
-#define FW  "Firmware V4.5.1"
+#define FW  "Firmware V4.5.2"
 #endif
 
 // System
@@ -18,6 +18,11 @@ extern volatile bool hardwareInitialized;  // "Wächter"-Variable für den Hardw
 enum SystemMode { MODE_NORMAL, MODE_SETTINGS };
 extern volatile SystemMode currentMode;
 extern volatile bool requestEnterSettingsMode;
+// GitHub-#18: Sperrt den displayUpdateTask, solange der "Homing..."-Screen steht.
+// isHomingActive() allein reicht nicht: dessen Flag setzt erst homing() selbst, der
+// Moduswechsel steht aber schon davor — in diesem Fenster hat der Display-Task den
+// Settings-Screen über den Homing-Screen gemalt.
+extern volatile bool homingScreenActive;
 
 // Systemzustände für die Status-LED
 enum SystemState {

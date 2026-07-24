@@ -6,6 +6,34 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
+## [V4.5.4] – 2026-07-23
+
+### Behoben
+- **Preset-Werte aktualisieren die Weboberfläche live** (GitHub-#15): Wurde ein Preset
+  am Gerät gespeichert, zeigten Dashboard und Einstellungsseite bis zum manuellen
+  Neuladen den alten Wert. Der 500-ms-Status-Push trägt die Preset-Werte jetzt mit
+  (`presets` in `/api/status`). Dashboard und Einstellungsseite folgen live über den
+  Status-Stream (`/ws_status`); die Einstellungsseite aktualisiert die Preset-Felder
+  nur bei sauberem Formular und nie das gerade bearbeitete Feld, damit laufende
+  Eingaben nicht überschrieben werden. Zusätzlich gleicht sie beim Zurückkehren auf
+  den Tab ab, falls der Stream zwischenzeitlich getrennt war.
+- **Voltmeter-Panel meldet Link-Fehler** (GitHub-#19): `loadVoltmeterStatus()` schluckte
+  Fehler stillschweigend; bei totem Link (falsche FW, Kabel, Timeout) blieben Version/
+  Faktor/Offset kommentarlos auf „–". Der Fehlerfall wird jetzt im Status-Abschnitt
+  gemeldet, und „Status aktualisieren" löscht eine Fehlermeldung nicht mehr nach fixen
+  1,5 s weg.
+- **Fly-out-Menüs bleiben im Bild** (GitHub-#17): Akzentfarbe-/Doku-Menü klappten immer
+  nach links auf und lagen auf schmalen Displays teils ausserhalb des Sichtbereichs
+  (gemessen: Start bei x = −118). Sie werden nach dem Öffnen in den sichtbaren Bereich
+  geschoben (8 px Rand).
+
+### Geändert
+- **Voltmeter-Meldungen erscheinen am Ort ihrer Aktion** (GitHub-#22): Status- und
+  Validierungsmeldungen standen gesammelt am Ende des Voltmeter-Panels — meist
+  ausserhalb des Sichtbereichs. Jeder Abschnitt (Status, Manuelle Kalibrierung,
+  3-Punkt, Gerät, Firmware-Update) hat jetzt seine eigene Meldungszeile, die nur bei
+  einer Meldung Platz einnimmt.
+
 ## [V4.5.3] – 2026-07-23
 
 ### Behoben

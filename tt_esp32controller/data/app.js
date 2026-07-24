@@ -73,6 +73,28 @@ function openInNamedTab(e) {
     if (w.focus) w.focus();
 }
 
+// GitHub-#17: Das Menü ist per CSS rechtsbündig zum Button verankert (right:0) und
+// klappt nach links auf. Sitzt der Button weit links (schmales Display), ragte das
+// Menü über den linken Bildschirmrand hinaus. Nach dem Öffnen prüfen und, falls es
+// aus dem sichtbaren Bereich läuft, links/rechts so verschieben, dass es mit 8 px Rand
+// hineinpasst. Position ist relativ zum .menu-anchor (offset parent).
+function positionMenu(menu) {
+    menu.style.left = '';
+    menu.style.right = ''; // auf den CSS-Standard (right:0) zurücksetzen und neu messen
+    var margin = 8;
+    var vw = document.documentElement.clientWidth;
+    var r = menu.getBoundingClientRect();
+    var overflowLeft = margin - r.left;
+    var overflowRight = r.right - (vw - margin);
+    if (overflowLeft <= 0 && overflowRight <= 0) return; // passt bereits
+    var anchorLeft = menu.parentElement.getBoundingClientRect().left;
+    var desiredLeft;
+    if (overflowLeft > 0) desiredLeft = margin;                       // links anschlagen
+    else desiredLeft = Math.max(margin, vw - margin - r.width);       // rechts anschlagen
+    menu.style.right = 'auto';
+    menu.style.left = (desiredLeft - anchorLeft) + 'px';
+}
+
 // Verdrahtet die Header-Bedienelemente (auf jeder Seite identisch aufgebaut).
 function initHeader() {
     applyTheme(currentTheme()); // Icon des Theme-Buttons initialisieren
@@ -97,7 +119,7 @@ function initHeader() {
             const menu = btn.parentElement.querySelector('.menu');
             const wasOpen = menu.classList.contains('open');
             document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open'));
-            if (!wasOpen) menu.classList.add('open');
+            if (!wasOpen) { menu.classList.add('open'); positionMenu(menu); }
         });
     });
     document.addEventListener('click', () => {

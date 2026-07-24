@@ -63,6 +63,16 @@
         el.querySelector('span:last-child').textContent = text;
     }
 
+    // Preset-Beschriftungen P1..P3 setzen (#15). Quelle ist einmalig /api/config beim
+    // Laden und danach der 500-ms-Status-Push — so folgt die Anzeige einem am Gerät
+    // gespeicherten Preset ohne manuelles Neuladen.
+    function setPresetLabels(presets) {
+        if (!presets) return;
+        ['p1', 'p2', 'p3'].forEach(function (k) {
+            if (presets[k] != null) $(k + '-val').textContent = Number(presets[k]).toFixed(1);
+        });
+    }
+
     function render(st) {
         var v = Number(st.voltage_actual) || 0;
         var sp = Number(st.voltage_setpoint) || 0;
@@ -104,6 +114,7 @@
         $('btn-p1').classList.toggle('active', !!states.p1_on);
         $('btn-p2').classList.toggle('active', !!states.p2_on);
         $('btn-p3').classList.toggle('active', !!states.p3_on);
+        setPresetLabels(st.presets); // #15: Preset-Werte live nachführen
 
         // Meter
         var temp = Number(st.temperature) || 0;
@@ -232,11 +243,7 @@
                     cfg.vmax = Math.max(50, Math.min(Number(c.calibration.max_voltage) || 260, 260));
                     cfg.maxPos = Number(c.calibration.max_pos) || cfg.maxPos;
                 }
-                if (c.presets) {
-                    ['p1', 'p2', 'p3'].forEach(function (k) {
-                        $(k + '-val').textContent = (c.presets[k] != null) ? Number(c.presets[k]).toFixed(1) : '–';
-                    });
-                }
+                setPresetLabels(c.presets);
                 $('pos-max').textContent = cfg.maxPos;
                 initGauge();
             })

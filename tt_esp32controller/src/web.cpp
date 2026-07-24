@@ -44,6 +44,12 @@ static String buildStatusJson() {
     states["p1_on"] = (bool)A_p1->getState();
     states["p2_on"] = (bool)A_p2->getState();
     states["p3_on"] = (bool)A_p3->getState();
+    // Preset-Werte (GitHub-#15): im 500-ms-Push mitschicken, damit Dashboard und
+    // Einstellungsseite live folgen, wenn ein Preset am Gerät neu gespeichert wird.
+    JsonObject presets = doc["presets"].to<JsonObject>();
+    presets["p1"] = A_p1->getValuePreset();
+    presets["p2"] = A_p2->getValuePreset();
+    presets["p3"] = A_p3->getValuePreset();
   }
 
   String jsonString;

@@ -150,6 +150,7 @@
                         <div class="kv"><span class="k">Spannungs-Offset (V)</span><span class="v" id="vm-voffset">&ndash;</span></div>
                         <div class="kv"><span class="k">ADC-Nullpunkt</span><span class="v" id="vm-adczero">&ndash;</span></div>
                     </div>
+                    <div class="status-line accent vm-msg" id="vm-msg-status"></div>
                 </div>
 
                 <!-- Manuelle Kalibrierung -->
@@ -170,6 +171,7 @@
                         <button class="btn" id="vm-set-offset">Offset speichern</button>
                     </div>
                     <button class="btn" id="vm-autozero">Auto-Zero (Nullpunkt automatisch)</button>
+                    <div class="status-line accent vm-msg" id="vm-msg-manual"></div>
                 </div>
 
                 <!-- 3-Punkt-Kalibrierung -->
@@ -194,6 +196,7 @@
                         </div>
                         <button class="btn" id="cal3-finish">Kalibrierung abschlie&szlig;en</button>
                     </div>
+                    <div class="status-line accent vm-msg" id="vm-msg-cal3"></div>
                 </div>
 
                 <!-- Gerät -->
@@ -203,6 +206,7 @@
                         <button class="btn" id="vm-reboot">Neustart</button>
                         <button class="btn danger" id="vm-reset-defaults">Werkseinstellungen</button>
                     </div>
+                    <div class="status-line accent vm-msg" id="vm-msg-device"></div>
                 </div>
 
                 <!-- Firmware-Update -->
@@ -229,9 +233,9 @@
                         </div>
                         <div class="hint" id="vm-fw-hint" style="margin-top:11px; color:var(--faint);">Zuerst in Schritt 1 eine Firmware hochladen, um das Update zu starten.</div>
                     </div>
+                    <div class="status-line accent vm-msg" id="vm-msg-fw"></div>
                 </div>
             </div>
-            <div class="status-line accent" id="vm-status-message" style="margin-top:12px; min-height:1.2em;"></div>
         </section>
 
         <div class="foot" id="fw-foot" style="padding-bottom:6px;">&nbsp;</div>

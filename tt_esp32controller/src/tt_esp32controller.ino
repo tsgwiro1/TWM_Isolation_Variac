@@ -92,15 +92,19 @@ void setup() {
   xTaskCreatePinnedToCore(
       statusLedTask,      // Task-Funktion
       "StatusLED",        // Name
-      1024,               // Kleiner Stack ist ausreichend
+      2048,               // GitHub-#14: von 1024 erhöht — auf Core 0 laufen ISRs (WLAN etc.)
+                          // auf dem Stack des aktiven Tasks; 1024 war dafür knapp.
       NULL,               // Parameter
       1,                  // Niedrige Priorität
-      NULL,               // Kein Handle nötig
+      &h_statusLedTask,   // GitHub-#14: Handle für die Stack-Überwachung in loop()
       0);                 // Auf Core 0 pinnen
 
-    uint32_t ser_start = millis();
+    // GitHub-#14: Die frühere `while (!Serial && ...)`-Schleife entfernt. Sie war
+    // wirkungslos (Bedingung invertiert, wartete nie) und dürfte es auch bleiben:
+    // `Serial` ist die USB-CDC-Konsole, die im Standalone-Betrieb (kein USB-Kabel) nie
+    // verbindet — ein echtes Warten würde jeden Boot um den vollen Timeout verzögern
+    // (Gegenteil von GitHub-#13). Das Gerät ist headless und loggt in RAM/Datei/WebSocket.
     Serial.begin(115200);
-    while (!Serial && ser_start + 5000 < millis());
     logMessage(LOG_INFO, "SYSTEM: Starting system...");
 
   // Initialisiere die zweite serielle Schnittstelle (USART1 auf PA9/PA10)
@@ -441,7 +445,8 @@ void loop() {
         h_sensorAndFanTask,
         h_communicationTask,
         h_stepperTask,
-        h_loggerTask
+        h_loggerTask,
+        h_statusLedTask     // GitHub-#14: jetzt mitüberwacht
     };
 
     for (TaskHandle_t taskHandle : tasksToCheck) {

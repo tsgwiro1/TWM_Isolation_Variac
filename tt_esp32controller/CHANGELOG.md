@@ -6,6 +6,22 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
+## [V4.5.3] – 2026-07-23
+
+### Behoben
+- **`statusLedTask` gehärtet** (GitHub-#14): Stack von 1024 auf 2048 Byte erhöht und
+  ein Handle vergeben, damit der Task in der Stack-Überwachung in `loop()` mitläuft.
+  Auf Core 0 laufen Interrupts (WLAN u. a.) auf dem Stack des aktiven Tasks — 1024 Byte
+  waren dafür knapp, und ohne Handle fehlte jede Sichtbarkeit auf den realen Verbrauch.
+
+### Entfernt
+- **Wirkungslose Serial-Warteschleife** (GitHub-#14): `while (!Serial && ...)` in `setup()`
+  hatte eine invertierte Bedingung und wartete nie. Ersatzlos entfernt statt „repariert":
+  `Serial` ist die USB-CDC-Konsole, die im Standalone-Betrieb (kein USB-Kabel) nie
+  verbindet — ein echtes Warten würde jeden Boot um den vollen Timeout verzögern, das
+  Gegenteil des mit V4.4.0 (GitHub-#13) erreichten Sofortstarts. Das Gerät loggt ohnehin
+  in RAM-Historie, Datei und WebSocket, es geht nichts verloren.
+
 ## [V4.5.2] – 2026-07-23
 
 ### Behoben

@@ -7,9 +7,9 @@
 
 // Firmware-Version (entspricht dem CHANGELOG)
 #ifdef SIM
-#define FW  "Firmware V4.5.2 (SIM)"
+#define FW  "Firmware V4.5.3 (SIM)"
 #else
-#define FW  "Firmware V4.5.2"
+#define FW  "Firmware V4.5.3"
 #endif
 
 // System
@@ -101,6 +101,7 @@ extern TaskHandle_t h_communicationTask;
 extern TaskHandle_t h_stepperTask;
 extern TaskHandle_t h_voltmeterUpdateTask;
 extern TaskHandle_t h_loggerTask;
+extern TaskHandle_t h_statusLedTask;   // GitHub-#14: Handle für die Stack-Überwachung
 
 // GitHub-#13: Erst wenn der networkTask OTA aufgesetzt hat, darf loop() ArduinoOTA.handle()
 // aufrufen — vorher ist der Dienst nicht initialisiert. (Der networkTask selbst braucht

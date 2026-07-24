@@ -38,5 +38,6 @@ TaskHandle_t h_communicationTask;
 TaskHandle_t h_stepperTask;
 TaskHandle_t h_voltmeterUpdateTask;
 TaskHandle_t h_loggerTask;
+TaskHandle_t h_statusLedTask;
 
 volatile bool otaReady = false;

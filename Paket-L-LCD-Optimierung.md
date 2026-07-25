@@ -1,15 +1,15 @@
 # Paket L — LCD-Optimierung
 
-**Status:** #36 + #37 umgesetzt in V4.5.0 (Gerätetest offen) · **Stand:** 2026-07-23 ·
+**Status:** #36 + #37 umgesetzt in V4.5.0, am Gerät abgenommen · **Stand:** 2026-07-25 ·
 **Betrifft:** Controller-TFT
 
 Sammlung von Verbesserungen an der Anzeige auf dem Gerät (TFT 240 × 320, Portrait,
-`tft.setRotation(2)`). Die Punkte werden hier gesammelt und erst umgesetzt, wenn das
-Paket vollständig ist — es kommen voraussichtlich noch weitere dazu.
+`tft.setRotation(2)`). Die Punkte werden hier gesammelt und gemeinsam umgesetzt.
+Die erste Charge (L1 + L2) steckt in V4.5.0; weitere Punkte können jederzeit dazukommen.
 
 ---
 
-## Ausgangslage
+## Ausgangslage *(Stand vor V4.5.0)*
 
 Die Hauptanzeige besteht aus einer Kopfzeile und dem Wertebereich
 ([`display.cpp`](tt_esp32controller/src/display.cpp)):
@@ -124,8 +124,11 @@ des Projekts vereinbar, verlangt aber einen Hinweis — bei Umsetzung einen Verm
       durch ein echtes Grad-Glyph ersetzt — nicht genutzt, weil es global auf alle
       Fonts wirkt.
 - [x] Icon-Grösse festgelegt: 16 × 16 px (drei Icons = 96 Byte Flash)
-- [ ] Am Gerät prüfen, ob die Kopfzeile optisch aufgeht (2,5 px Luft zwischen Titel
-      und Temperaturgruppe — rechnerisch knapp, aber kollisionsfrei)
+- [x] Am Gerät geprüft: Die Kopfzeile geht optisch auf (2,5 px Luft zwischen Titel
+      und Temperaturgruppe — rechnerisch knapp, aber kollisionsfrei). Dabei fiel auf,
+      dass `drawLegend()` kein eigenes Text-Datum setzte und das neue `TC_DATUM` von
+      `drawBackground()` erbte — die Fusszeile rutschte dadurch aus dem Display.
+      Behoben, indem `drawLegend()` sein `TL_DATUM` selbst setzt.
 - [ ] Weitere Punkte des Pakets sammeln
 
 ## Aufwand (Schätzung, Stand heute)

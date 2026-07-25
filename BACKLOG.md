@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-07-23 · **Gesamt: 35 / 36 Punkte erledigt**
+**Stand:** 2026-07-25 · **Gesamt: 35 / 36 Punkte erledigt**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -209,6 +209,31 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   ohne Block laufen unverändert. Ungenutztes `coarse_move_threshold` überall entfernt.
   `openapi.yaml` → API-Version 4.1.0 (Config-Schema geändert). OTA-/SIM-Build kompilieren;
   Geräte-Test steht mit dem Testlauf zusammen aus.
+- **2026-07-25 — Bugfix-Runde aus dem V4.3.1-Testlauf abgeschlossen (V4.4.0 – V4.6.1);
+  Testanleitung entfernt.** Die 13 GitHub-Issues des Testlaufs (#13–#25) sind umgesetzt und
+  am Gerät abgenommen. Bewusst in Einzelversionen zerlegt, jede für sich getestet:
+  **V4.4.0** #13/#11 Boot-Hänger — `wm.autoConnect()` lief vor der Hardware-Init, das
+  Config-Portal blockierte 10 min (Display schwarz, Tasten tot, Lüfter 100 %). WLAN/Web/OTA
+  laufen jetzt im `networkTask` nach dem Homing; ohne Netz: ein Versuch, dann Portal, nach
+  Timeout Funk aus und Weiterbetrieb ohne Web/API (neuer Versuch nur per Neustart). Dazu
+  #20 (Temperaturschwellen, führende Quelle `MAXFANTEMP`). **V4.5.0** Paket L (siehe unten).
+  **V4.5.1** #16 Android-Layout (`minmax(0,1fr)`, `100dvh`) + #21 totes `FAN_PWM_CHANNEL`.
+  **V4.5.2** #18 Anzeige-Race beim Kalibrier-Einstieg über die API (`homingScreenActive`).
+  **V4.5.3** #14 `statusLedTask` mit Stack-Überwachung, wirkungslose Serial-Warteschleife
+  entfernt. **V4.5.4** #15 Presets live über den Status-Push (auch auf der Settings-Seite,
+  ohne laufende Eingaben zu überschreiben), #17 Fly-out-Menüs im Viewport, #19 Link-Fehler
+  sichtbar, #22 Voltmeter-Meldungen je Box statt in einem Sammelfeld. **V4.6.0** #23 Logging
+  neu: Datei entspricht wieder dem Live-Log, Drop-Meldungen raus (stiller Zähler
+  `log_dropped`), gepuffertes Schreiben, Rotation nach 5000 Zeilen, verketteter Download.
+  **V4.6.1** #24 Zeiger-Drehung (Animation jetzt in `script.js` statt CSS-Transition — die
+  Engines interpolieren Drehungen unterschiedlich) und #25 API-Doku unter 768 px
+  (`render-style="view"`, da RapiDoc seine Navigation per Container-Query ausblendet).
+  Anschliessender Doku-Abgleich: neue Abschnitte „Live-Log und Logdatei" und „Anzeige am
+  Gerät" in der Bedienungs-Doku (die V4.6.0-Umstellung stand bisher nur in `openapi.yaml`),
+  Korrektur der Debug-Option in der Einstellungs-Doku, README/REVIEW/Paket-Pläne nachgezogen.
+  `documentation/Testanleitung-V4.3.1.md` gelöscht (Zweck erfüllt; Historie behält die Datei).
+  Offen aus dem Testlauf bleiben nur die Tools-Nachtests #6/#7 bei Michael.
+  Commits `e7b453f` … `ac64d35`, Tags `v4.4.0`–`v4.6.1`.
 - **2026-07-23 — V4.5.0: Paket L umgesetzt und am Gerät abgenommen (35/36).**
   #36 WLAN-Status als Icon in der Kopfzeile (verbunden / Config-AP / kein Symbol,
   Neuzeichnen nur bei Zustandswechsel) und #37 Temperatur mit Thermometer-Icon,
@@ -509,8 +534,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
-| 36 | Display | WLAN-Status als Icon auf dem TFT | Oben links den WLAN-Zustand als Icon zeigen: verbunden → Material Symbol `wifi`, eigener Config-AP aktiv → `wifi_find`, kein Netz (AP beendet) → Icon entfernen. Zustände sind seit V4.4.0 über `currentSystemState`/`WiFi.status()` unterscheidbar. Icons müssen als Bitmap (XBM) in die Firmware, da TFT_eSPI keine Web-Fonts kann. Kopfzeilen-Layout: Icon links, Titel neu zentriert, Temperatur rechts — Feinjustierung am Gerät. | S | offen |
-| 37 | Display | Temperaturanzeige mit Icon, ohne Nachkommastellen | Statt `34.00C` neu `34 °C` mit vorangestelltem Material Symbol `device_thermostat`. Offen: ob der TFT-Font das Grad-Zeichen enthält, sonst Kreis zeichnen. | S | offen |
+| 36 | Display | WLAN-Status als Icon auf dem TFT | Oben links den WLAN-Zustand als Icon zeigen: verbunden → Material Symbol `wifi`, eigener Config-AP aktiv → `wifi_find`, kein Netz (AP beendet) → Icon entfernen. Zustände sind seit V4.4.0 über `currentSystemState`/`WiFi.status()` unterscheidbar. Icons müssen als Bitmap (XBM) in die Firmware, da TFT_eSPI keine Web-Fonts kann. Kopfzeilen-Layout: Icon links, Titel neu zentriert, Temperatur rechts — Feinjustierung am Gerät. | S | **erledigt** *(V4.5.0, am Gerät verifiziert)* |
+| 37 | Display | Temperaturanzeige mit Icon, ohne Nachkommastellen | Statt `34.00C` neu `34 °C` mit vorangestelltem Material Symbol `device_thermostat`. Offen: ob der TFT-Font das Grad-Zeichen enthält, sonst Kreis zeichnen. | S | **erledigt** *(V4.5.0; Font 2 kann kein `°`, daher als Kreis gezeichnet)* |
 
 ---
 

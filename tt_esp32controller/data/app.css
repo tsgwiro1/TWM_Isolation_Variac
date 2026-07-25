@@ -184,6 +184,10 @@ input[type=number]::-webkit-inner-spin-button { opacity: 0.35; }
 .status-line.ok { color:var(--ok); }
 .status-line.accent { color:var(--accent); }
 .status-line.warn { color:var(--warn); }
+/* GitHub-#22: Meldungszeilen je Voltmeter-Abschnitt. Leer -> unsichtbar und ohne
+   Platzbedarf, damit die Abschnitte nicht dauerhaft auseinandergezogen werden. */
+.vm-msg { margin-top:10px; }
+.vm-msg:empty { display:none; }
 
 /* ---------- Dashboard-Grid ---------- */
 /* GitHub-#16: minmax(0,…) statt blossem 1fr — sonst darf die Spalte nicht unter die

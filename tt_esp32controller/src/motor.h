@@ -21,6 +21,7 @@ void setCalibrationApproachSpeed(int targetPos);
 void setWiperRelativ(int delta);
 void setWiperAbsolut(int value);
 void setWiperMove(int value, bool relative);
+void stopWiperMove();   // laufende Bewegung ausbremsen (GitHub-#26, vor dem OTA-Start)
 // Kalibrier-Viertupel als konsistenten Satz lesen (#5).
 void getCalibration(int& minPos, int& maxPos, float& minV, float& maxV);
 // Regelungs-Mathematik

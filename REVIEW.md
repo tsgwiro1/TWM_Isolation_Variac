@@ -10,6 +10,11 @@ REST-/WebSocket-API und Web-Oberfläche. Code läuft grundsätzlich; es geht um 
 Dieses Dokument ist die Befundaufnahme + priorisierter Plan. Bug-Fixes sind hier **nur geplant**,
 noch nicht umgesetzt.
 
+> **Hinweis:** Dieses Dokument ist die Momentaufnahme vom 18.06.2026 und wird bewusst nicht
+> nachgeführt — es beschreibt den Code *vor* der Umsetzung. Der aktuelle Stand steht in
+> [`BACKLOG.md`](BACKLOG.md) (Fortschritt und Protokoll) und
+> [`tt_esp32controller/CHANGELOG.md`](tt_esp32controller/CHANGELOG.md).
+
 ---
 
 ## 1. Befund

@@ -16,6 +16,8 @@ void drawHomingScreen();
 void drawBackground();
 void drawLegend();
 void drawErrorScreen();
+void drawOtaScreen();      // OTA-Update läuft, Variac gesperrt (GitHub-#26)
+void updateOtaScreen();    // Fortschritt im OTA-Screen (GitHub-#26)
 void drawSettingsScreen();
 void initDisplayStruct();  // Anzeige-Cache invalidieren -> alles neu zeichnen
 void setSettingsWarning(const char* msg);  // Warnzeile im Setup-Screen, "" löscht (GitHub-#3)

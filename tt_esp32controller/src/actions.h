@@ -30,6 +30,7 @@ extern Action* A_x10;
 extern Action* g[3];   // Preset-Gruppe (gegenseitiges Ausschalten)
 
 void resetPresetActions();
+void forceSafeState();   // sicherer Grundzustand bei gesperrter Bedienung (GitHub-#26)
 void handleAllActions();
 int getEncoderCount();
 // Callbacks (auch von Web-Routen aufgerufen, z. B. recall_p1)

@@ -16,12 +16,19 @@
     <script type="module" src="rapidoc-min.js"></script>
     <style>
         rapi-doc {
+            display: block;
             width: 100%;
             height: calc(100vh - 190px);
+            height: calc(100dvh - 190px);   /* Mobile: ohne Browserleiste (#16) */
             border: 1px solid var(--line);
             border-radius: 12px;
             overflow: hidden;
             box-shadow: var(--shadow);
+        }
+        /* GitHub-#25: schmale Ansicht - die Doku waechst mit dem Inhalt und die Seite
+           scrollt normal, statt den Inhalt in einen eigenen Scrollkasten zu sperren. */
+        rapi-doc.narrow {
+            height: auto;
         }
     </style>
 </head>
@@ -89,9 +96,49 @@
         rd.setAttribute('regular-font', "'Space Grotesk', system-ui, sans-serif");
         rd.setAttribute('mono-font', "'IBM Plex Mono', monospace");
     }
+    // GitHub-#25: RapiDoc blendet seine Navigationsleiste per Container-Query erst ab
+    // 768 px Elementbreite ein (darunter gilt .nav-bar{display:none}). Im render-style
+    // "focused" rendert RapiDoc aber immer nur die angewaehlte Sektion, und die Nav ist
+    // der einzige Weg zu den Endpunkten - auf dem Handy blieb deshalb nur die Uebersicht
+    // uebrig. Unterhalb der Grenze wird auf "view" umgeschaltet: dort stehen alle Tags
+    // und Endpunkte aufklappbar untereinander, ganz ohne Navigationsleiste.
+    var NAV_MIN_WIDTH = 768;
+    function applyRenderStyle(width) {
+        var rd = document.getElementById('rapidoc');
+        if (!rd) return;
+        var narrow = width < NAV_MIN_WIDTH;
+        if (narrow === rd.classList.contains('narrow')) return;   // kein Wechsel noetig
+        rd.classList.toggle('narrow', narrow);
+        rd.setAttribute('render-style', narrow ? 'view' : 'focused');
+    }
+    function rapidocWidth(rd) {
+        // Vor dem ersten Layout hat das Element noch keine Breite - dann naehern wir
+        // uns ueber den Viewport an; der ResizeObserver korrigiert exakt nach.
+        var w = rd.getBoundingClientRect().width;
+        return w > 0 ? w : document.documentElement.clientWidth;
+    }
+    function initRenderStyle() {
+        var rd = document.getElementById('rapidoc');
+        if (!rd) return;
+        applyRenderStyle(rapidocWidth(rd));   // sofort, ohne auf ein Rendering zu warten
+        if (window.ResizeObserver) {
+            // Misst das Element selbst - genau die Groesse, auf die sich RapiDocs
+            // Container-Query bezieht. Die Umschaltung aendert nur die Hoehe, loest
+            // also keine Rueckkopplung ueber die Breite aus.
+            new ResizeObserver(function (entries) {
+                var w = entries[0].contentRect.width;
+                if (w > 0) applyRenderStyle(w);
+            }).observe(rd);
+        }
+        // Zusaetzlich am Fenster: deckt Geraet drehen und Fenstergroesse aendern auch
+        // dann ab, wenn der ResizeObserver nicht zustellt. applyRenderStyle ist
+        // idempotent, doppelte Ausloeser schaden also nicht.
+        window.addEventListener('resize', function () { applyRenderStyle(rapidocWidth(rd)); });
+    }
     document.addEventListener('DOMContentLoaded', function () {
         initHeader();
         applyRapidocTheme();
+        initRenderStyle();
         // Auf Theme-/Akzentwechsel reagieren (data-Attribute am <html> beobachten)
         new MutationObserver(applyRapidocTheme).observe(document.documentElement, {
             attributes: true, attributeFilter: ['data-theme', 'data-accent']

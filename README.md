@@ -56,6 +56,12 @@ Danach WLAN einrichten: Das Gerät öffnet beim ersten Start den Access Point
 `TWM_IsolationVariac` (WiFiManager). Dort das Heim-WLAN hinterlegen. Anschließend ist es
 unter `http://twm_variac.local/` erreichbar.
 
+> **Der Variac startet immer, auch ohne WLAN.** Seit V4.4.0 wird das Netz erst nach der
+> Hardware aufgebaut: Ein Verbindungsversuch, bei Misserfolg das Konfigurationsportal,
+> und wenn dort 10 Minuten nichts passiert, schaltet das Funkmodul ab. Das Gerät bleibt
+> voll bedienbar — nur ohne Web und API. Ein neuer Verbindungsversuch braucht einen
+> Neustart.
+
 ### Updates über OTA (Standard)
 
 ```bash

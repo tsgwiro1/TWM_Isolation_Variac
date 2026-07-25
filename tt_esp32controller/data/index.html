@@ -68,7 +68,13 @@
                         <path id="g-track" fill="none" stroke="var(--track)" stroke-width="15" stroke-linecap="round"></path>
                         <path id="g-arc" fill="none" stroke="var(--accent)" stroke-width="15" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100" style="transition:stroke-dasharray .4s ease-out;"></path>
                         <g id="g-ticks"></g>
-                        <line id="g-needle" x1="120" y1="120" x2="120" y2="42" stroke="var(--warn)" stroke-width="3.5" stroke-linecap="round" transform="rotate(225 120 120)" style="transition:transform .4s ease-out;"></line>
+                        <!-- GitHub-#24: KEINE CSS-Transition auf diesem Element. Die Bewegung rechnet
+                             script.js selbst (animateNeedle) und setzt jeden Zwischenschritt als fertiges
+                             rotate(a 120 120). Grund: Wie Browser eine Drehung interpolieren, ist
+                             uneinheitlich - Blink liess den Drehpunkt wandern, WebKit legte
+                             transform-origin/transform-box anders aus. Statische Werte stellen beide
+                             identisch dar. -->
+                        <line id="g-needle" x1="120" y1="120" x2="120" y2="42" stroke="var(--warn)" stroke-width="3.5" stroke-linecap="round" transform="rotate(225 120 120)"></line>
                         <circle cx="120" cy="120" r="9" fill="var(--panel)" stroke="var(--line2)" stroke-width="3"></circle>
                     </svg>
                     <div style="position:absolute; left:0; right:0; bottom:6px; text-align:center;">

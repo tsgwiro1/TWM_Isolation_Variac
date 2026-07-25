@@ -92,16 +92,40 @@ void setup() {
   xTaskCreatePinnedToCore(
       statusLedTask,      // Task-Funktion
       "StatusLED",        // Name
-      1024,               // Kleiner Stack ist ausreichend
+      2048,               // GitHub-#14: von 1024 erhöht — auf Core 0 laufen ISRs (WLAN etc.)
+                          // auf dem Stack des aktiven Tasks; 1024 war dafür knapp.
       NULL,               // Parameter
       1,                  // Niedrige Priorität
-      NULL,               // Kein Handle nötig
+      &h_statusLedTask,   // GitHub-#14: Handle für die Stack-Überwachung in loop()
       0);                 // Auf Core 0 pinnen
 
-    uint32_t ser_start = millis();
+    // GitHub-#14: Die frühere `while (!Serial && ...)`-Schleife entfernt. Sie war
+    // wirkungslos (Bedingung invertiert, wartete nie) und dürfte es auch bleiben:
+    // `Serial` ist die USB-CDC-Konsole, die im Standalone-Betrieb (kein USB-Kabel) nie
+    // verbindet — ein echtes Warten würde jeden Boot um den vollen Timeout verzögern
+    // (Gegenteil von GitHub-#13). Das Gerät ist headless und loggt in RAM/Datei/WebSocket.
     Serial.begin(115200);
-    while (!Serial && ser_start + 5000 < millis());
     logMessage(LOG_INFO, "SYSTEM: Starting system...");
+
+  // Grund des letzten Neustarts protokollieren (GitHub-#26). Macht im Log auf Anhieb
+  // unterscheidbar, ob ein geordneter Reset vorlag (OTA, /api/reboot) oder ein Absturz
+  // (Panic/Watchdog) — sonst sieht man nur, dass das Gerät neu gestartet ist.
+  {
+    const char* why;
+    switch (esp_reset_reason()) {
+      case ESP_RST_POWERON:  why = "power-on";                break;
+      case ESP_RST_SW:       why = "software restart";        break;
+      case ESP_RST_PANIC:    why = "PANIC (crash)";           break;
+      case ESP_RST_INT_WDT:  why = "interrupt watchdog";      break;
+      case ESP_RST_TASK_WDT: why = "task watchdog";           break;
+      case ESP_RST_WDT:      why = "other watchdog";          break;
+      case ESP_RST_BROWNOUT: why = "brownout (supply)";       break;
+      case ESP_RST_EXT:      why = "external reset pin";      break;
+      case ESP_RST_DEEPSLEEP: why = "deep-sleep wakeup";      break;
+      default:               why = "unknown";                 break;
+    }
+    logMessage(LOG_INFO, "SYSTEM: Last reset reason: %s", why);
+  }
 
   // Initialisiere die zweite serielle Schnittstelle (USART1 auf PA9/PA10)
   Serial1.begin(115200, SERIAL_8N1, PIN_RX, PIN_TX);
@@ -372,30 +396,65 @@ static void networkTask(void *parameter) {
 
   ArduinoOTA
     .onStart([]() {
-      String type;
+      // GitHub-#26: Ab hier ist der Variac gesperrt — Ausgang aus, Regelung aus, laufende
+      // Bewegung ausgebremst, keine Eingaben mehr (Tasten/Encoder via userInputTask,
+      // Webseite/API via controlsLocked() im Webserver).
+      otaIsFilesystem = (ArduinoOTA.getCommand() != U_FLASH);
+      otaProgress = 0;
+      otaActive = true;
       currentSystemState = STATE_OTA_UPDATE; // Zustand auf OTA-Update setzen
-      if (ArduinoOTA.getCommand() == U_FLASH)
-        type = "sketch";
-      else // U_SPIFFS
-        type = "filesystem";
-      logMessage(LOG_INFO, "OTA: Start updating %s", type.c_str());
+      stopWiperMove();   // nur stepperMux — aus jedem Kontext zulässig
+      // Sicherer Grundzustand: Ausgang aus, Strombegrenzung ein, Regelung aus, Preset- und
+      // x10-LEDs aus (Wire/MCP ist thread-safe, wie beim Voltmeter-Update).
+      forceSafeState();
+      logMessage(LOG_WARN, "OTA: Start updating %s - Variac locked, output OFF",
+                 otaIsFilesystem ? "filesystem" : "sketch");
     })
     .onEnd([]() {
+      // Kein Entsperren: ArduinoOTA startet das Gerät nach dem Update selbst neu.
+      otaProgress = 100;
       currentSystemState = STATE_NORMAL_OPERATION; // Zurück zum Normalbetrieb
       logMessage(LOG_INFO, "OTA: Update finished - Rebooting");
       ws.closeAll();
     })
     .onProgress([](unsigned int progress, unsigned int total) {
-      logMessage(LOG_INFO, "OTA: Progress: %u%%\r", (progress / (total / 100)));
+      // GitHub-#23: nur alle 25 % eine Meldung (0/25/50/75/100). Vorher feuerte der
+      // Callback pro Chunk (bei 10-MB-Filesystem Hunderte Male) und flutete die Queue.
+      // Division abgesichert (total kann klein sein).
+      static int lastStep = -1;
+      int pct = (total > 0) ? (int)((uint64_t)progress * 100 / total) : 0;
+      otaProgress = pct;     // GitHub-#26: feine Auflösung für den TFT-Screen
+      int step = pct / 25;   // 0..4
+      if (step != lastStep) {
+        lastStep = step;
+        logMessage(LOG_INFO, "OTA: Progress: %d%%", step * 25);
+      }
     })
     .onError([](ota_error_t error) {
+      // GitHub-#26: Auch ein Abbruch endet im Neustart — so ist der Zustand nach einem
+      // OTA immer definiert (Ausgang aus, Regelung aus, Schleifer neu referenziert).
+      // Die Sperre bleibt bis zum Reset aktiv, damit in diesem Fenster niemand mehr
+      // etwas schalten kann.
       currentSystemState = STATE_ERROR; // Fehlerzustand bei OTA-Problem
-      logMessage(LOG_ERROR, "OTA: Error[%u]: ", error);
-      if (error == OTA_AUTH_ERROR) logMessage(LOG_ERROR, "OTA: Auth failed");
-      else if (error == OTA_BEGIN_ERROR) logMessage(LOG_ERROR, "OTA: Begin failed");
-      else if (error == OTA_CONNECT_ERROR) logMessage(LOG_ERROR, "OTA: Connect failed");
-      else if (error == OTA_RECEIVE_ERROR) logMessage(LOG_ERROR, "OTA: Receive failed");
-      else if (error == OTA_END_ERROR) logMessage(LOG_ERROR, "OTA: End failed");
+      const char* reason = "unknown";
+      if (error == OTA_AUTH_ERROR)         reason = "auth failed";
+      else if (error == OTA_BEGIN_ERROR)   reason = "begin failed";
+      else if (error == OTA_CONNECT_ERROR) reason = "connect failed";
+      else if (error == OTA_RECEIVE_ERROR) reason = "receive failed";
+      else if (error == OTA_END_ERROR)     reason = "end failed";
+      logMessage(LOG_ERROR, "OTA: FAILED - %s (error %u) - rebooting", reason, error);
+      if (otaIsFilesystem) {
+        logMessage(LOG_ERROR, "OTA: Filesystem may be incomplete - repeat the upload");
+      }
+      // Die Meldungen müssen den Reset überleben. Reine Wartezeit plus logFlushToFile()
+      // genügt dafür nicht: Kommt der Reset, bevor LittleFS seine Metadaten
+      // durchgeschrieben hat, wächst die Datei nur — der Inhalt bleibt gelöschtes Flash
+      // (0xFF). Deshalb das Dateisystem vor dem Reset ausdrücklich schliessen.
+      delay(500);          // Logger-Task: Queue leeren (ERROR flusht selbst in die Datei)
+      logFlushToFile();    // Reste des Sammelpuffers sichern
+      LittleFS.end();      // Unmount = alles committet
+      delay(50);
+      ESP.restart();
     });
 
   ArduinoOTA.begin();
@@ -441,7 +500,8 @@ void loop() {
         h_sensorAndFanTask,
         h_communicationTask,
         h_stepperTask,
-        h_loggerTask
+        h_loggerTask,
+        h_statusLedTask     // GitHub-#14: jetzt mitüberwacht
     };
 
     for (TaskHandle_t taskHandle : tasksToCheck) {

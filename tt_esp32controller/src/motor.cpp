@@ -157,6 +157,24 @@ void setWiperMove(int value, bool relative) {
 }
 
 /**
+ * @brief Bremst eine laufende Bewegung aus und übernimmt die Auslaufposition als Sollwert
+ *        (GitHub-#26: vor dem Start eines OTA-Updates).
+ * stepper.stop() setzt ein neues Ziel gemäss aktueller Geschwindigkeit/Beschleunigung — die
+ * Bewegung endet also ohne Schrittverlust. wiperPos wird nachgezogen, damit der Schleifer
+ * nach einer Freigabe (abgebrochenes OTA) nicht doch noch zum alten Ziel weiterfährt.
+ */
+void stopWiperMove() {
+    // Während des Homings fährt homing() exklusiv mit runSpeed() — dort würde stop() nur
+    // wiperPos verfälschen, ohne die Fahrt zu beenden (GitHub-#3-Pause respektieren).
+    if (isHomingActive()) return;
+
+    portENTER_CRITICAL(&stepperMux);
+    stepper.stop();
+    wiperPos = (int)stepper.targetPosition();
+    portEXIT_CRITICAL(&stepperMux);
+}
+
+/**
  * @brief Liest die 4 Kalibrierwerte als konsistenten Satz (#5).
  * Schreiber (Web-Config, /api/calibration/save, Settings-Modus) schreiben unter demselben
  * calibMux — Leser sehen dadurch nie einen halb-aktualisierten Satz.

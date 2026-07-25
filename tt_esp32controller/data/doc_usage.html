@@ -73,6 +73,15 @@
             </li>
         </ul>
 
+        <h2>Anzeige am Gerät (TFT)</h2>
+        <p>Die Kopfzeile zeigt links den WLAN-Zustand, in der Mitte den Gerätenamen und rechts die Schleifer-Temperatur:</p>
+        <ul>
+            <li><strong>WLAN-Symbol:</strong> Volles Symbol = mit dem Heim-WLAN verbunden. Symbol mit Lupe = das Gerät hat den eigenen Konfigurations-Access-Point geöffnet. <em>Kein Symbol</em> = keine Verbindung, das Funkmodul ist abgeschaltet (Weboberfläche und API sind dann nicht erreichbar, der Variac selbst läuft normal weiter).</li>
+            <li><strong>Temperatur:</strong> Schleifer-Temperatur in ganzen Grad neben einem Thermometer-Symbol. Antwortet der Sensor nicht, steht dort <code>N/A</code>.</li>
+        </ul>
+        <p>Der Lüfter regelt selbsttätig mit: Unterhalb 30&nbsp;°C läuft er auf kleinster Stufe, danach steigt die Drehzahl mit der Temperatur an und erreicht bei 60&nbsp;°C das Maximum. Ab dieser Schwelle meldet das Gerät zusätzlich einen Temperaturalarm im Log; erst 5&nbsp;°C darunter wird die Entwarnung protokolliert. Fällt der Temperatursensor aus, läuft der Lüfter vorsorglich auf einer festen, hohen Stufe.</p>
+        <p>Darunter stehen Ist- und Soll-Spannung, die drei Presets sowie der Zustand von Ausgang und Strombegrenzung. Ganz unten steht die Firmware-Version. Beim Start und beim Wechsel in die Kalibrierung zeigt das Display „Homing…“, während der Schleifer seinen Nullpunkt sucht — dabei erscheint auch die IP-Adresse, sobald das WLAN steht.</p>
+
         <h2>Steuerung über das Webinterface</h2>
         <p>Das Webinterface bietet eine gespiegelte Bedienung der Hardware-Tasten sowie eine detaillierte Echtzeit-Ansicht:</p>
         <ul>
@@ -81,14 +90,33 @@
             <li>Die Buttons im Webinterface verhalten sich identisch zu einem kurzen Tastendruck am Gerät.</li>
         </ul>
 
+        <h2>Während eines Updates ist der Variac gesperrt</h2>
+        <p>Sobald ein Update läuft — Firmware oder Dateisystem über das Netzwerk (OTA) oder eine neue Voltmeter-Firmware —, bringt sich das Gerät selbst in einen sicheren Zustand:</p>
+        <ul>
+            <li><strong>Ausgang aus</strong> und Regelung abgeschaltet; eine laufende Schleifer-Bewegung wird kontrolliert ausgebremst.</li>
+            <li><strong>Keine Eingaben:</strong> Tasten und Drehregler sind gesperrt, und Webseite wie API weisen alle Befehle ab (Antwort <code>503</code>). Abfragen wie Status oder Log bleiben möglich.</li>
+            <li><strong>Das Display</strong> zeigt einen eigenen Bildschirm mit Fortschrittsbalken und dem Hinweis, das Gerät jetzt nicht auszuschalten.</li>
+        </ul>
+        <p>Ein OTA-Update endet <strong>immer mit einem Neustart</strong> — ob es durchgelaufen ist oder abgebrochen wurde (z.&nbsp;B. WLAN-Verlust). Damit ist der Zustand danach immer derselbe: Ausgang aus, Regelung aus, Schleifer neu referenziert. Ein Abbruch wird als Fehler ins Log geschrieben und bleibt dort auch nach dem Neustart lesbar; die Firmware selbst bleibt dabei unversehrt. Nach einem abgebrochenen <em>Dateisystem</em>-Update kann die Weboberfläche allerdings unvollständig sein, bis der Upload wiederholt wurde — der Log-Eintrag weist darauf hin.</p>
+
+        <h2>Live-Log und Logdatei</h2>
+        <p>Über das Listen-Symbol im Kopf des Webinterface öffnet sich das <strong>Live-Log</strong>. Es zeigt die Meldungen des Geräts in dem Moment, in dem sie entstehen; beim Öffnen kommen zusätzlich die letzten Meldungen aus dem Arbeitsspeicher, damit man nicht bei null anfängt.</p>
+        <ul>
+            <li><strong>Zeilenzähler (oben links):</strong> Zählt die Zeilen im geöffneten Fenster, nicht die Meldungen im Gerät. Das Fenster hält die letzten 1000 Zeilen; ältere fallen aus der Ansicht — in der Logdatei bleiben sie erhalten.</li>
+            <li><strong>Schaltfläche „Leeren“:</strong> Leert nur die Ansicht im Browser. Weder das Gerät noch die Logdatei werden angetastet; neue Meldungen laufen sofort weiter ein.</li>
+            <li><strong>Download:</strong> Liefert die vollständige Logdatei. Sie enthält <em>alle</em> Meldungen (Info, Warnung, Fehler) und übersteht auch einen Neustart — im Gegensatz zum Live-Log, das nur die laufende Sitzung zeigt.</li>
+        </ul>
+        <p>Die Datei fasst rund 5000 Zeilen; ist sie voll, wird sie zur Sicherungskopie und das Gerät beginnt eine neue. Der Download hängt beide zusammen und liefert so bis etwa 10&nbsp;000 Zeilen am Stück — Ältestes zuerst. Warnungen und Fehler schreibt das Gerät sofort weg (sie überleben damit auch einen Absturz), Info-Meldungen sammelt es und schreibt sie gebündelt; beim Download wird alles Ausstehende vorher gesichert, die Datei ist also immer aktuell.</p>
+        <p>Fallen in sehr kurzer Zeit außergewöhnlich viele Meldungen an, kann das Gerät einzelne verwerfen, statt den Betrieb zu bremsen. Das passiert im Normalbetrieb nicht; gezählt wird es still im Feld <code>log_dropped</code> von <code>/api/status</code> (dort steht normalerweise 0).</p>
+
         <h2>Status-LED Blinkcodes</h2>
         <p>Die LED auf dem Controller-Board dient als Diagnosewerkzeug und zeigt jederzeit den aktuellen Betriebs- oder Fehlerzustand an:</p>
         <ul>
             <li><strong>Einzelner Puls (Herzschlag):</strong> Kurzes Aufblitzen (0,1&nbsp;s an, 2,9&nbsp;s aus) — Normalbetrieb, alles fehlerfrei. Alle Tasks arbeiten wie vorgesehen.</li>
             <li><strong>Gleichmäßiges Blinken (0,5&nbsp;s an / 0,5&nbsp;s aus):</strong> Startphase — das Gerät initialisiert seine Hardware. Geht nach wenigen Sekunden in den Herzschlag über. Das WLAN wird erst danach im Hintergrund aufgebaut; die LED zeigt währenddessen bereits den Herzschlag.</li>
             <li><strong>Schneller Doppel-Blink, dann 1&nbsp;s Pause:</strong> Konfigurationsmodus — das WLAN wurde nicht gefunden oder das Passwort ist falsch. Das Gerät öffnet den eigenen Access Point <strong>&bdquo;TWM_IsolationVariac&ldquo;</strong>. <em>Aktion:</em> Mit Smartphone/PC mit diesem Netzwerk verbinden und im Portal die WLAN-Zugangsdaten eingeben. Bleibt die Eingabe 10&nbsp;Minuten aus, schließt das Portal, das Funkmodul wird abgeschaltet und die LED kehrt zum Herzschlag zurück: Der Variac bleibt voll bedienbar, aber ohne Weboberfläche und ohne API — für einen neuen Verbindungsversuch das Gerät neu starten.</li>
-            <li><strong>Sehr schnelles Blinken (0,15&nbsp;s):</strong> OTA-Update läuft — der Controller empfängt gerade Firmware oder Dateisystem über das Netzwerk. <em>KRITISCH: Gerät jetzt keinesfalls vom Strom trennen oder neustarten, sonst wird die Firmware beschädigt!</em></li>
-            <li><strong>SOS-Morsesignal (3&times; kurz, 3&times; lang, 3&times; kurz):</strong> Schwerwiegender Hardware- oder Initialisierungsfehler. Mögliche Ursachen: MCP23017 Port-Expander antwortet nicht auf dem I2C-Bus; LittleFS-Dateisystem nicht mountbar; TFT-Display/Mutex-Initialisierung fehlgeschlagen; OTA-Update fehlgeschlagen (Details im Live-Log).</li>
+            <li><strong>Sehr schnelles Blinken (0,15&nbsp;s):</strong> OTA-Update läuft — der Controller empfängt gerade Firmware oder Dateisystem über das Netzwerk. Das Display zeigt dabei den Fortschritt, der <strong>Ausgang wird ausgeschaltet</strong> und die Bedienung ist gesperrt (siehe unten). <em>KRITISCH: Gerät jetzt keinesfalls vom Strom trennen oder neustarten, sonst wird die Firmware beschädigt!</em></li>
+            <li><strong>SOS-Morsesignal (3&times; kurz, 3&times; lang, 3&times; kurz):</strong> Schwerwiegender Hardware- oder Initialisierungsfehler. Mögliche Ursachen: MCP23017 Port-Expander antwortet nicht auf dem I2C-Bus; LittleFS-Dateisystem nicht mountbar; TFT-Display/Mutex-Initialisierung fehlgeschlagen; OTA-Update fehlgeschlagen (Details im Live-Log). Nach einem OTA-Abbruch erscheint das Muster nur kurz — das Gerät startet dann bewusst neu.</li>
         </ul>
     </section>
 </div>

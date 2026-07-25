@@ -17,7 +17,17 @@
         el.textContent = text;
         el.className = 'status-line' + (ok ? ' ok' : '');
     }
-    function vmMsg(text) { $('vm-status-message').textContent = text; }
+    // GitHub-#22: Meldungen erscheinen im jeweiligen Voltmeter-Abschnitt, nicht mehr
+    // gesammelt am Panel-Ende (dort lagen sie meist ausserhalb des Sichtbereichs).
+    // region: 'status' | 'manual' | 'cal3' | 'device' | 'fw'
+    var VM_MSG = {
+        status: 'vm-msg-status', manual: 'vm-msg-manual', cal3: 'vm-msg-cal3',
+        device: 'vm-msg-device', fw: 'vm-msg-fw'
+    };
+    function vmMsg(region, text) {
+        var el = $(VM_MSG[region] || VM_MSG.status);
+        if (el) el.textContent = text;
+    }
 
     // ---------- Dirty-Markierung ----------
     function markDirty() {
@@ -56,6 +66,43 @@
                 markClean();
             })
             .catch(function () { statusMsg('Fehler beim Laden der Konfiguration.'); });
+    }
+
+    // GitHub-#15: Wird ein Preset am Gerät gespeichert, zeigten die Felder hier bis zum
+    // manuellen Neuladen den alten Wert. Die Preset-Felder werden deshalb aus zwei
+    // Quellen nachgeführt: dem Status-Stream (live, siehe connectPresetStream) und –
+    // als Fallback, falls der Stream getrennt ist – beim Zurückkehren auf den Tab.
+    // Beide Wege gelten nur bei sauberem Formular und nie für das gerade bearbeitete
+    // Feld, damit laufende Eingaben nicht überschrieben werden.
+    function applyPresets(presets) {
+        if (!presets || dirty) return;
+        var active = document.activeElement;
+        ['p1', 'p2', 'p3'].forEach(function (k) {
+            var el = $(k);
+            // != (lose): el.value ist String, presets[k] Zahl – kein Schreiben bei Gleichheit
+            if (el && el !== active && presets[k] != null && el.value != presets[k]) {
+                el.value = presets[k];
+            }
+        });
+    }
+
+    function refreshPresetsIfClean() {
+        if (dirty) return;
+        fetch('/api/config').then(function (r) { return r.json(); })
+            .then(function (data) { applyPresets(data.presets); })
+            .catch(function () { /* stiller Abgleich – kein Fehler nötig */ });
+    }
+
+    // Live-Preset-Aktualisierung über denselben Status-Stream wie das Dashboard (#15).
+    // Nur zum Nachführen der Preset-Felder; bei Trennung nach 3 s neu verbinden.
+    var presetWs = null;
+    function connectPresetStream() {
+        try { presetWs = new WebSocket('ws://' + location.host + '/ws_status'); }
+        catch (e) { return; }
+        presetWs.onmessage = function (ev) {
+            try { applyPresets(JSON.parse(ev.data).presets); } catch (e) { /* ignorieren */ }
+        };
+        presetWs.onclose = function () { setTimeout(connectPresetStream, 3000); };
     }
 
     function buildConfig() {
@@ -129,35 +176,44 @@
     }
 
     // ---------- Voltmeter ----------
+    // GitHub-#19: Fehler nicht mehr stillschweigend schlucken. Ist der Link zum
+    // Voltmeter tot (falsche FW, Kabel, Timeout), blieben Version/Faktor/Offset
+    // kommentarlos auf „–" — das Panel wirkte reaktionslos. Jetzt wird der Fehlerfall
+    // im Status-Abschnitt gemeldet.
+    var VM_LINK_ERR = 'Voltmeter antwortet nicht – Link prüfen.';
     function loadVoltmeterStatus() {
         fetch('/api/voltmeter/version').then(function (r) { return r.json(); })
             .then(function (d) {
                 if (d.version) {
                     $('vm-version').textContent = d.version;
                     $('vm-version2').textContent = d.version;
+                } else {
+                    vmMsg('status', VM_LINK_ERR);
                 }
             })
-            .catch(function () {});
+            .catch(function () { vmMsg('status', VM_LINK_ERR); });
         fetch('/api/voltmeter/status').then(function (r) { return r.json(); })
             .then(function (d) {
                 if (d.status === 'success') {
                     $('vm-factor').textContent = d.scaling_factor.toFixed(3);
                     $('vm-voffset').textContent = d.voltage_offset.toFixed(2);
                     $('vm-adczero').textContent = d.adc_zero_offset.toFixed(1);
+                } else {
+                    vmMsg('status', d.message || VM_LINK_ERR);
                 }
             })
-            .catch(function () {});
+            .catch(function () { vmMsg('status', VM_LINK_ERR); });
     }
 
-    function vmSimple(path, msg, reloadDelayMs) {
-        vmMsg(msg);
+    function vmSimple(region, path, msg, reloadDelayMs) {
+        vmMsg(region, msg);
         apiPost(path)
             .then(function (d) {
-                vmMsg(d.message || d.status);
+                vmMsg(region, d.message || d.status);
                 if (reloadDelayMs) setTimeout(loadVoltmeterStatus, reloadDelayMs);
                 else loadVoltmeterStatus();
             })
-            .catch(function () { vmMsg('Kommunikationsfehler.'); });
+            .catch(function () { vmMsg(region, 'Kommunikationsfehler.'); });
     }
 
     // ---------- Firmware-Update (2 Schritte) ----------
@@ -196,7 +252,7 @@
         fetch('/api/voltmeter/update/status').then(function (r) { return r.json(); })
             .then(function (d) {
                 $('vm-fw-progress').textContent = (d.progress || 0) + ' %';
-                vmMsg(d.message || '');
+                vmMsg('fw', d.message || '');
                 if (d.state === 'running') {
                     fwPollTimer = setTimeout(pollUpdateStatus, 700);
                 } else {
@@ -209,10 +265,10 @@
 
     function uploadFw() {
         var input = $('vm-fw-file');
-        if (!input.files || input.files.length === 0) { vmMsg('Bitte zuerst eine .bin-Datei wählen.'); return; }
+        if (!input.files || input.files.length === 0) { vmMsg('fw', 'Bitte zuerst eine .bin-Datei wählen.'); return; }
         var fd = new FormData();
         fd.append('firmware', input.files[0]);
-        vmMsg('Lade hoch …');
+        vmMsg('fw', 'Lade hoch …');
         // XMLHttpRequest statt fetch, damit wir den Upload-Fortschritt anzeigen können.
         var xhr = new XMLHttpRequest();
         xhr.open('POST', '/api/voltmeter/update/upload');
@@ -226,13 +282,13 @@
                 var m = 'Upload abgeschlossen.';
                 try { m = JSON.parse(xhr.responseText).message || m; } catch (e) {}
                 $('vm-fw-progress').textContent = 'Upload 100 %';
-                vmMsg(m);
+                vmMsg('fw', m);
                 loadFwFileVersion();
             } else {
-                vmMsg('Upload fehlgeschlagen (HTTP ' + xhr.status + ').');
+                vmMsg('fw', 'Upload fehlgeschlagen (HTTP ' + xhr.status + ').');
             }
         });
-        xhr.addEventListener('error', function () { vmMsg('Upload fehlgeschlagen.'); });
+        xhr.addEventListener('error', function () { vmMsg('fw', 'Upload fehlgeschlagen.'); });
         xhr.send(fd);
     }
 
@@ -252,13 +308,13 @@
                     ok = confirm('Flashen' + (running && running !== '–' ? ' von ' + running : '') + ' auf ' + fileV + '? Nur am offenen Gerät (ST-Link als Rettung).');
                 }
                 if (!ok) return;
-                vmMsg('Starte Update …');
+                vmMsg('fw', 'Starte Update …');
                 apiPost('/api/voltmeter/update/start')
                     .then(function (d) {
-                        vmMsg(d.message || d.status);
+                        vmMsg('fw', d.message || d.status);
                         if (!fwPollTimer) pollUpdateStatus();
                     })
-                    .catch(function () { vmMsg('Start fehlgeschlagen.'); });
+                    .catch(function () { vmMsg('fw', 'Start fehlgeschlagen.'); });
             });
     }
 
@@ -291,31 +347,36 @@
 
         // Voltmeter-Panel
         $('vm-refresh').addEventListener('click', function () {
-            vmMsg('Aktualisiere …');
+            vmMsg('status', 'Aktualisiere …');
             loadVoltmeterStatus();
-            setTimeout(function () { vmMsg(''); }, 1500);
+            // GitHub-#19: Platzhalter nur wegräumen, wenn loadVoltmeterStatus KEINE
+            // Fehlermeldung gesetzt hat (die stünde sonst noch da und würde gelöscht).
+            setTimeout(function () {
+                var el = $('vm-msg-status');
+                if (el && el.textContent === 'Aktualisiere …') el.textContent = '';
+            }, 1500);
         });
         $('vm-set-factor').addEventListener('click', function () {
             var v = $('vm-new-factor').value;
-            if (v === '' || isNaN(v)) { vmMsg('Bitte gültigen Faktor eingeben.'); return; }
-            vmSimple('/api/voltmeter/factor?value=' + encodeURIComponent(v), 'Setze Faktor …');
+            if (v === '' || isNaN(v)) { vmMsg('manual', 'Bitte gültigen Faktor eingeben.'); return; }
+            vmSimple('manual', '/api/voltmeter/factor?value=' + encodeURIComponent(v), 'Setze Faktor …');
         });
         $('vm-set-offset').addEventListener('click', function () {
             var v = $('vm-new-offset').value;
-            if (v === '' || isNaN(v)) { vmMsg('Bitte gültigen Offset eingeben.'); return; }
-            vmSimple('/api/voltmeter/offset?value=' + encodeURIComponent(v), 'Setze Offset …');
+            if (v === '' || isNaN(v)) { vmMsg('manual', 'Bitte gültigen Offset eingeben.'); return; }
+            vmSimple('manual', '/api/voltmeter/offset?value=' + encodeURIComponent(v), 'Setze Offset …');
         });
         $('vm-autozero').addEventListener('click', function () {
             if (!confirm('Auto-Zero-Kalibrierung starten? Dauert einige Sekunden.')) return;
-            vmSimple('/api/voltmeter/autozero', 'Auto-Zero läuft …', 8000);
+            vmSimple('manual', '/api/voltmeter/autozero', 'Auto-Zero läuft …', 8000);
         });
         $('vm-reboot').addEventListener('click', function () {
             if (!confirm('Voltmeter neu starten?')) return;
-            vmSimple('/api/voltmeter/reboot', 'Voltmeter startet neu …', 8000);
+            vmSimple('device', '/api/voltmeter/reboot', 'Voltmeter startet neu …', 8000);
         });
         $('vm-reset-defaults').addEventListener('click', function () {
             if (!confirm('Voltmeter-Kalibrierung auf Werkseinstellungen zurücksetzen?')) return;
-            vmSimple('/api/voltmeter/reset-defaults', 'Setze zurück …');
+            vmSimple('device', '/api/voltmeter/reset-defaults', 'Setze zurück …');
         });
 
         // 3-Punkt-Kalibrierung
@@ -324,27 +385,27 @@
                 var idx = btn.getAttribute('data-index');
                 var n = parseInt(idx, 10) + 1;
                 var v = $('cal3-v' + idx).value;
-                if (v === '' || isNaN(v)) { vmMsg('Bitte Referenzspannung für Punkt ' + n + ' eingeben.'); return; }
-                vmMsg('Messe Punkt ' + n + ' … (~2 s)');
+                if (v === '' || isNaN(v)) { vmMsg('cal3', 'Bitte Referenzspannung für Punkt ' + n + ' eingeben.'); return; }
+                vmMsg('cal3', 'Messe Punkt ' + n + ' … (~2 s)');
                 apiPost('/api/voltmeter/cal3/measure?index=' + idx + '&voltage=' + encodeURIComponent(v))
                     .then(function (d) {
-                        vmMsg(d.status === 'success' ? ('Punkt ' + n + ' gemessen.') : ('Fehler: ' + (d.message || '')));
+                        vmMsg('cal3', d.status === 'success' ? ('Punkt ' + n + ' gemessen.') : ('Fehler: ' + (d.message || '')));
                     })
-                    .catch(function () { vmMsg('Kommunikationsfehler.'); });
+                    .catch(function () { vmMsg('cal3', 'Kommunikationsfehler.'); });
             });
         });
         $('cal3-finish').addEventListener('click', function () {
-            vmMsg('Berechne Kalibrierung …');
+            vmMsg('cal3', 'Berechne Kalibrierung …');
             apiPost('/api/voltmeter/cal3/finish')
                 .then(function (d) {
                     if (d.status === 'success') {
-                        vmMsg('Kalibriert: Faktor ' + d.scaling_factor.toFixed(3) + ', Offset ' + d.voltage_offset.toFixed(2) + ' V');
+                        vmMsg('cal3', 'Kalibriert: Faktor ' + d.scaling_factor.toFixed(3) + ', Offset ' + d.voltage_offset.toFixed(2) + ' V');
                         loadVoltmeterStatus();
                     } else {
-                        vmMsg('Fehler: ' + (d.message || ''));
+                        vmMsg('cal3', 'Fehler: ' + (d.message || ''));
                     }
                 })
-                .catch(function () { vmMsg('Kommunikationsfehler.'); });
+                .catch(function () { vmMsg('cal3', 'Kommunikationsfehler.'); });
         });
 
         // Firmware-Update
@@ -356,6 +417,14 @@
         });
         $('vm-fw-upload').addEventListener('click', uploadFw);
         $('vm-fw-start').addEventListener('click', startUpdate);
+
+        // #15: Preset-Felder live über den Status-Stream nachführen; zusätzlich beim
+        // Zurückkehren auf den Tab abgleichen (Fallback, falls der Stream getrennt war).
+        connectPresetStream();
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) refreshPresetsIfClean();
+        });
+        window.addEventListener('focus', refreshPresetsIfClean);
 
         // Daten laden
         loadSettings();

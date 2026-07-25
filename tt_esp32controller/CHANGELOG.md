@@ -6,6 +6,203 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
+## [V4.7.0] – 2026-07-25
+
+### Neu
+- **Variac ist während eines Updates gesperrt** (GitHub-#26): Läuft ein OTA-Update
+  (Firmware oder Filesystem), schaltet das Gerät den Ausgang aus, beendet die Regelung,
+  bremst eine laufende Schleifer-Bewegung aus und nimmt keine Eingaben mehr an — weder über
+  Tasten/Encoder noch über Webseite oder API. Vorher lief während des Updates alles
+  unverändert weiter: Der Ausgang blieb unter Spannung, und selbst ein `POST /api/reboot`
+  oder ein Dateilöschen mitten im Filesystem-Upload wurde ausgeführt.
+- **Eigener TFT-Screen während des Updates** (GitHub-#26): Fortschrittsbalken mit Prozentwert,
+  Kennzeichnung Firmware/Filesystem und der Hinweis, das Gerät jetzt nicht auszuschalten —
+  aufgebaut wie der Screen des Voltmeter-Updates (#32).
+- **Definierter Grundzustand beim Sperren** (GitHub-#26): Neu `forceSafeState()` in
+  `actions.cpp` — Ausgang AUS, Strombegrenzung EIN, Regelung AUS, Preset-LEDs P1–P3 AUS,
+  Encoder zurück auf Feinstufe x1 (LED aus, `encSpeed`). Aufgerufen beim OTA-Start und beim
+  Voltmeter-Firmware-Update, beide Fälle stellen damit denselben Stand her. Vorher blieben
+  REG-, Preset- und x10-LED an, obwohl intern nichts mehr regelte — Anzeige und Zustand
+  liefen auseinander.
+
+- **OTA endet immer mit einem Neustart** (GitHub-#26): Auch ein Abbruch (WLAN-Verlust,
+  Auth-/Receive-Fehler) führt jetzt zum Reset — vorher lief das Gerät mit dauerhaft
+  SOS-blinkender LED weiter. Damit ist der Zustand nach jedem OTA derselbe: Ausgang aus,
+  Regelung aus, Schleifer neu referenziert. Der Fehler wird vorher als `ERROR` protokolliert
+  und in die Logdatei gesichert, ist also nach dem Neustart noch lesbar. Bei einem
+  abgebrochenen Filesystem-Upload steht zusätzlich der Hinweis im Log, dass das
+  Dateisystem unvollständig sein kann.
+  Wichtig dabei: Wartezeit plus `logFlushToFile()` genügen **nicht** — im ersten Versuch
+  kam der Reset, bevor LittleFS seine Metadaten durchgeschrieben hatte. Die Datei war dann
+  1192 Bytes gross, enthielt aber nur gelöschtes Flash (`0xFF`) statt der Meldungen. Vor
+  dem Reset wird das Dateisystem deshalb mit `LittleFS.end()` ausdrücklich geschlossen.
+- **`POST /api/reboot` sichert das Log vor dem Neustart** (GitHub-#26): gleiche Ursache wie
+  oben — vor `ESP.restart()` laufen jetzt `logFlushToFile()` und `LittleFS.end()`, die
+  Verzögerung ist von 200 auf 500 ms erhöht.
+- **`GET /api/log` filtert `0xFF`-Bytes heraus** (GitHub-#26): Nach einem harten Reset
+  (Stromausfall mitten im Schreiben) kann die Logdatei Bereiche mit gelöschtem Flash
+  enthalten; die landeten bisher als Müll im Download — in einem Fall 1192 Bytes vor der
+  ersten Zeile. `0xFF` kommt in gültigem Text nicht vor. Der Streaming-Callback liest
+  notfalls nach, damit ein reiner Füllbyte-Block die Übertragung nicht abschneidet.
+- **Grund des letzten Neustarts wird beim Booten protokolliert** (`esp_reset_reason()`):
+  „software restart" (OTA, `/api/reboot`), „PANIC (crash)", „task watchdog", „brownout"
+  usw. Vorher war im Log nur zu sehen, *dass* das Gerät neu gestartet ist — nicht, ob
+  geordnet oder nach einem Absturz.
+
+### Behoben
+- **Sperre beim Voltmeter-Firmware-Update galt nicht für Web und API** (GitHub-#26): Am Gerät
+  war die Bedienung gesperrt und das Display zeigte „Variac gesperrt", über die Weboberfläche
+  liess sich der Ausgang trotzdem schalten. Beide Fälle laufen jetzt über dieselbe Sperre
+  (`controlsLocked()`), die auch der Webserver auswertet.
+
+### Technisch
+- Die OTA-Callbacks setzen nur Flags (`otaActive`, `otaProgress`, `otaIsFilesystem`); die
+  Sperre wird in den Tasks und im Webserver ausgewertet. Nötig, weil die Callbacks im
+  `loop()`-Kontext laufen und `loop()` während des Uploads blockiert — Relais und TFT
+  bleiben so in den Tasks, denen sie gehören.
+- Neu `stopWiperMove()` in `motor.cpp`: bremst über `stepper.stop()` (also ohne Schrittverlust)
+  und zieht `wiperPos` auf die Auslaufposition nach, damit nach einem abgebrochenen Update
+  nicht doch noch zum alten Ziel gefahren wird. Während des Homings wirkungslos, weil
+  `homing()` den Motor exklusiv fährt.
+
+### API (openapi.yaml 4.3.0 → 4.4.0)
+- Alle zustandsändernden Routen antworten mit `503` und
+  `{"status":"error","message":"Locked: update in progress"}`, solange ein OTA- oder
+  Voltmeter-Update läuft; lesende Routen bleiben erreichbar. Ausnahme:
+  `POST /api/voltmeter/update/start` antwortet für ein bereits laufendes Voltmeter-Update
+  weiterhin mit dem genaueren `409`.
+
+## [V4.6.1] – 2026-07-25
+
+### Behoben
+- **Zeiger der Spannungsanzeige dreht wieder um seine Nabe** (GitHub-#24): In Chrome und
+  Edge löste sich der Zeiger bei grösseren Sprüngen vom Drehpunkt, wanderte quer über das
+  Zifferblatt und rastete erst am Ende der Bewegung wieder ein (Safari war unauffällig).
+  Ursache war die CSS-Transition auf dem SVG-Attribut `transform="rotate(a 120 120)"`: Das
+  Drehzentrum steckt dort im animierten Wert, beim Interpolieren entsteht daraus ein
+  Translationsanteil, den Blink linear von Start- nach Endwert zieht — der Drehpunkt nimmt
+  die Sehne statt des Kreisbogens. Wie eine Drehung interpoliert wird, handhaben die Engines
+  aber generell unterschiedlich (der Zwischenschritt über `transform-origin` +
+  `transform-box:view-box` verschob den Zeiger dafür in WebKit). Die Bewegung rechnet
+  deshalb jetzt `script.js` selbst (`animateNeedle`, ~400 ms ease-out) und setzt jeden
+  Zwischenschritt als fertiges `rotate(a 120 120)` — eine statische Angabe, die alle Browser
+  gleich darstellen. Der Browser interpoliert nichts mehr.
+- **API-Doku zeigt auf schmalen Bildschirmen wieder alle Endpunkte** (GitHub-#25): Auf dem
+  iPhone war nur die Übersicht sichtbar. RapiDoc blendet seine Navigationsleiste per
+  Container-Query erst ab 768 px Elementbreite ein; im `render-style="focused"` rendert es
+  aber immer nur die angewählte Sektion, und die Navigation ist der einzige Weg zu den
+  Endpunkten. Unterhalb dieser Grenze wird jetzt auf `render-style="view"` umgeschaltet
+  (alle Tags und Endpunkte aufklappbar untereinander), und die Doku wächst mit dem Inhalt,
+  statt in einem eigenen Scrollkasten zu stecken. Ab 768 px bleibt alles wie bisher.
+  Kein Safari-Problem: Jedes Fenster unter 768 px zeigte denselben Effekt.
+
+### Geändert
+- **Höhe der API-Doku-Seite nutzt `100dvh`** (mit `100vh` als Rückfall) — auf Mobilgeräten
+  zählt damit der sichtbare Bereich ohne Browserleiste, wie schon beim Live-Log (#16).
+
+### Dokumentation
+- **Neuer Abschnitt „Live-Log und Logdatei"** in der Bedienungs-Doku: Die Umstellung aus
+  V4.6.0 (alle Level in der Datei, Rotation, verketteter Download, „Leeren" betrifft nur
+  die Ansicht, Zeilenzähler = Fensterinhalt) war bisher nur in der API-Spezifikation
+  beschrieben.
+- **Neuer Abschnitt „Anzeige am Gerät (TFT)"**: Kopfzeile mit WLAN-Symbol und Temperatur
+  (V4.5.0) sowie das Verhalten der Lüfterregelung.
+- **Korrektur:** Die Einstellungs-Doku behauptete, „Debug-Ausgaben aktivieren" schalte auch
+  das Live-Log. Die Option betrifft nur die serielle Ausgabe — Live-Log und Logdatei
+  bekommen die Meldungen immer.
+- README: Startverhalten ohne WLAN ergänzt (V4.4.0). REVIEW.md als Momentaufnahme vom
+  18.06.2026 gekennzeichnet. Paket-L-Plan und Paket-H-Plan auf den aktuellen Stand gebracht.
+
+## [V4.6.0] – 2026-07-23
+
+### Behoben
+- **Logdatei stimmt wieder mit dem Live-Log überein** (GitHub-#23): Die heruntergeladene
+  Datei bestand zu ~92 % aus „N Meldung(en) verworfen"-Zeilen und zeigte die echten
+  Ereignisse nicht mehr. Ursache war ein sich selbst verstärkender Zyklus: Bei voller
+  Queue erzeugte der Logger nach jedem Eintrag eine solche WARN-Meldung, die selbst in
+  den Flash geschrieben wurde und den Task weiter ausbremste. Diese Meldungen sind
+  entfernt; verworfene Einträge werden nur noch still gezählt (`log_dropped` in
+  `/api/status`).
+
+### Geändert
+- **Logdatei enthält jetzt alle Meldungen, nicht mehr nur WARN+** (GitHub-#23): Damit
+  entspricht die Datei dem Live-Log. Geschrieben wird gepuffert — WARN+ sofort (überlebt
+  einen Absturz), INFO gesammelt und alle 100 Zeilen bzw. beim Download in einem Rutsch.
+  Das war nötig, weil ein synchroner Flash-Write pro Meldung den Logger-Task ausbremst
+  (der eigentliche Auslöser des Queue-Überlaufs) — nicht wegen Flash-Verschleiss, der
+  bei diesen Datenmengen unkritisch ist.
+- **Log-Rotation nach Zeilenzahl** (GitHub-#23): Die aktuelle Datei rotiert bei 5000
+  Zeilen ins Backup (`system.log.old`); der Download hängt Backup und aktuelle Datei zu
+  einer zusammen (bis ~10 000 Zeilen). Vorher wurde nach 20 KB rotiert.
+- **OTA-Fortschritt loggt nur bei geänderter Prozentzahl** (GitHub-#23): Vorher feuerte
+  der Callback pro Chunk (bei einem 10-MB-Filesystem Hunderte Meldungen mit derselben
+  %-Zahl) und flutete die Log-Queue.
+- **Log-Queue von 24 auf 48 vergrössert** als Puffer für Bursts; durch das Batching
+  leert der Logger-Task ohnehin schnell.
+
+### API (openapi.yaml 4.2.0 → 4.3.0)
+- `GET /api/status`: neues Feld `log_dropped` (still gezählte verworfene Log-Meldungen,
+  im Normalbetrieb 0). Ausserdem `presets` nachdokumentiert — das Feld kam bereits mit
+  V4.5.4 (#15) dazu, fehlte aber in der Spezifikation.
+- `GET /api/log`: liefert jetzt Backup und aktuelle Datei verkettet aus; der Parameter
+  `old` entfällt dadurch (er war in Weboberfläche und Tools nicht in Gebrauch).
+
+## [V4.5.4] – 2026-07-23
+
+### Behoben
+- **Preset-Werte aktualisieren die Weboberfläche live** (GitHub-#15): Wurde ein Preset
+  am Gerät gespeichert, zeigten Dashboard und Einstellungsseite bis zum manuellen
+  Neuladen den alten Wert. Der 500-ms-Status-Push trägt die Preset-Werte jetzt mit
+  (`presets` in `/api/status`). Dashboard und Einstellungsseite folgen live über den
+  Status-Stream (`/ws_status`); die Einstellungsseite aktualisiert die Preset-Felder
+  nur bei sauberem Formular und nie das gerade bearbeitete Feld, damit laufende
+  Eingaben nicht überschrieben werden. Zusätzlich gleicht sie beim Zurückkehren auf
+  den Tab ab, falls der Stream zwischenzeitlich getrennt war.
+- **Voltmeter-Panel meldet Link-Fehler** (GitHub-#19): `loadVoltmeterStatus()` schluckte
+  Fehler stillschweigend; bei totem Link (falsche FW, Kabel, Timeout) blieben Version/
+  Faktor/Offset kommentarlos auf „–". Der Fehlerfall wird jetzt im Status-Abschnitt
+  gemeldet, und „Status aktualisieren" löscht eine Fehlermeldung nicht mehr nach fixen
+  1,5 s weg.
+- **Fly-out-Menüs bleiben im Bild** (GitHub-#17): Akzentfarbe-/Doku-Menü klappten immer
+  nach links auf und lagen auf schmalen Displays teils ausserhalb des Sichtbereichs
+  (gemessen: Start bei x = −118). Sie werden nach dem Öffnen in den sichtbaren Bereich
+  geschoben (8 px Rand).
+
+### Geändert
+- **Voltmeter-Meldungen erscheinen am Ort ihrer Aktion** (GitHub-#22): Status- und
+  Validierungsmeldungen standen gesammelt am Ende des Voltmeter-Panels — meist
+  ausserhalb des Sichtbereichs. Jeder Abschnitt (Status, Manuelle Kalibrierung,
+  3-Punkt, Gerät, Firmware-Update) hat jetzt seine eigene Meldungszeile, die nur bei
+  einer Meldung Platz einnimmt.
+
+## [V4.5.3] – 2026-07-23
+
+### Behoben
+- **`statusLedTask` gehärtet** (GitHub-#14): Stack von 1024 auf 2048 Byte erhöht und
+  ein Handle vergeben, damit der Task in der Stack-Überwachung in `loop()` mitläuft.
+  Auf Core 0 laufen Interrupts (WLAN u. a.) auf dem Stack des aktiven Tasks — 1024 Byte
+  waren dafür knapp, und ohne Handle fehlte jede Sichtbarkeit auf den realen Verbrauch.
+
+### Entfernt
+- **Wirkungslose Serial-Warteschleife** (GitHub-#14): `while (!Serial && ...)` in `setup()`
+  hatte eine invertierte Bedingung und wartete nie. Ersatzlos entfernt statt „repariert":
+  `Serial` ist die USB-CDC-Konsole, die im Standalone-Betrieb (kein USB-Kabel) nie
+  verbindet — ein echtes Warten würde jeden Boot um den vollen Timeout verzögern, das
+  Gegenteil des mit V4.4.0 (GitHub-#13) erreichten Sofortstarts. Das Gerät loggt ohnehin
+  in RAM-Historie, Datei und WebSocket, es geht nichts verloren.
+
+## [V4.5.2] – 2026-07-23
+
+### Behoben
+- **Überlagerte Anzeige beim Kalibrier-Einstieg über die API** (GitHub-#18): Während der
+  Homing-Referenzfahrt legte sich der Settings-Screen über den „Homing…"-Bildschirm.
+  Ursache war ein Zeitfenster: `currentMode` wechselte bereits auf `MODE_SETTINGS`,
+  während das bisherige Schutzflag erst in `homing()` selbst gesetzt wurde — dazwischen
+  sah der Display-Task einen Settings-Modus ohne laufendes Homing und zeichnete darüber.
+  Ein eigenes Anzeige-Flag (`homingScreenActive`) sperrt die Aktualisierung jetzt vom
+  Moduswechsel bis zum fertig aufgebauten Settings-Screen. Über die Taste am Gerät trat
+  der Fehler nicht auf, weil dort die RTOS-Tasks noch gar nicht laufen.
+
 ## [V4.5.1] – 2026-07-23
 
 ### Behoben

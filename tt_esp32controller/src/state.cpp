@@ -1,10 +1,12 @@
 // TWM Isolation Variac – Definitionen der geteilten Zustände (#10)
 // Copyright (c) 2025 Roger Widmer & Michael Tanner – MIT-Lizenz (siehe tt_esp32controller.ino)
 #include "state.h"
+#include "comm.h"   // vmUpdateState — Teil der Bedien-Sperre (GitHub-#26)
 
 volatile bool hardwareInitialized = false;
 volatile SystemMode currentMode = MODE_NORMAL; // Standardmässig im Normalbetrieb starten
 volatile bool requestEnterSettingsMode = false;
+volatile bool homingScreenActive = false;
 volatile SystemState currentSystemState = STATE_STARTING;
 
 volatile int wiperPos = 0;
@@ -37,5 +39,15 @@ TaskHandle_t h_communicationTask;
 TaskHandle_t h_stepperTask;
 TaskHandle_t h_voltmeterUpdateTask;
 TaskHandle_t h_loggerTask;
+TaskHandle_t h_statusLedTask;
 
 volatile bool otaReady = false;
+
+// GitHub-#26
+volatile bool otaActive = false;
+volatile int  otaProgress = 0;
+volatile bool otaIsFilesystem = false;
+
+bool controlsLocked() {
+  return otaActive || vmUpdateState != VMU_IDLE;
+}

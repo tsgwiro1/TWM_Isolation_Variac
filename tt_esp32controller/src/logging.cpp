@@ -6,30 +6,45 @@
 #include "state.h"
 #include "web.h"   // ws.textAll() – Live-Log an offene Browser
 
-#define MAX_LOG_SIZE 20480 // Maximale Grösse der Log-Datei in Bytes (z.B. 20 KB)
 static const char* logLevelStrings[] = { "INFO", "WARN", "ERROR" };
 volatile bool debugEnabled = true;
 
-// RAM-Puffer für die Log-Historie (ca. 4 KB)
+// RAM-Puffer für die Log-Historie (ca. 4 KB) — nur für den WS-Connect-Snapshot.
 static String logHistory = "";
 static const int MAX_LOG_HISTORY = 4096;
 
 // #4: Logging thread-safe — logMessage() formatiert nur noch und legt den Eintrag in eine
-// Queue; ein einzelner Logger-Task übernimmt Serial, RAM-Historie, WebSocket und Flash-Write.
+// Queue; ein einzelner Logger-Task übernimmt Serial, RAM-Historie, WebSocket und Flash.
 struct LogEntry {
   LogLevel level;
   char msg[300];                       // fertig formatierte Zeile inkl. Zeitstempel + '\n'
 };
 static QueueHandle_t     logQueue = NULL;
 static SemaphoreHandle_t logHistoryMutex = NULL;   // schützt logHistory (Logger-Task vs. WS-Connect)
-static volatile uint32_t logDroppedCount = 0;      // wegen voller Queue verworfene Meldungen
+static volatile uint32_t logDroppedCount = 0;      // seit Start verworfene Meldungen (Queue voll)
+
+// #23: Sammelpuffer für die Datei. INFO wird hier akkumuliert und gebündelt geschrieben;
+// WARN+ löst einen sofortigen Flush aus (schreibt vorher die gepufferten INFO -> Reihenfolge
+// bleibt chronologisch). logFileMutex schützt Puffer + Datei (Logger-Task vs. Download-Handler).
+#define FILE_BUFFER_SIZE      8192
+#define FLUSH_LINE_THRESHOLD  100
+static char   fileBuffer[FILE_BUFFER_SIZE];
+static size_t fileBufferLen = 0;
+static uint16_t fileBufferLines = 0;
+static uint32_t currentFileLines = 0;              // Zeilen in LOG_FILE (für Rotation)
+static bool   lineCountKnown = false;              // beim ersten Flush aus der Datei ermittelt
+static SemaphoreHandle_t logFileMutex = NULL;
 
 static void processLogEntry(const LogEntry& entry);
 static void loggerTask(void *parameter);
+static void flushFileBuffer();                     // Aufrufer hält logFileMutex
 
 void loggingInit() {
-  logQueue = xQueueCreate(24, sizeof(LogEntry));
+  // #23: Queue von 24 auf 48 vergrössert. Durch das Batching (WARN+ sofort, INFO gebündelt)
+  // leert der Logger-Task schnell, ein Überlauf wird damit sehr selten.
+  logQueue = xQueueCreate(48, sizeof(LogEntry));
   logHistoryMutex = xSemaphoreCreateMutex();
+  logFileMutex = xSemaphoreCreateMutex();
   xTaskCreatePinnedToCore(
       loggerTask,         // Task-Funktion
       "Logger",           // Name
@@ -38,6 +53,75 @@ void loggingInit() {
       1,                  // Niedrige Priorität
       &h_loggerTask,      // Handle (Stack-Überwachung)
       0);                 // Auf Core 0 pinnen
+}
+
+uint32_t logDroppedTotal() { return logDroppedCount; }
+
+// Zählt die Zeilen ('\n') einer Datei — einmalig beim ersten Flush, um currentFileLines
+// nach einem Neustart korrekt weiterzuführen (LittleFS ist in setup() erst spät gemountet).
+static uint32_t countFileLines(const char* path) {
+  File f = LittleFS.open(path, FILE_READ);
+  if (!f) return 0;
+  uint32_t n = 0;
+  uint8_t buf[512];
+  while (f.available()) {
+    int r = f.read(buf, sizeof(buf));
+    for (int i = 0; i < r; i++) if (buf[i] == '\n') n++;
+  }
+  f.close();
+  return n;
+}
+
+// Hängt eine fertig formatierte Zeile an den Sammelpuffer; läuft der Puffer voll, vorher
+// flushen. Aufrufer hält logFileMutex.
+static void appendFileLine(const char* line) {
+  size_t len = strlen(line);
+  if (len >= FILE_BUFFER_SIZE) return;                        // Sicherheitsnetz (kommt nicht vor)
+  if (fileBufferLen + len >= FILE_BUFFER_SIZE) flushFileBuffer();
+  if (fileBufferLen + len >= FILE_BUFFER_SIZE) return;        // Flush brachte keinen Platz (FS nicht bereit) -> Zeile verwerfen
+  memcpy(fileBuffer + fileBufferLen, line, len);
+  fileBufferLen += len;
+  fileBufferLines++;
+}
+
+// Schreibt den Sammelpuffer in einem Rutsch in die Datei und rotiert nach Zeilenzahl.
+// Aufrufer hält logFileMutex. Der Puffer wird NUR bei erfolgreichem Schreiben geleert —
+// so überleben Zeilen, die vor dem LittleFS-Mount anfallen, bis zum ersten echten Flush.
+static void flushFileBuffer() {
+  if (fileBufferLen == 0) return;
+
+  File f = LittleFS.open(LOG_FILE, FILE_APPEND);
+  if (!f) return;                          // FS noch nicht bereit -> Puffer behalten, später erneut
+
+  // Zeilen der bestehenden Datei einmalig zählen (nach Neustart korrekt weiterführen).
+  // Dazu den Append-Handle kurz schliessen — kein paralleler Lese-/Schreibzugriff.
+  if (!lineCountKnown) {
+    f.close();
+    currentFileLines = countFileLines(LOG_FILE);
+    lineCountKnown = true;
+    f = LittleFS.open(LOG_FILE, FILE_APPEND);
+    if (!f) return;                        // nach erfolgreichem Open unerwartet -> Puffer behalten
+  }
+
+  f.write((const uint8_t*)fileBuffer, fileBufferLen);
+  f.close();
+  currentFileLines += fileBufferLines;
+  fileBufferLen = 0;
+  fileBufferLines = 0;
+
+  // Rotation: aktuelle Datei voll -> altes Backup weg, aktuelle wird zum Backup, neu anfangen.
+  if (currentFileLines >= MAX_LOG_LINES) {
+    if (LittleFS.exists(LOG_FILE_OLD)) LittleFS.remove(LOG_FILE_OLD);
+    LittleFS.rename(LOG_FILE, LOG_FILE_OLD);
+    currentFileLines = 0;
+  }
+}
+
+void logFlushToFile() {
+  if (logFileMutex != NULL && xSemaphoreTake(logFileMutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+    flushFileBuffer();
+    xSemaphoreGive(logFileMutex);
+  }
 }
 
 String logHistorySnapshot() {
@@ -80,8 +164,11 @@ void logMessage(LogLevel level, const char* format, ...) {
 }
 
 /**
- * @brief Verarbeitet einen Log-Eintrag: Serial, RAM-Historie, WebSocket, Flash (nur WARN+).
+ * @brief Verarbeitet einen Log-Eintrag: Serial, RAM-Historie, WebSocket, Datei (#23).
  * Läuft NUR im Logger-Task (#4) — dadurch sind String/LittleFS/ws-Zugriffe serialisiert.
+ * Datei-Strategie (#23): ALLE Level landen im File, aber gepuffert. WARN+ wird sofort
+ * geschrieben (überlebt einen Absturz), INFO gesammelt und alle FLUSH_LINE_THRESHOLD
+ * Zeilen in einem Rutsch geflasht — das entlastet den Flash und hält den Task schnell.
  */
 static void processLogEntry(const LogEntry& entry) {
     // Gib die Meldung auf Serial aus, wenn Debugging aktiviert ist
@@ -107,56 +194,28 @@ static void processLogEntry(const LogEntry& entry) {
     // Live-Log an alle offenen Browser-Fenster senden!
     ws.textAll(entry.msg);
 
-    // Schreibe nur Warnungen und Fehler ins Log-File, um den Flash zu schonen
-    if (entry.level >= LOG_WARN) {
-      // Öffne die Datei im "Append"-Modus.
-      // Der Modus "FILE_APPEND" erstellt die Datei automatisch, falls sie nicht existiert.
-      File logFile = LittleFS.open(LOG_FILE, FILE_APPEND);
-
-      if (logFile) {
-        logFile.print(entry.msg);
-
-        // Log-Rotation: Wenn die Datei zu gross wird, alte löschen und neue anfangen
-        if (logFile.size() > MAX_LOG_SIZE) {
-          logFile.close();
-          // Lösche zuerst das alte Backup, falls es existiert
-          if (LittleFS.exists("/system.log.old")) {
-            LittleFS.remove("/system.log.old");
-          }
-          // Benenne die aktuelle Log-Datei in .old um
-          LittleFS.rename(LOG_FILE, "/system.log.old");
-        } else {
-          logFile.close();
-        }
-      } else {
-        // Dieser Fall sollte selten auftreten, ist aber eine gute Absicherung
-        if (debugEnabled) {
-          Serial.println("Failed to open log file for writing.");
-        }
+    // Datei-Handling (#23): puffern; WARN+ oder voller Puffer lösen den Flash-Write aus.
+    // Ein WARN+ flusht die davor gesammelten INFO gleich mit -> Reihenfolge bleibt korrekt.
+    if (logFileMutex != NULL && xSemaphoreTake(logFileMutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+      appendFileLine(entry.msg);
+      if (entry.level >= LOG_WARN || fileBufferLines >= FLUSH_LINE_THRESHOLD) {
+        flushFileBuffer();
       }
+      xSemaphoreGive(logFileMutex);
     }
 }
 
 /**
  * @brief FreeRTOS Task: einziger Konsument der Log-Queue (#4).
- * Meldet zusätzlich, wenn Einträge wegen voller Queue verworfen wurden.
+ * Verworfene Meldungen werden nur noch still gezählt (logDroppedTotal(), sichtbar in
+ * /api/status) — die früheren „x verworfen"-Meldungen entfielen (#23), da sie das File
+ * fluteten und den Overflow selbst verstärkten.
  */
 static void loggerTask(void *parameter) {
   LogEntry entry;
   for (;;) {
     if (xQueueReceive(logQueue, &entry, portMAX_DELAY) == pdTRUE) {
       processLogEntry(entry);
-
-      // Verworfene Meldungen nachmelden (Zähler ist nur ungefähr — bewusst einfach gehalten)
-      uint32_t dropped = logDroppedCount;
-      if (dropped > 0) {
-        logDroppedCount = 0;
-        LogEntry note;
-        note.level = LOG_WARN;
-        snprintf(note.msg, sizeof(note.msg), "[%lu][WARN] LOGGER: %lu Meldung(en) verworfen (Queue voll)\n",
-                 millis(), (unsigned long)dropped);
-        processLogEntry(note);
-      }
     }
   }
 }

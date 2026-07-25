@@ -1,6 +1,7 @@
 // TWM Isolation Variac – Webserver/API (REST, #22) und WebSocket-Live-Log (#10)
 // Copyright (c) 2025 Roger Widmer & Michael Tanner – MIT-Lizenz (siehe tt_esp32controller.ino)
 #include "web.h"
+#include <memory>   // shared_ptr für die verkettete Log-Auslieferung (#23)
 #include <FS.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -34,6 +35,7 @@ static String buildStatusJson() {
   doc["stepper_position"] = wiperPos;
   doc["is_hardware_ok"] = hardwareInitialized;
   doc["fw_version"] = FW;
+  doc["log_dropped"] = logDroppedTotal();   // #23: still gezählte, wegen voller Queue verworfene Meldungen
 
   JsonObject states = doc["states"].to<JsonObject>();
   if (hardwareInitialized) {
@@ -44,6 +46,12 @@ static String buildStatusJson() {
     states["p1_on"] = (bool)A_p1->getState();
     states["p2_on"] = (bool)A_p2->getState();
     states["p3_on"] = (bool)A_p3->getState();
+    // Preset-Werte (GitHub-#15): im 500-ms-Push mitschicken, damit Dashboard und
+    // Einstellungsseite live folgen, wenn ein Preset am Gerät neu gespeichert wird.
+    JsonObject presets = doc["presets"].to<JsonObject>();
+    presets["p1"] = A_p1->getValuePreset();
+    presets["p2"] = A_p2->getValuePreset();
+    presets["p3"] = A_p3->getValuePreset();
   }
 
   String jsonString;
@@ -65,6 +73,19 @@ void webPushStatus() {
 }
 
 /**
+ * @brief Weist eine Anfrage mit 503 ab, solange die Bedienung gesperrt ist (GitHub-#26).
+ * Gesperrt wird während eines OTA- oder Voltmeter-FW-Updates — dann darf weder die
+ * Webseite noch die API den Zustand des Geräts ändern. Lesende Routen bleiben offen.
+ * @return true, wenn abgewiesen wurde (der Handler muss dann sofort zurückkehren).
+ */
+static bool rejectIfLocked(AsyncWebServerRequest *request) {
+  if (!controlsLocked()) return false;
+  request->send(503, "application/json",
+                "{\"status\":\"error\",\"message\":\"Locked: update in progress\"}");
+  return true;
+}
+
+/**
  * @brief Initialisiert den Webserver und definiert alle Routen (URLs).
  */
 void initWebServer() {
@@ -74,6 +95,7 @@ void initWebServer() {
   // API-Route für die Datenabfrage ("/data"): Liefere IST/SOLL und Tasten-Zustände als JSON
   // API-Route zum Setzen des Sollwerts (POST /api/setpoint?voltage=...) (#22)
   server.on("/api/setpoint", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     if (!hardwareInitialized) {
       request->send(503, "application/json", "{\"status\":\"error\",\"message\":\"Hardware not ready\"}");
       return;
@@ -92,6 +114,7 @@ void initWebServer() {
 
   // API-Route zum Auslösen von Aktionen (POST /api/command?action=...) (#22)
   server.on("/api/command", HTTP_POST, [] (AsyncWebServerRequest *request) {
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     if (!hardwareInitialized) {
       request->send(503, "application/json", "{\"status\":\"error\",\"message\":\"Hardware not ready\"}");
       return;
@@ -160,6 +183,7 @@ void initWebServer() {
 
   // API-Route: Skalierungsfaktor des Voltmeters setzen (+ EEPROM speichern)
   server.on("/api/voltmeter/factor", HTTP_POST, [](AsyncWebServerRequest *request){
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     if (!request->hasParam("value")) {
       request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'value' parameter\"}");
       return;
@@ -181,6 +205,7 @@ void initWebServer() {
 
   // API-Route: Spannungs-Offset des Voltmeters setzen (+ EEPROM speichern)
   server.on("/api/voltmeter/offset", HTTP_POST, [](AsyncWebServerRequest *request){
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     if (!request->hasParam("value")) {
       request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'value' parameter\"}");
       return;
@@ -202,6 +227,7 @@ void initWebServer() {
 
   // API-Route: Auto-Zero-Kalibrierung des Voltmeters starten (läuft danach mehrere Sekunden)
   server.on("/api/voltmeter/autozero", HTTP_POST, [](AsyncWebServerRequest *request){
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     if (voltmeterRequest(VM_CMD_RECAL, nullptr, 0, 400)) {
       request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Auto-zero started (takes a few seconds)\"}");
     } else {
@@ -211,6 +237,7 @@ void initWebServer() {
 
   // API-Route: 3-Punkt-Kalibrierung – einen Punkt messen (index + anliegende Referenzspannung)
   server.on("/api/voltmeter/cal3/measure", HTTP_POST, [](AsyncWebServerRequest *request){
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     if (!request->hasParam("index") || !request->hasParam("voltage")) {
       request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing 'index' or 'voltage'\"}");
       return;
@@ -232,6 +259,7 @@ void initWebServer() {
 
   // API-Route: Voltmeter neu starten (Soft-Reset)
   server.on("/api/voltmeter/reboot", HTTP_POST, [](AsyncWebServerRequest *request){
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     if (voltmeterRequest(VM_CMD_REBOOT, nullptr, 0, 400)) {
       request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Voltmeter rebooting\"}");
     } else {
@@ -241,6 +269,7 @@ void initWebServer() {
 
   // API-Route: Voltmeter-Kalibrierung auf Standardwerte zurücksetzen
   server.on("/api/voltmeter/reset-defaults", HTTP_POST, [](AsyncWebServerRequest *request){
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     if (voltmeterRequest(VM_CMD_RESET_DEFAULTS, nullptr, 0, 400)) {
       request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Calibration reset to defaults\"}");
     } else {
@@ -250,6 +279,7 @@ void initWebServer() {
 
   // API-Route: 3-Punkt-Kalibrierung abschließen – Regression rechnen + speichern
   server.on("/api/voltmeter/cal3/finish", HTTP_POST, [](AsyncWebServerRequest *request){
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     if (voltmeterRequest(VM_CMD_CAL3_FINISH, nullptr, 0, 600) && voltmeterResponseLen >= 9) {
       bool ok = (voltmeterResponsePayload[0] == 1);
       if (ok) {
@@ -274,11 +304,13 @@ void initWebServer() {
   // Upload der .bin nach LittleFS (POST multipart). Antwort kommt nach dem Upload.
   server.on("/api/voltmeter/update/upload", HTTP_POST,
     [](AsyncWebServerRequest *request){
+    if (rejectIfLocked(request)) return;   // GitHub-#26
       request->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Upload complete\"}");
     },
     [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final){
       static File up;
-      if (vmUpdateState == VMU_RUNNING) return; // während eines laufenden Updates nichts annehmen
+      // Während eines laufenden Voltmeter- oder OTA-Updates nichts annehmen (GitHub-#26)
+      if (controlsLocked()) return;
       if (index == 0) up = LittleFS.open(VM_FW_PATH, "w");
       if (up) up.write(data, len);
       if (final && up) up.close();
@@ -286,10 +318,13 @@ void initWebServer() {
 
   // Update starten: prüft Datei, stößt den Update-Task an.
   server.on("/api/voltmeter/update/start", HTTP_POST, [](AsyncWebServerRequest *request){
+    // 409 zuerst: für ein bereits laufendes Voltmeter-Update ist das die genauere Antwort
+    // (die UI unterscheidet sie). rejectIfLocked greift danach für den OTA-Fall (GitHub-#26).
     if (vmUpdateState == VMU_RUNNING) {
       request->send(409, "application/json", "{\"status\":\"error\",\"message\":\"Update already running\"}");
       return;
     }
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     if (!LittleFS.exists(VM_FW_PATH)) {
       request->send(400, "application/json", "{\"status\":\"error\",\"message\":\"No firmware uploaded\"}");
       return;
@@ -334,6 +369,7 @@ void initWebServer() {
 
   // API-Route zum Setzen eines Kalibrier-Endanschlags (POST /api/calibration?limit=min|max[&value=]) (#22)
   server.on("/api/calibration", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     // 1. Zuerst prüfen, ob die Hardware überhaupt bereit ist
     if (!hardwareInitialized) {
         request->send(503, "application/json", "{\"status\":\"error\",\"message\":\"Hardware not ready\"}");
@@ -383,6 +419,7 @@ void initWebServer() {
 
   // API-Route für einen Neustart des Geräts (POST, #22)
   server.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest *request){
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     // Sende die Bestätigung an den Client.
     request->send(200, "text/plain", "Rebooting in 200ms...");
     
@@ -392,42 +429,67 @@ void initWebServer() {
     ws.closeAll();
     wsStatus.closeAll();
 
-    // Starte einen einmaligen Timer, der den Neustart nach 200ms auslöst.
-    // Die Funktion kehrt sofort zurück, damit die HTTP-Antwort in der Zwischenzeit gesendet werden kann.
-    rebootTicker.once_ms(200, [](){ ESP.restart(); });
+    // Starte einen einmaligen Timer, der den Neustart nach 500ms auslöst.
+    // Die Funktion kehrt sofort zurück, damit die HTTP-Antwort in der Zwischenzeit gesendet
+    // werden kann. GitHub-#26: Vor dem Reset die Logdatei sichern und das Dateisystem
+    // schliessen — sonst können die letzten Zeilen als gelöschtes Flash (0xFF) in der Datei
+    // landen, weil LittleFS seine Metadaten noch nicht durchgeschrieben hat.
+    rebootTicker.once_ms(500, [](){
+      logFlushToFile();
+      LittleFS.end();
+      ESP.restart();
+    });
   });
 
-  // API-Route zum Abrufen der Log-Dateien
+  // API-Route zum Abrufen des Logs (#23): liefert das Backup (.old) und die aktuelle
+  // Datei nacheinander als eine zusammenhängende Datei aus (bis ~2×MAX_LOG_LINES Zeilen).
   server.on("/api/log", HTTP_GET, [](AsyncWebServerRequest *request){
-    String log_filename = LOG_FILE; // z.B. "/system.log"
-    String download_filename = "system.log";
+    // Erst die gepufferten INFO-Zeilen in die Datei schreiben, damit der Download vollständig ist.
+    logFlushToFile();
 
-    if (request->hasParam("old")) {
-        log_filename = "/system.log.old";
-        download_filename = "system.log.old";
-    }
+    // Beide Dateien offen halten und über eine Chunked-Response nacheinander streamen.
+    // shared_ptr hält die Handles am Leben, bis die Antwort fertig gesendet ist.
+    auto oldF = std::make_shared<File>();
+    auto curF = std::make_shared<File>();
+    if (LittleFS.exists(LOG_FILE_OLD)) *oldF = LittleFS.open(LOG_FILE_OLD, FILE_READ);
+    if (LittleFS.exists(LOG_FILE))     *curF = LittleFS.open(LOG_FILE, FILE_READ);
 
-    if (LittleFS.exists(log_filename)) {
-      
-      // Prüfe, ob der Download-Parameter gesetzt ist
-      if (request->hasParam("download")) {
-        // Sende die Datei als Anhang (löst den Download im Browser aus)
-        AsyncWebServerResponse *response = request->beginResponse(LittleFS, log_filename, "text/plain");
-        response->addHeader("Content-Disposition", "attachment; filename=" + download_filename);
-        request->send(response);
-      } else {
-        // Sende die Datei normal zur Anzeige im Browser
-        request->send(LittleFS, log_filename, "text/plain");
-      }
-
-    } else {
-      // Fehler: Datei nicht gefunden, sende JSON-Antwort
+    bool haveOld = (*oldF && oldF->available());
+    bool haveCur = (*curF && curF->available());
+    if (!haveOld && !haveCur) {
       request->send(404, "application/json", "{\"status\":\"error\",\"message\":\"Log file not found\"}");
+      return;
     }
+
+    AsyncWebServerResponse *response = request->beginChunkedResponse("text/plain",
+      [oldF, curF](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+        // GitHub-#26: 0xFF-Bytes herausfiltern. Nach einem harten Reset (Stromausfall
+        // mitten im Schreiben) kann die Datei Bereiche mit gelöschtem Flash enthalten;
+        // die landeten sonst als Müll im Download. 0xFF kommt in gültigem Text nicht vor.
+        // Wichtig: notfalls nachlesen, denn ein Rückgabewert 0 beendet die Übertragung —
+        // ein reiner Füllbyte-Block darf den Rest der Datei nicht abschneiden.
+        while (true) {
+          size_t got = 0;
+          if (*oldF && oldF->available()) got = oldF->read(buffer, maxLen);   // zuerst das Backup
+          if (got == 0 && *curF && curF->available()) got = curF->read(buffer, maxLen); // dann aktuell
+          if (got == 0) return 0;   // beide Dateien zu Ende -> vollständig
+          size_t keep = 0;
+          for (size_t i = 0; i < got; i++) {
+            if (buffer[i] != 0xFF) buffer[keep++] = buffer[i];
+          }
+          if (keep > 0) return keep;
+        }
+      });
+
+    if (request->hasParam("download")) {
+      response->addHeader("Content-Disposition", "attachment; filename=system.log");
+    }
+    request->send(response);
   });
 
   // API-Route zum Löschen einer Datei (DELETE /api/files?filename=/x.y) (#22)
   server.on("/api/files", HTTP_DELETE, [](AsyncWebServerRequest *request) {
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     if (request->hasParam("filename")) {
       String filename = request->getParam("filename")->value();
       
@@ -497,6 +559,7 @@ void initWebServer() {
 
   // Handler für das Schreiben/Aktualisieren der Konfiguration
   AsyncCallbackJsonWebHandler* handler = new AsyncCallbackJsonWebHandler("/api/config", [](AsyncWebServerRequest *request, JsonVariant &json) {
+    if (rejectIfLocked(request)) return;   // GitHub-#26
     JsonObject doc;
     // Prüfe, ob der Body valides JSON ist
     if (json.is<JsonObject>()) {

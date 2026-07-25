@@ -4,7 +4,7 @@
 
 > Dieses Dokument hält den abgestimmten Plan fest, damit Paket H zu einem späteren
 > Zeitpunkt ohne neue Analyse umgesetzt werden kann. Beim Start: nächste
-> MINOR-Version setzen (bei heutigem Stand → **V4.4.0**) und die offenen
+> MINOR-Version setzen (bei Stand V4.6.1 → **V4.7.0**) und die offenen
 > Entscheidungen (unten) einholen.
 
 ## Ist-Zustand (Sicherheitslücken)

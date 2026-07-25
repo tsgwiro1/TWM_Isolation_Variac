@@ -6,6 +6,47 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
+## [V4.6.1] – 2026-07-25
+
+### Behoben
+- **Zeiger der Spannungsanzeige dreht wieder um seine Nabe** (GitHub-#24): In Chrome und
+  Edge löste sich der Zeiger bei grösseren Sprüngen vom Drehpunkt, wanderte quer über das
+  Zifferblatt und rastete erst am Ende der Bewegung wieder ein (Safari war unauffällig).
+  Ursache war die CSS-Transition auf dem SVG-Attribut `transform="rotate(a 120 120)"`: Das
+  Drehzentrum steckt dort im animierten Wert, beim Interpolieren entsteht daraus ein
+  Translationsanteil, den Blink linear von Start- nach Endwert zieht — der Drehpunkt nimmt
+  die Sehne statt des Kreisbogens. Wie eine Drehung interpoliert wird, handhaben die Engines
+  aber generell unterschiedlich (der Zwischenschritt über `transform-origin` +
+  `transform-box:view-box` verschob den Zeiger dafür in WebKit). Die Bewegung rechnet
+  deshalb jetzt `script.js` selbst (`animateNeedle`, ~400 ms ease-out) und setzt jeden
+  Zwischenschritt als fertiges `rotate(a 120 120)` — eine statische Angabe, die alle Browser
+  gleich darstellen. Der Browser interpoliert nichts mehr.
+- **API-Doku zeigt auf schmalen Bildschirmen wieder alle Endpunkte** (GitHub-#25): Auf dem
+  iPhone war nur die Übersicht sichtbar. RapiDoc blendet seine Navigationsleiste per
+  Container-Query erst ab 768 px Elementbreite ein; im `render-style="focused"` rendert es
+  aber immer nur die angewählte Sektion, und die Navigation ist der einzige Weg zu den
+  Endpunkten. Unterhalb dieser Grenze wird jetzt auf `render-style="view"` umgeschaltet
+  (alle Tags und Endpunkte aufklappbar untereinander), und die Doku wächst mit dem Inhalt,
+  statt in einem eigenen Scrollkasten zu stecken. Ab 768 px bleibt alles wie bisher.
+  Kein Safari-Problem: Jedes Fenster unter 768 px zeigte denselben Effekt.
+
+### Geändert
+- **Höhe der API-Doku-Seite nutzt `100dvh`** (mit `100vh` als Rückfall) — auf Mobilgeräten
+  zählt damit der sichtbare Bereich ohne Browserleiste, wie schon beim Live-Log (#16).
+
+### Dokumentation
+- **Neuer Abschnitt „Live-Log und Logdatei"** in der Bedienungs-Doku: Die Umstellung aus
+  V4.6.0 (alle Level in der Datei, Rotation, verketteter Download, „Leeren" betrifft nur
+  die Ansicht, Zeilenzähler = Fensterinhalt) war bisher nur in der API-Spezifikation
+  beschrieben.
+- **Neuer Abschnitt „Anzeige am Gerät (TFT)"**: Kopfzeile mit WLAN-Symbol und Temperatur
+  (V4.5.0) sowie das Verhalten der Lüfterregelung.
+- **Korrektur:** Die Einstellungs-Doku behauptete, „Debug-Ausgaben aktivieren" schalte auch
+  das Live-Log. Die Option betrifft nur die serielle Ausgabe — Live-Log und Logdatei
+  bekommen die Meldungen immer.
+- README: Startverhalten ohne WLAN ergänzt (V4.4.0). REVIEW.md als Momentaufnahme vom
+  18.06.2026 gekennzeichnet. Paket-L-Plan und Paket-H-Plan auf den aktuellen Stand gebracht.
+
 ## [V4.6.0] – 2026-07-23
 
 ### Behoben

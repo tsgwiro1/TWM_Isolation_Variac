@@ -73,6 +73,15 @@
             </li>
         </ul>
 
+        <h2>Anzeige am Gerät (TFT)</h2>
+        <p>Die Kopfzeile zeigt links den WLAN-Zustand, in der Mitte den Gerätenamen und rechts die Schleifer-Temperatur:</p>
+        <ul>
+            <li><strong>WLAN-Symbol:</strong> Volles Symbol = mit dem Heim-WLAN verbunden. Symbol mit Lupe = das Gerät hat den eigenen Konfigurations-Access-Point geöffnet. <em>Kein Symbol</em> = keine Verbindung, das Funkmodul ist abgeschaltet (Weboberfläche und API sind dann nicht erreichbar, der Variac selbst läuft normal weiter).</li>
+            <li><strong>Temperatur:</strong> Schleifer-Temperatur in ganzen Grad neben einem Thermometer-Symbol. Antwortet der Sensor nicht, steht dort <code>N/A</code>.</li>
+        </ul>
+        <p>Der Lüfter regelt selbsttätig mit: Unterhalb 30&nbsp;°C läuft er auf kleinster Stufe, danach steigt die Drehzahl mit der Temperatur an und erreicht bei 60&nbsp;°C das Maximum. Ab dieser Schwelle meldet das Gerät zusätzlich einen Temperaturalarm im Log; erst 5&nbsp;°C darunter wird die Entwarnung protokolliert. Fällt der Temperatursensor aus, läuft der Lüfter vorsorglich auf einer festen, hohen Stufe.</p>
+        <p>Darunter stehen Ist- und Soll-Spannung, die drei Presets sowie der Zustand von Ausgang und Strombegrenzung. Ganz unten steht die Firmware-Version. Beim Start und beim Wechsel in die Kalibrierung zeigt das Display „Homing…“, während der Schleifer seinen Nullpunkt sucht — dabei erscheint auch die IP-Adresse, sobald das WLAN steht.</p>
+
         <h2>Steuerung über das Webinterface</h2>
         <p>Das Webinterface bietet eine gespiegelte Bedienung der Hardware-Tasten sowie eine detaillierte Echtzeit-Ansicht:</p>
         <ul>
@@ -80,6 +89,16 @@
             <li><strong>SOLL-Spannung:</strong> Der Zielwert, den die Regelung anstrebt. Über das Eingabefeld &bdquo;Sollwert setzen&ldquo; kann eine exakte Zielspannung direkt übergeben werden.</li>
             <li>Die Buttons im Webinterface verhalten sich identisch zu einem kurzen Tastendruck am Gerät.</li>
         </ul>
+
+        <h2>Live-Log und Logdatei</h2>
+        <p>Über das Listen-Symbol im Kopf des Webinterface öffnet sich das <strong>Live-Log</strong>. Es zeigt die Meldungen des Geräts in dem Moment, in dem sie entstehen; beim Öffnen kommen zusätzlich die letzten Meldungen aus dem Arbeitsspeicher, damit man nicht bei null anfängt.</p>
+        <ul>
+            <li><strong>Zeilenzähler (oben links):</strong> Zählt die Zeilen im geöffneten Fenster, nicht die Meldungen im Gerät. Das Fenster hält die letzten 1000 Zeilen; ältere fallen aus der Ansicht — in der Logdatei bleiben sie erhalten.</li>
+            <li><strong>Schaltfläche „Leeren“:</strong> Leert nur die Ansicht im Browser. Weder das Gerät noch die Logdatei werden angetastet; neue Meldungen laufen sofort weiter ein.</li>
+            <li><strong>Download:</strong> Liefert die vollständige Logdatei. Sie enthält <em>alle</em> Meldungen (Info, Warnung, Fehler) und übersteht auch einen Neustart — im Gegensatz zum Live-Log, das nur die laufende Sitzung zeigt.</li>
+        </ul>
+        <p>Die Datei fasst rund 5000 Zeilen; ist sie voll, wird sie zur Sicherungskopie und das Gerät beginnt eine neue. Der Download hängt beide zusammen und liefert so bis etwa 10&nbsp;000 Zeilen am Stück — Ältestes zuerst. Warnungen und Fehler schreibt das Gerät sofort weg (sie überleben damit auch einen Absturz), Info-Meldungen sammelt es und schreibt sie gebündelt; beim Download wird alles Ausstehende vorher gesichert, die Datei ist also immer aktuell.</p>
+        <p>Fallen in sehr kurzer Zeit außergewöhnlich viele Meldungen an, kann das Gerät einzelne verwerfen, statt den Betrieb zu bremsen. Das passiert im Normalbetrieb nicht; gezählt wird es still im Feld <code>log_dropped</code> von <code>/api/status</code> (dort steht normalerweise 0).</p>
 
         <h2>Status-LED Blinkcodes</h2>
         <p>Die LED auf dem Controller-Board dient als Diagnosewerkzeug und zeigt jederzeit den aktuellen Betriebs- oder Fehlerzustand an:</p>

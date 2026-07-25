@@ -509,8 +509,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
-| 36 | Display | WLAN-Status als Icon auf dem TFT | Oben links den WLAN-Zustand als Icon zeigen: verbunden → Material Symbol `wifi`, eigener Config-AP aktiv → `wifi_find`, kein Netz (AP beendet) → Icon entfernen. Zustände sind seit V4.4.0 über `currentSystemState`/`WiFi.status()` unterscheidbar. Icons müssen als Bitmap (XBM) in die Firmware, da TFT_eSPI keine Web-Fonts kann. Kopfzeilen-Layout: Icon links, Titel neu zentriert, Temperatur rechts — Feinjustierung am Gerät. | S | offen |
-| 37 | Display | Temperaturanzeige mit Icon, ohne Nachkommastellen | Statt `34.00C` neu `34 °C` mit vorangestelltem Material Symbol `device_thermostat`. Offen: ob der TFT-Font das Grad-Zeichen enthält, sonst Kreis zeichnen. | S | offen |
+| 36 | Display | WLAN-Status als Icon auf dem TFT | Oben links den WLAN-Zustand als Icon zeigen: verbunden → Material Symbol `wifi`, eigener Config-AP aktiv → `wifi_find`, kein Netz (AP beendet) → Icon entfernen. Zustände sind seit V4.4.0 über `currentSystemState`/`WiFi.status()` unterscheidbar. Icons müssen als Bitmap (XBM) in die Firmware, da TFT_eSPI keine Web-Fonts kann. Kopfzeilen-Layout: Icon links, Titel neu zentriert, Temperatur rechts — Feinjustierung am Gerät. | S | **erledigt** *(V4.5.0, am Gerät verifiziert)* |
+| 37 | Display | Temperaturanzeige mit Icon, ohne Nachkommastellen | Statt `34.00C` neu `34 °C` mit vorangestelltem Material Symbol `device_thermostat`. Offen: ob der TFT-Font das Grad-Zeichen enthält, sonst Kreis zeichnen. | S | **erledigt** *(V4.5.0; Font 2 kann kein `°`, daher als Kreis gezeichnet)* |
 
 ---
 

@@ -26,6 +26,40 @@
         return [120 + r * Math.sin(rad), 120 - r * Math.cos(rad)];
     }
 
+    // ---------- Zeiger-Animation (GitHub-#24) ----------
+    // Bewusst ohne CSS-Transition: Wie ein Browser eine Drehung interpoliert, ist
+    // uneinheitlich. Mit dem Zentrum im Wert (rotate(a 120 120)) zog Blink den Drehpunkt
+    // quer durchs Bild; mit transform-origin/transform-box verschob WebKit den Zeiger.
+    // Hier wird jeder Zwischenwinkel selbst gerechnet und als fertiges rotate(a 120 120)
+    // gesetzt — eine statische Angabe, die alle Browser gleich darstellen.
+    var NEEDLE_MS = 400;
+    var needleCur = 225, needleFrom = 225, needleTo = 225, needleT0 = 0, needleRaf = 0;
+
+    function drawNeedle(deg) {
+        var n = $('g-needle');
+        if (n) n.setAttribute('transform', 'rotate(' + deg.toFixed(2) + ' 120 120)');
+    }
+
+    function stepNeedle(ts) {
+        if (!needleT0) needleT0 = ts;
+        var p = Math.min(1, (ts - needleT0) / NEEDLE_MS);
+        var e = 1 - Math.pow(1 - p, 3);          // ease-out, wie die frühere CSS-Kurve
+        needleCur = needleFrom + (needleTo - needleFrom) * e;
+        drawNeedle(needleCur);
+        needleRaf = (p < 1) ? requestAnimationFrame(stepNeedle) : 0;
+    }
+
+    function animateNeedle(target) {
+        if (Math.abs(target - needleTo) < 0.01) return;   // Ziel unverändert
+        if (!window.requestAnimationFrame) {              // Rückfall: ohne Animation
+            needleCur = needleTo = target; drawNeedle(target); return;
+        }
+        needleFrom = needleCur;    // ab der aktuellen Stellung weiter, kein Sprung
+        needleTo = target;
+        needleT0 = 0;              // Zeitbasis neu, auch wenn schon eine Animation läuft
+        if (!needleRaf) needleRaf = requestAnimationFrame(stepNeedle);
+    }
+
     function initGauge() {
         var r = 92;
         var s = polar(225, r), e = polar(135, r);
@@ -83,7 +117,7 @@
 
         var t = clamp(v / cfg.vmax, 0, 1);
         $('g-arc').setAttribute('stroke-dasharray', (t * 100).toFixed(2) + ' 100');
-        $('g-needle').setAttribute('transform', 'rotate(' + (225 + t * 270).toFixed(2) + ' 120 120)');
+        animateNeedle(225 + t * 270);   // GitHub-#24: Bewegung rechnet animateNeedle selbst
 
         // Messwert-Frische
         if (st.voltage_fresh) {

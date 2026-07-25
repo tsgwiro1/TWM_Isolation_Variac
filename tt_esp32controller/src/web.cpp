@@ -1,6 +1,7 @@
 // TWM Isolation Variac – Webserver/API (REST, #22) und WebSocket-Live-Log (#10)
 // Copyright (c) 2025 Roger Widmer & Michael Tanner – MIT-Lizenz (siehe tt_esp32controller.ino)
 #include "web.h"
+#include <memory>   // shared_ptr für die verkettete Log-Auslieferung (#23)
 #include <FS.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -34,6 +35,7 @@ static String buildStatusJson() {
   doc["stepper_position"] = wiperPos;
   doc["is_hardware_ok"] = hardwareInitialized;
   doc["fw_version"] = FW;
+  doc["log_dropped"] = logDroppedTotal();   // #23: still gezählte, wegen voller Queue verworfene Meldungen
 
   JsonObject states = doc["states"].to<JsonObject>();
   if (hardwareInitialized) {
@@ -403,33 +405,38 @@ void initWebServer() {
     rebootTicker.once_ms(200, [](){ ESP.restart(); });
   });
 
-  // API-Route zum Abrufen der Log-Dateien
+  // API-Route zum Abrufen des Logs (#23): liefert das Backup (.old) und die aktuelle
+  // Datei nacheinander als eine zusammenhängende Datei aus (bis ~2×MAX_LOG_LINES Zeilen).
   server.on("/api/log", HTTP_GET, [](AsyncWebServerRequest *request){
-    String log_filename = LOG_FILE; // z.B. "/system.log"
-    String download_filename = "system.log";
+    // Erst die gepufferten INFO-Zeilen in die Datei schreiben, damit der Download vollständig ist.
+    logFlushToFile();
 
-    if (request->hasParam("old")) {
-        log_filename = "/system.log.old";
-        download_filename = "system.log.old";
-    }
+    // Beide Dateien offen halten und über eine Chunked-Response nacheinander streamen.
+    // shared_ptr hält die Handles am Leben, bis die Antwort fertig gesendet ist.
+    auto oldF = std::make_shared<File>();
+    auto curF = std::make_shared<File>();
+    if (LittleFS.exists(LOG_FILE_OLD)) *oldF = LittleFS.open(LOG_FILE_OLD, FILE_READ);
+    if (LittleFS.exists(LOG_FILE))     *curF = LittleFS.open(LOG_FILE, FILE_READ);
 
-    if (LittleFS.exists(log_filename)) {
-      
-      // Prüfe, ob der Download-Parameter gesetzt ist
-      if (request->hasParam("download")) {
-        // Sende die Datei als Anhang (löst den Download im Browser aus)
-        AsyncWebServerResponse *response = request->beginResponse(LittleFS, log_filename, "text/plain");
-        response->addHeader("Content-Disposition", "attachment; filename=" + download_filename);
-        request->send(response);
-      } else {
-        // Sende die Datei normal zur Anzeige im Browser
-        request->send(LittleFS, log_filename, "text/plain");
-      }
-
-    } else {
-      // Fehler: Datei nicht gefunden, sende JSON-Antwort
+    bool haveOld = (*oldF && oldF->available());
+    bool haveCur = (*curF && curF->available());
+    if (!haveOld && !haveCur) {
       request->send(404, "application/json", "{\"status\":\"error\",\"message\":\"Log file not found\"}");
+      return;
     }
+
+    AsyncWebServerResponse *response = request->beginChunkedResponse("text/plain",
+      [oldF, curF](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+        size_t out = 0;
+        if (*oldF && oldF->available()) out = oldF->read(buffer, maxLen);   // zuerst das Backup
+        if (out == 0 && *curF && curF->available()) out = curF->read(buffer, maxLen); // dann aktuell
+        return out;   // 0 -> Übertragung vollständig
+      });
+
+    if (request->hasParam("download")) {
+      response->addHeader("Content-Disposition", "attachment; filename=system.log");
+    }
+    request->send(response);
   });
 
   // API-Route zum Löschen einer Datei (DELETE /api/files?filename=/x.y) (#22)

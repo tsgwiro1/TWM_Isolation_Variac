@@ -6,6 +6,40 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
+## [V4.6.0] – 2026-07-23
+
+### Behoben
+- **Logdatei stimmt wieder mit dem Live-Log überein** (GitHub-#23): Die heruntergeladene
+  Datei bestand zu ~92 % aus „N Meldung(en) verworfen"-Zeilen und zeigte die echten
+  Ereignisse nicht mehr. Ursache war ein sich selbst verstärkender Zyklus: Bei voller
+  Queue erzeugte der Logger nach jedem Eintrag eine solche WARN-Meldung, die selbst in
+  den Flash geschrieben wurde und den Task weiter ausbremste. Diese Meldungen sind
+  entfernt; verworfene Einträge werden nur noch still gezählt (`log_dropped` in
+  `/api/status`).
+
+### Geändert
+- **Logdatei enthält jetzt alle Meldungen, nicht mehr nur WARN+** (GitHub-#23): Damit
+  entspricht die Datei dem Live-Log. Geschrieben wird gepuffert — WARN+ sofort (überlebt
+  einen Absturz), INFO gesammelt und alle 100 Zeilen bzw. beim Download in einem Rutsch.
+  Das war nötig, weil ein synchroner Flash-Write pro Meldung den Logger-Task ausbremst
+  (der eigentliche Auslöser des Queue-Überlaufs) — nicht wegen Flash-Verschleiss, der
+  bei diesen Datenmengen unkritisch ist.
+- **Log-Rotation nach Zeilenzahl** (GitHub-#23): Die aktuelle Datei rotiert bei 5000
+  Zeilen ins Backup (`system.log.old`); der Download hängt Backup und aktuelle Datei zu
+  einer zusammen (bis ~10 000 Zeilen). Vorher wurde nach 20 KB rotiert.
+- **OTA-Fortschritt loggt nur bei geänderter Prozentzahl** (GitHub-#23): Vorher feuerte
+  der Callback pro Chunk (bei einem 10-MB-Filesystem Hunderte Meldungen mit derselben
+  %-Zahl) und flutete die Log-Queue.
+- **Log-Queue von 24 auf 48 vergrössert** als Puffer für Bursts; durch das Batching
+  leert der Logger-Task ohnehin schnell.
+
+### API (openapi.yaml 4.2.0 → 4.3.0)
+- `GET /api/status`: neues Feld `log_dropped` (still gezählte verworfene Log-Meldungen,
+  im Normalbetrieb 0). Ausserdem `presets` nachdokumentiert — das Feld kam bereits mit
+  V4.5.4 (#15) dazu, fehlte aber in der Spezifikation.
+- `GET /api/log`: liefert jetzt Backup und aktuelle Datei verkettet aus; der Parameter
+  `old` entfällt dadurch (er war in Weboberfläche und Tools nicht in Gebrauch).
+
 ## [V4.5.4] – 2026-07-23
 
 ### Behoben

@@ -18,7 +18,7 @@ info:
 
     **Live-Status (#13):** der WebSocket `ws://<host>/ws_status` pusht alle 500 ms
     den Gerätestatus als JSON (gleiches Format wie `GET /api/status`).
-  version: "4.2.0"
+  version: "4.3.0"
 # Relative Server-URL (GitHub-#5): "TRY" geht damit immer an den Host, über den
 # die Doku-Seite geöffnet wurde (IP oder mDNS-Name) — same-origin, kein CORS.
 servers:
@@ -53,6 +53,7 @@ paths:
                   stepper_position: { type: integer, description: "Aktuelle Stepper-Position [Schritte]" }
                   is_hardware_ok:   { type: boolean }
                   fw_version:       { type: string }
+                  log_dropped:      { type: integer, description: "Seit dem Start wegen voller Log-Queue verworfene Meldungen (Diagnose; im Normalbetrieb 0)" }
                   states:
                     type: object
                     properties:
@@ -62,6 +63,13 @@ paths:
                       p1_on:         { type: boolean }
                       p2_on:         { type: boolean }
                       p3_on:         { type: boolean }
+                  presets:
+                    type: object
+                    description: Aktuelle Preset-Sollwerte; werden mitgesendet, damit die Weboberfläche einer Änderung am Gerät live folgt.
+                    properties:
+                      p1: { type: integer, description: "[V]" }
+                      p2: { type: integer, description: "[V]" }
+                      p3: { type: integer, description: "[V]" }
 
   /api/setpoint:
     post:
@@ -184,12 +192,13 @@ paths:
     get:
       tags: [System]
       summary: Log-Datei lesen
+      description: >
+        Liefert das vollständige Log als eine Datei: zuerst die rotierte `system.log.old`,
+        dann die aktuelle `system.log` (zusammen bis ~10 000 Zeilen). Gepufferte Einträge
+        werden vorher geschrieben, die Antwort ist also immer aktuell. Das Log enthält alle
+        Level und überdauert Neustarts — im Unterschied zum Live-Log (`/ws`), das nur die
+        laufende Sitzung zeigt.
       parameters:
-        - name: old
-          in: query
-          required: false
-          schema: { type: string }
-          description: Wenn gesetzt, wird die rotierte Datei system.log.old geliefert.
         - name: download
           in: query
           required: false

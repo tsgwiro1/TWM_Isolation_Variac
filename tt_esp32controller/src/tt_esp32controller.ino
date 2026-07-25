@@ -390,7 +390,16 @@ static void networkTask(void *parameter) {
       ws.closeAll();
     })
     .onProgress([](unsigned int progress, unsigned int total) {
-      logMessage(LOG_INFO, "OTA: Progress: %u%%\r", (progress / (total / 100)));
+      // GitHub-#23: nur alle 25 % eine Meldung (0/25/50/75/100). Vorher feuerte der
+      // Callback pro Chunk (bei 10-MB-Filesystem Hunderte Male) und flutete die Queue.
+      // Division abgesichert (total kann klein sein).
+      static int lastStep = -1;
+      int pct = (total > 0) ? (int)((uint64_t)progress * 100 / total) : 0;
+      int step = pct / 25;   // 0..4
+      if (step != lastStep) {
+        lastStep = step;
+        logMessage(LOG_INFO, "OTA: Progress: %d%%", step * 25);
+      }
     })
     .onError([](ota_error_t error) {
       currentSystemState = STATE_ERROR; // Fehlerzustand bei OTA-Problem

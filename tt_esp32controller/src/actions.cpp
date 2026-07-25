@@ -37,6 +37,29 @@ void resetPresetActions() {
 }
 
 /**
+ * @brief Bringt Ausgang, Tasten und LEDs in den sicheren Grundzustand (GitHub-#26).
+ *
+ * Wird beim Start eines OTA- und eines Voltmeter-Firmware-Updates aufgerufen, also immer
+ * dann, wenn die Bedienung gesperrt wird: Ausgang AUS, Strombegrenzung EIN, Regelung AUS,
+ * alle Preset-LEDs aus, Encoder zurück auf Feinstufe (x1). Danach entspricht die Anzeige
+ * am Gerät dem inneren Zustand — sonst leuchten Tasten weiter, obwohl nichts mehr regelt.
+ *
+ * off()/on() schalten nur Zustand, LED und Relais; die Tasten-Callbacks laufen dabei
+ * nicht, es entstehen also keine Folgeaktionen.
+ */
+void forceSafeState() {
+    is_regulation_active = false;
+    regPhase = RP_IDLE;
+
+    if (A_onoff) A_onoff->off();   // Ausgangsrelais aus
+    if (A_limit) A_limit->on();    // Strombegrenzung ein (sicherer Zustand)
+    if (A_reg)   A_reg->off();     // Regelung aus
+    resetPresetActions();          // P1..P3 aus
+    if (A_x10) A_x10->off();       // Encoder-Grobstufe aus ...
+    encSpeed = ENCLOWSPEED;        // ... und Schrittweite passend zurücksetzen
+}
+
+/**
  * @brief Ruft die handle()-Methode für alle globalen Action-Objekte auf.
  * Dies prüft den Zustand aller angeschlossenen Tasten.
  */
@@ -232,9 +255,10 @@ void userInputTask(void *parameter) {
       continue; // Schleife überspringen, wenn Hardware fehlt
     }
 
-    // #32: Während des Voltmeter-FW-Updates ist der Variac gesperrt (keine Bedienung).
-    // Encoder-Position synchron halten, damit nach der Freigabe kein Sprung entsteht.
-    if (vmUpdateState != VMU_IDLE) {
+    // #32 / GitHub-#26: Während eines Voltmeter-FW- oder OTA-Updates ist der Variac
+    // gesperrt (keine Bedienung). Encoder-Position synchron halten, damit nach der
+    // Freigabe kein Sprung entsteht.
+    if (controlsLocked()) {
       lastEncPos = getEncoderCount();
       vTaskDelay(pdMS_TO_TICKS(100));
       continue;

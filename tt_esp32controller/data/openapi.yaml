@@ -18,7 +18,14 @@ info:
 
     **Live-Status (#13):** der WebSocket `ws://<host>/ws_status` pusht alle 500 ms
     den Gerätestatus als JSON (gleiches Format wie `GET /api/status`).
-  version: "4.3.0"
+
+    **Gesperrt während Updates (#26):** Solange ein OTA-Update (Firmware oder Filesystem)
+    oder ein Voltmeter-Firmware-Update läuft, ist der Variac gesperrt — der Ausgang ist aus
+    und jede zustandsändernde Route antwortet mit `503` und
+    `{"status":"error","message":"Locked: update in progress"}`. Lesende Routen bleiben
+    erreichbar. Hinweis: Während eines OTA-Uploads ruht zusätzlich der 500-ms-Status-Push,
+    weil die Hauptschleife den Upload abwickelt; nach dem Update startet das Gerät neu.
+  version: "4.4.0"
 # Relative Server-URL (GitHub-#5): "TRY" geht damit immer an den Host, über den
 # die Doku-Seite geöffnet wurde (IP oder mDNS-Name) — same-origin, kein CORS.
 servers:
@@ -490,7 +497,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Envelope" }
     HardwareNotReady:
-      description: Hardware nicht bereit
+      description: Hardware nicht bereit — oder gesperrt, weil ein OTA-/Voltmeter-Update läuft (#26)
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Envelope" }

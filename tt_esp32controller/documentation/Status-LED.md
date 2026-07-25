@@ -42,6 +42,14 @@ die Zustände definiert `SystemState` in [`../src/state.h`](../src/state.h).
   Dateisystem drahtlos über das Netzwerk (`STATE_OTA_UPDATE`).
 - **Aktion:** **KRITISCH:** Das Gerät darf in diesem Moment auf keinen Fall vom Strom
   getrennt oder neugestartet werden, da sonst die Firmware beschädigt wird!
+- **Gerätezustand (GitHub-#26):** Der Variac ist währenddessen gesperrt — Ausgang aus,
+  Regelung aus, laufende Bewegung ausgebremst, keine Eingaben über Tasten/Encoder,
+  Webseite oder API (zustandsändernde Routen antworten mit `503`). Das TFT zeigt einen
+  eigenen Screen mit Fortschritt.
+- **Abschluss:** Ein OTA endet immer mit einem Neustart — nach Erfolg wie nach einem
+  Abbruch. Der Zustand danach ist damit immer definiert (Ausgang aus, Regelung aus,
+  Schleifer neu referenziert). Ein Abbruch wird vorher als `ERROR` protokolliert und in
+  die Logdatei gesichert, überlebt den Neustart also.
 
 ## 5. Systemfehler (SOS)
 
@@ -53,4 +61,5 @@ die Zustände definiert `SystemState` in [`../src/state.h`](../src/state.h).
   - Das LittleFS-Dateisystem konnte nicht gemountet werden (Speicher defekt oder nicht
     formatiert).
   - Das TFT-Display oder kritische Speicherbereiche (Mutex) konnten nicht geladen werden.
-  - Ein OTA-Update ist fehlgeschlagen (Details dazu im Log).
+  - Ein OTA-Update ist fehlgeschlagen (Details dazu im Log). Hier steht das Muster nur
+    kurz: Nach einem OTA-Abbruch startet das Gerät bewusst neu (siehe Punkt 4).

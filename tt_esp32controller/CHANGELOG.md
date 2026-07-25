@@ -6,6 +6,72 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
+## [V4.7.0] – 2026-07-25
+
+### Neu
+- **Variac ist während eines Updates gesperrt** (GitHub-#26): Läuft ein OTA-Update
+  (Firmware oder Filesystem), schaltet das Gerät den Ausgang aus, beendet die Regelung,
+  bremst eine laufende Schleifer-Bewegung aus und nimmt keine Eingaben mehr an — weder über
+  Tasten/Encoder noch über Webseite oder API. Vorher lief während des Updates alles
+  unverändert weiter: Der Ausgang blieb unter Spannung, und selbst ein `POST /api/reboot`
+  oder ein Dateilöschen mitten im Filesystem-Upload wurde ausgeführt.
+- **Eigener TFT-Screen während des Updates** (GitHub-#26): Fortschrittsbalken mit Prozentwert,
+  Kennzeichnung Firmware/Filesystem und der Hinweis, das Gerät jetzt nicht auszuschalten —
+  aufgebaut wie der Screen des Voltmeter-Updates (#32).
+- **Definierter Grundzustand beim Sperren** (GitHub-#26): Neu `forceSafeState()` in
+  `actions.cpp` — Ausgang AUS, Strombegrenzung EIN, Regelung AUS, Preset-LEDs P1–P3 AUS,
+  Encoder zurück auf Feinstufe x1 (LED aus, `encSpeed`). Aufgerufen beim OTA-Start und beim
+  Voltmeter-Firmware-Update, beide Fälle stellen damit denselben Stand her. Vorher blieben
+  REG-, Preset- und x10-LED an, obwohl intern nichts mehr regelte — Anzeige und Zustand
+  liefen auseinander.
+
+- **OTA endet immer mit einem Neustart** (GitHub-#26): Auch ein Abbruch (WLAN-Verlust,
+  Auth-/Receive-Fehler) führt jetzt zum Reset — vorher lief das Gerät mit dauerhaft
+  SOS-blinkender LED weiter. Damit ist der Zustand nach jedem OTA derselbe: Ausgang aus,
+  Regelung aus, Schleifer neu referenziert. Der Fehler wird vorher als `ERROR` protokolliert
+  und in die Logdatei gesichert, ist also nach dem Neustart noch lesbar. Bei einem
+  abgebrochenen Filesystem-Upload steht zusätzlich der Hinweis im Log, dass das
+  Dateisystem unvollständig sein kann.
+  Wichtig dabei: Wartezeit plus `logFlushToFile()` genügen **nicht** — im ersten Versuch
+  kam der Reset, bevor LittleFS seine Metadaten durchgeschrieben hatte. Die Datei war dann
+  1192 Bytes gross, enthielt aber nur gelöschtes Flash (`0xFF`) statt der Meldungen. Vor
+  dem Reset wird das Dateisystem deshalb mit `LittleFS.end()` ausdrücklich geschlossen.
+- **`POST /api/reboot` sichert das Log vor dem Neustart** (GitHub-#26): gleiche Ursache wie
+  oben — vor `ESP.restart()` laufen jetzt `logFlushToFile()` und `LittleFS.end()`, die
+  Verzögerung ist von 200 auf 500 ms erhöht.
+- **`GET /api/log` filtert `0xFF`-Bytes heraus** (GitHub-#26): Nach einem harten Reset
+  (Stromausfall mitten im Schreiben) kann die Logdatei Bereiche mit gelöschtem Flash
+  enthalten; die landeten bisher als Müll im Download — in einem Fall 1192 Bytes vor der
+  ersten Zeile. `0xFF` kommt in gültigem Text nicht vor. Der Streaming-Callback liest
+  notfalls nach, damit ein reiner Füllbyte-Block die Übertragung nicht abschneidet.
+- **Grund des letzten Neustarts wird beim Booten protokolliert** (`esp_reset_reason()`):
+  „software restart" (OTA, `/api/reboot`), „PANIC (crash)", „task watchdog", „brownout"
+  usw. Vorher war im Log nur zu sehen, *dass* das Gerät neu gestartet ist — nicht, ob
+  geordnet oder nach einem Absturz.
+
+### Behoben
+- **Sperre beim Voltmeter-Firmware-Update galt nicht für Web und API** (GitHub-#26): Am Gerät
+  war die Bedienung gesperrt und das Display zeigte „Variac gesperrt", über die Weboberfläche
+  liess sich der Ausgang trotzdem schalten. Beide Fälle laufen jetzt über dieselbe Sperre
+  (`controlsLocked()`), die auch der Webserver auswertet.
+
+### Technisch
+- Die OTA-Callbacks setzen nur Flags (`otaActive`, `otaProgress`, `otaIsFilesystem`); die
+  Sperre wird in den Tasks und im Webserver ausgewertet. Nötig, weil die Callbacks im
+  `loop()`-Kontext laufen und `loop()` während des Uploads blockiert — Relais und TFT
+  bleiben so in den Tasks, denen sie gehören.
+- Neu `stopWiperMove()` in `motor.cpp`: bremst über `stepper.stop()` (also ohne Schrittverlust)
+  und zieht `wiperPos` auf die Auslaufposition nach, damit nach einem abgebrochenen Update
+  nicht doch noch zum alten Ziel gefahren wird. Während des Homings wirkungslos, weil
+  `homing()` den Motor exklusiv fährt.
+
+### API (openapi.yaml 4.3.0 → 4.4.0)
+- Alle zustandsändernden Routen antworten mit `503` und
+  `{"status":"error","message":"Locked: update in progress"}`, solange ein OTA- oder
+  Voltmeter-Update läuft; lesende Routen bleiben erreichbar. Ausnahme:
+  `POST /api/voltmeter/update/start` antwortet für ein bereits laufendes Voltmeter-Update
+  weiterhin mit dem genaueren `409`.
+
 ## [V4.6.1] – 2026-07-25
 
 ### Behoben

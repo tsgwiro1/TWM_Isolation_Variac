@@ -389,6 +389,57 @@ void drawVmUpdateScreen() {
   tftEndWrite();   // << FREIGEBEN
 }
 
+// --- OTA-Screen (GitHub-#26) ------------------------------------------------
+static int otaScreenLastProgress = -1;
+
+/**
+ * @brief Zeichnet den statischen Teil des OTA-Screens (GitHub-#26).
+ * Aufbau wie beim Voltmeter-Update; Fortschritt via updateOtaScreen().
+ */
+void drawOtaScreen() {
+  otaScreenLastProgress = -1;
+  tftStartWrite(); // << SPERREN
+  tft.fillScreen(TFT_BLACK);
+  tft.fillRect(0, 0, 240, 20, TFT_NAVY);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(TFT_WHITE, TFT_NAVY);
+  tft.drawString("ISOLATION VARIAC", 10, 2, 2);
+
+  tft.setTextDatum(CC_DATUM);
+  tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+  tft.drawString(otaIsFilesystem ? "Filesystem-Update" : "Firmware-Update", 120, 70, 4);
+  tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+  tft.drawString("Variac gesperrt - Ausgang AUS", 120, 100, 2);
+
+  tft.drawRect(19, 149, 202, 22, TFT_WHITE); // Rahmen Fortschrittsbalken
+
+  tft.setTextColor(TFT_RED, TFT_BLACK);
+  tft.drawString("Geraet nicht ausschalten!", 120, 235, 2);
+  tftEndWrite();   // << FREIGEBEN
+}
+
+/**
+ * @brief Aktualisiert Fortschrittsbalken und Prozentwert des OTA-Screens (GitHub-#26).
+ */
+void updateOtaScreen() {
+  int prog = otaProgress;
+  if (prog < 0) prog = 0;
+  if (prog > 100) prog = 100;
+  if (prog == otaScreenLastProgress) return;
+  otaScreenLastProgress = prog;
+
+  tftStartWrite(); // << SPERREN
+  int w = (198 * prog) / 100;
+  tft.fillRect(21, 151, w, 18, TFT_DARKGREEN);
+  tft.fillRect(21 + w, 151, 198 - w, 18, TFT_BLACK);
+  tft.setTextDatum(CC_DATUM);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setTextPadding(100);
+  tft.drawString(String(prog) + " %", 120, 195, 4);
+  tft.setTextPadding(0);
+  tftEndWrite();   // << FREIGEBEN
+}
+
 /**
  * @brief Aktualisiert Fortschrittsbalken, Prozentwert und Statusmeldung des Update-Screens (#32).
  * Statusmeldung bei Erfolg grün, bei Fehler rot.
@@ -456,12 +507,25 @@ void drawSettingsScreen() {
  */
 void displayUpdateTask(void *parameter) {
   bool vmUpdScreenActive = false;   // Voltmeter-Update-Screen ist aktuell gezeichnet (#32)
+  bool otaScreenActive = false;     // OTA-Screen ist aktuell gezeichnet (GitHub-#26)
   uint32_t vmUpdResultSince = 0;    // Zeitpunkt, seit dem das Ergebnis (Erfolg/Fehler) angezeigt wird
   for (;;) {
 
     if (!hardwareInitialized) {
       vTaskDelay(pdMS_TO_TICKS(1000));
       continue; // Schleife überspringen, wenn Hardware fehlt
+    }
+
+    // GitHub-#26: Während eines OTA-Updates eigener Screen mit Fortschritt. Nach Erfolg
+    // startet das Gerät neu; nur ein Abbruch führt zurück in den Normalbetrieb (unten).
+    if (otaActive) {
+      if (!otaScreenActive) {
+        otaScreenActive = true;
+        drawOtaScreen();
+      }
+      updateOtaScreen();
+      vTaskDelay(pdMS_TO_TICKS(100));
+      continue;
     }
 
     // #32: Während des Voltmeter-FW-Updates eigener Screen (Fortschritt + Status).
@@ -485,9 +549,10 @@ void displayUpdateTask(void *parameter) {
       vTaskDelay(pdMS_TO_TICKS(100));
       continue;
     }
-    if (vmUpdScreenActive) {
+    if (vmUpdScreenActive || otaScreenActive) {
       // Rückkehr in den Normalbetrieb (Ausgang bleibt AUS): Screen komplett neu aufbauen.
       vmUpdScreenActive = false;
+      otaScreenActive = false;
       initDisplayStruct(); // Anzeige-Cache invalidieren -> alle Werte neu zeichnen
       if (currentMode == MODE_NORMAL) {
         drawBackground();

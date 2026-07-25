@@ -7,9 +7,9 @@
 
 // Firmware-Version (entspricht dem CHANGELOG)
 #ifdef SIM
-#define FW  "Firmware V4.6.1 (SIM)"
+#define FW  "Firmware V4.7.0 (SIM)"
 #else
-#define FW  "Firmware V4.6.1"
+#define FW  "Firmware V4.7.0"
 #endif
 
 // System
@@ -107,5 +107,17 @@ extern TaskHandle_t h_statusLedTask;   // GitHub-#14: Handle für die Stack-Übe
 // aufrufen — vorher ist der Dienst nicht initialisiert. (Der networkTask selbst braucht
 // kein Handle: er beendet sich, sobald OTA steht.)
 extern volatile bool otaReady;
+
+// GitHub-#26: Läuft ein OTA-Update, ist der Variac gesperrt und der Ausgang aus.
+// Gesetzt/gelöscht wird das ausschliesslich in den ArduinoOTA-Callbacks; die Callbacks
+// laufen im loop()-Kontext, der während des Uploads blockiert — die Sperre muss deshalb
+// in den Tasks und im Webserver ausgewertet werden, nicht in loop().
+extern volatile bool otaActive;
+extern volatile int  otaProgress;      // 0..100 %, für den TFT-Screen
+extern volatile bool otaIsFilesystem;  // true = Filesystem-Image, false = Firmware
+
+// GitHub-#26: Gemeinsame Sperre jeder Bedienung (Tasten/Encoder, Webseite, API):
+// true, solange ein OTA-Update oder ein Voltmeter-FW-Update läuft.
+bool controlsLocked();
 
 #endif // STATE_H

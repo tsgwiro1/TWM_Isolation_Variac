@@ -90,6 +90,15 @@
             <li>Die Buttons im Webinterface verhalten sich identisch zu einem kurzen Tastendruck am Gerät.</li>
         </ul>
 
+        <h2>Während eines Updates ist der Variac gesperrt</h2>
+        <p>Sobald ein Update läuft — Firmware oder Dateisystem über das Netzwerk (OTA) oder eine neue Voltmeter-Firmware —, bringt sich das Gerät selbst in einen sicheren Zustand:</p>
+        <ul>
+            <li><strong>Ausgang aus</strong> und Regelung abgeschaltet; eine laufende Schleifer-Bewegung wird kontrolliert ausgebremst.</li>
+            <li><strong>Keine Eingaben:</strong> Tasten und Drehregler sind gesperrt, und Webseite wie API weisen alle Befehle ab (Antwort <code>503</code>). Abfragen wie Status oder Log bleiben möglich.</li>
+            <li><strong>Das Display</strong> zeigt einen eigenen Bildschirm mit Fortschrittsbalken und dem Hinweis, das Gerät jetzt nicht auszuschalten.</li>
+        </ul>
+        <p>Ein OTA-Update endet <strong>immer mit einem Neustart</strong> — ob es durchgelaufen ist oder abgebrochen wurde (z.&nbsp;B. WLAN-Verlust). Damit ist der Zustand danach immer derselbe: Ausgang aus, Regelung aus, Schleifer neu referenziert. Ein Abbruch wird als Fehler ins Log geschrieben und bleibt dort auch nach dem Neustart lesbar; die Firmware selbst bleibt dabei unversehrt. Nach einem abgebrochenen <em>Dateisystem</em>-Update kann die Weboberfläche allerdings unvollständig sein, bis der Upload wiederholt wurde — der Log-Eintrag weist darauf hin.</p>
+
         <h2>Live-Log und Logdatei</h2>
         <p>Über das Listen-Symbol im Kopf des Webinterface öffnet sich das <strong>Live-Log</strong>. Es zeigt die Meldungen des Geräts in dem Moment, in dem sie entstehen; beim Öffnen kommen zusätzlich die letzten Meldungen aus dem Arbeitsspeicher, damit man nicht bei null anfängt.</p>
         <ul>
@@ -106,8 +115,8 @@
             <li><strong>Einzelner Puls (Herzschlag):</strong> Kurzes Aufblitzen (0,1&nbsp;s an, 2,9&nbsp;s aus) — Normalbetrieb, alles fehlerfrei. Alle Tasks arbeiten wie vorgesehen.</li>
             <li><strong>Gleichmäßiges Blinken (0,5&nbsp;s an / 0,5&nbsp;s aus):</strong> Startphase — das Gerät initialisiert seine Hardware. Geht nach wenigen Sekunden in den Herzschlag über. Das WLAN wird erst danach im Hintergrund aufgebaut; die LED zeigt währenddessen bereits den Herzschlag.</li>
             <li><strong>Schneller Doppel-Blink, dann 1&nbsp;s Pause:</strong> Konfigurationsmodus — das WLAN wurde nicht gefunden oder das Passwort ist falsch. Das Gerät öffnet den eigenen Access Point <strong>&bdquo;TWM_IsolationVariac&ldquo;</strong>. <em>Aktion:</em> Mit Smartphone/PC mit diesem Netzwerk verbinden und im Portal die WLAN-Zugangsdaten eingeben. Bleibt die Eingabe 10&nbsp;Minuten aus, schließt das Portal, das Funkmodul wird abgeschaltet und die LED kehrt zum Herzschlag zurück: Der Variac bleibt voll bedienbar, aber ohne Weboberfläche und ohne API — für einen neuen Verbindungsversuch das Gerät neu starten.</li>
-            <li><strong>Sehr schnelles Blinken (0,15&nbsp;s):</strong> OTA-Update läuft — der Controller empfängt gerade Firmware oder Dateisystem über das Netzwerk. <em>KRITISCH: Gerät jetzt keinesfalls vom Strom trennen oder neustarten, sonst wird die Firmware beschädigt!</em></li>
-            <li><strong>SOS-Morsesignal (3&times; kurz, 3&times; lang, 3&times; kurz):</strong> Schwerwiegender Hardware- oder Initialisierungsfehler. Mögliche Ursachen: MCP23017 Port-Expander antwortet nicht auf dem I2C-Bus; LittleFS-Dateisystem nicht mountbar; TFT-Display/Mutex-Initialisierung fehlgeschlagen; OTA-Update fehlgeschlagen (Details im Live-Log).</li>
+            <li><strong>Sehr schnelles Blinken (0,15&nbsp;s):</strong> OTA-Update läuft — der Controller empfängt gerade Firmware oder Dateisystem über das Netzwerk. Das Display zeigt dabei den Fortschritt, der <strong>Ausgang wird ausgeschaltet</strong> und die Bedienung ist gesperrt (siehe unten). <em>KRITISCH: Gerät jetzt keinesfalls vom Strom trennen oder neustarten, sonst wird die Firmware beschädigt!</em></li>
+            <li><strong>SOS-Morsesignal (3&times; kurz, 3&times; lang, 3&times; kurz):</strong> Schwerwiegender Hardware- oder Initialisierungsfehler. Mögliche Ursachen: MCP23017 Port-Expander antwortet nicht auf dem I2C-Bus; LittleFS-Dateisystem nicht mountbar; TFT-Display/Mutex-Initialisierung fehlgeschlagen; OTA-Update fehlgeschlagen (Details im Live-Log). Nach einem OTA-Abbruch erscheint das Muster nur kurz — das Gerät startet dann bewusst neu.</li>
         </ul>
     </section>
 </div>

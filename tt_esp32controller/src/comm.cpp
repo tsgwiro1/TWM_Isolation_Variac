@@ -321,9 +321,10 @@ static bool vmFwValidate(File& f, size_t& sizeOut) {
 static void runVoltmeterFlash() {
   vmUpdSet(VMU_RUNNING, 0, "Pruefe Firmware-Datei...");
 
-  // 1) Sicherheit: Ausgang aus, Regelung stoppen.
-  is_regulation_active = false;
-  if (A_onoff) A_onoff->off();
+  // 1) Sicherheit: sicherer Grundzustand wie beim OTA — Ausgang aus, Strombegrenzung ein,
+  //    Regelung aus, Preset-/x10-LEDs aus (GitHub-#26).
+  forceSafeState();
+  stopWiperMove();
 
   // 2) Datei öffnen + plausibilisieren.
   File f = LittleFS.open(VM_FW_PATH, "r");

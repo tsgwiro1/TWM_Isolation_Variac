@@ -63,6 +63,28 @@ Preset 2 aktiv & gehalten · 34 °C · WLAN verbunden**.
 4. **Temperatur**: dauerhaft oben, oder nur als Icon bei Warnung?
 5. **Zielwert**: direkt unter der Spannung ok, oder woanders (z. B. in die Statuszeile)?
 
+## Nicht vergessen: es gibt mehr als die Hauptanzeige
+
+Die Mockups zeigen den Normalbetrieb. Das Display kennt aber noch weitere Vollbild-Screens
+(alle in [`../../src/display.cpp`](../../src/display.cpp)) — wenn nur die Hauptanzeige neu
+gestaltet wird, stehen die anderen stilistisch daneben:
+
+| Screen | Funktion | Inhalt |
+| :--- | :--- | :--- |
+| Normalbetrieb | `drawBackground()` + `drawLegend()` + `updateDisplay()` | Gegenstand der Mockups |
+| Einstellungen / Kalibrierung | `drawSettingsScreen()` + `updateSettingsDisplay()` | Enc/Out/P1/P1S/P2/P2S, Warnzeile der Kalibrier-Plausibilität |
+| Referenzfahrt | `drawHomingScreen()` | „Homing…", IP-Adresse, Firmware-Version |
+| Systemfehler | `drawErrorScreen()` | Fehlerhinweis bei `STATE_ERROR` |
+| Voltmeter-Update (#32) | `drawVmUpdateScreen()` + `updateVmUpdateScreen()` | Fortschrittsbalken, Prozent, Statusmeldung, „Variac gesperrt - Ausgang AUS" |
+| OTA-Update (#26, **neu in V4.7.0**) | `drawOtaScreen()` + `updateOtaScreen()` | Fortschrittsbalken, Prozent, Firmware/Filesystem, „Gerät nicht ausschalten!" |
+
+Die beiden Update-Screens sind bewusst gleich aufgebaut (gleiche Balkengeometrie), und
+beide gehen mit einem gesperrten Variac einher — sie sollten also dieselbe Formensprache
+bekommen wie das neue Hauptlayout. Auch relevant: Seit V4.7.0 stellt `forceSafeState()`
+beim Sperren einen definierten Zustand her (Ausgang aus, Strombegrenzung ein, Regelung aus,
+Preset- und x10-LED aus) — die Statusdarstellung im Redesign sollte diesen Zustand
+eindeutig zeigen können.
+
 ## Technische Notiz zur Umsetzung
 
 - Icons werden – wie die bestehenden – als **16×16-XBM** in `src/icons.h` abgelegt

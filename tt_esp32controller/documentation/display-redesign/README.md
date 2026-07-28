@@ -1,101 +1,98 @@
-# TFT-Display – Redesign (Arbeitsstand / WIP)
+# TFT-Display – Redesign (finales Layout)
 
-> **⚠️ Work in Progress.** Dieser Ordner sammelt Layout-Entwürfe für das Redesign des
-> TFT-Displays (Branch `feature/redesign-display`). Er ist **temporär**: Sobald wir uns
-> auf ein finales Layout geeinigt haben, bleibt nur noch **ein** Mockup hier stehen, der
-> Rest wird abgeräumt.
+> **Status:** Umgesetzt und am Gerät iteriert (Branch `feature/redesign-display`, aufsetzend
+> auf V4.7.0). Der Normalbetrieb-Screen ist neu gestaltet und läuft auf dem Gerät; die übrigen
+> Screens bleiben vorerst unverändert. Feinschliff (Größen/Abstände) noch im Gang.
 
 ## Ziel
 
-Das TFT (240×320, Portrait, ILI9341) soll grafischer werden und die **wichtigen Infos
-klar hervorheben**. Bewusst **keine** Anlehnung an die Web-Oberfläche und **keine
-Gauge** – die Zeigerinstrumente sitzen bereits auf der Frontplatte. Der Fokus liegt auf:
+Das TFT (240×320, Portrait, ILI9341) wird grafischer und hebt die **wichtigen Infos klar
+hervor**. Bewusst **keine** Anlehnung an die Web-Oberfläche und **keine Gauge** – die
+Zeigerinstrumente sitzen bereits auf der Frontplatte. Kernideen:
 
-- **große Ist-Spannung** als zentraler Blickfang, farbcodiert nach Sicherheitszustand,
-- **kleiner Zielwert** (Target),
-- **Presets nebeneinander** im Look der physischen Taster 1 · 2 · 3, mit Hervorhebung des aktiven Presets,
-- **Status-Icons** (Warndreieck, Blitz-im-Dreieck, „gehalten") angelehnt an die Frontplatten-Symbole,
-- Icons im Stil der bestehenden 16×16-XBM-Symbole (WLAN, Thermometer aus Paket L).
+- **Ist- und Zielspannung** gestapelt, rechtsbündig in einer Zahlenspalte; links kleine
+  Labels „Ist"/„Ziel". **Ist** groß, fett, farbcodiert nach Sicherheitszustand; **Ziel**
+  gleich groß, aber **grau und nicht fett**.
+- **Zwei Warndreiecke** in eigener linker Spalte (Achtung / > 50 V): aktiv pulsierend
+  (Farbe↔dim), sonst dim-grau.
+- **Drei bedienbare Chips** (Ausgang · Limit · Regelung), spaltengleich über den Presets:
+  nur das Frontplatten-Symbol, leuchtet farbig = EIN, grau = AUS (wie die Taster-LED).
+- **Presets** im Look der Taster 1 · 2 · 3; das passende Preset leuchtet blau.
+- Glatte Vektor-Schrift (TFT_eSPI-FreeFonts), Kopfzeile mit WLAN-Symbol + Temperatur.
 
-## Die drei Entwürfe
+## Das finale Layout (drei Betriebszustände)
 
-Alle im selben Szenario, damit die **Layouts** vergleichbar sind (nicht die Daten):
-**Ist 230 V · Ziel 200 V · Ausgang EIN · Strombegrenzung EIN (→ Zahlen gelb) ·
-Preset 2 aktiv & gehalten · 34 °C · WLAN verbunden**.
+Ein Layout — die Anzeige ändert sich mit dem Zustand:
 
 <table>
   <tr>
-    <th><img src="mockup-A.svg" width="230" alt="Mockup A"></th>
-    <th><img src="mockup-B.svg" width="230" alt="Mockup B"></th>
-    <th><img src="mockup-C.svg" width="230" alt="Mockup C"></th>
+    <th><img src="final-1-mit-limit.svg" width="220" alt="Mit Strombegrenzung"></th>
+    <th><img src="final-2-ohne-limit.svg" width="220" alt="Ohne Strombegrenzung"></th>
+    <th><img src="final-3-ausgang-aus.svg" width="220" alt="Ausgang aus"></th>
   </tr>
   <tr>
-    <td valign="top"><b>A — Spannung als Held</b><br>
-      Klassisch vertikal. Riesige Ist-Spannung, dünne schwarze Statusleiste oben,
-      Icon-Zeile über den Presets.</td>
-    <td valign="top"><b>B — Große Statuszeile</b><br>
-      Prominentes schwarzes Status-Band in der Mitte (Ausgang / Limit). Spannung etwas
-      kleiner, dafür Status als Hero-Element.</td>
-    <td valign="top"><b>C — Icon-Grid</b><br>
-      Frontplatten-Metapher: Reihe farbiger Status-Chips wie die echten Taster
-      (⚡ / →| / ▲), Presets im Tasten-Look.</td>
+    <td valign="top"><b>① Mit Strombegrenzung</b><br>
+      Ausgang + Limit + Regelung EIN. Ist <b>gelb</b>, Ziel grau. Nur das Blitz-Dreieck
+      (&gt; 50 V) pulst. Ziel 230 V = Preset 3 → P3 blau (Schloss = Regelung hält).</td>
+    <td valign="top"><b>② Ohne Strombegrenzung</b><br>
+      Limit-Chip grau → Ist <b>rot</b>; Achtung-Dreieck + Blitz-Dreieck pulsen.
+      Regelung weiter EIN.</td>
+    <td valign="top"><b>③ Ausgang aus</b><br>
+      Alle Chips grau, Warndreiecke dim-grau, Ist <b>hellgrau</b> (~0 V). Ziel bleibt grau;
+      Preset 3 bleibt blau (folgt dem Zielwert).</td>
   </tr>
 </table>
 
-## Farb- & Icon-Logik (in allen Varianten gleich)
+## Anzeige-Logik
 
-<img src="legend.svg" width="470" alt="Farb- und Icon-Logik">
+<img src="legend.svg" width="470" alt="Anzeige-Logik">
 
 | Element | Bedeutung |
 | :--- | :--- |
-| **Gelbe** Spannung | Strombegrenzung **EIN** |
-| **Rote** Spannung | Strombegrenzung **AUS** (Gefahr) |
-| Rotes Warndreieck ▲! | erscheint **zusätzlich**, wenn die Strombegrenzung aus ist |
-| Blitz-im-Dreieck ▲⚡ | Ausgangsspannung **> 50 V** (Berührungsgefahr) |
-| Schloss 🔒 | die Preset-Spannung wird aktuell **gehalten** |
-| Blau umrandete Preset-Kachel | aktives Preset (LED) wird auf dem Display hervorgehoben (Blau = zugehöriger Taster) |
-
-## Offene Fragen (bitte vor der Umsetzung klären)
-
-1. **„Statusbar"** – obere Leiste (A/C) oder großes zentrales Status-Band (B)? Welche Deutung war mit „grösser" gemeint?
-2. **Spannungsfarbe bei Ausgang AUS** (≈ 0 V): auch gelb/rot, oder neutral grau/weiß?
-3. **Presets**: reicht der blaue Rahmen-Highlight fürs aktive Preset, oder soll die aktive Kachel kräftiger gefüllt sein? Spannung (150/200/230 V) zeigen oder nur die Nummer?
-4. **Temperatur**: dauerhaft oben, oder nur als Icon bei Warnung?
-5. **Zielwert**: direkt unter der Spannung ok, oder woanders (z. B. in die Statuszeile)?
+| **Ist-Spannung** (groß, fett) | **gelb** = Ausgang ein mit Limit · **rot** = ohne Limit · **hellgrau** = Ausgang aus |
+| **Zielspannung** (groß, **grau**, nicht fett) | rechtsbündig unter der Ist-Spannung |
+| Chips **Ausgang / Limit / Regelung** | nur das Symbol (⚡ / →\| / 🔒 Schloss): leuchtet farbig = **EIN**, grau = **AUS** (wie die Taster-LED) |
+| **Achtung-Dreieck** (rot, links oben) | Strombegrenzung **aus** — **unabhängig vom Ausgang**; pulst (1 s/1 s, Farbe↔dim) |
+| **Blitz-Dreieck** (gelb, links unten) | Ausgangsspannung > 50 V (Berührungsgefahr) — pulst |
+| Warndreieck inaktiv | dim-grau am selben Platz |
+| **Preset** blau umrandet | **Zielwert** entspricht dem Preset (auch bei Ausgang aus) |
+| **Schloss** (Preset / Regelung-Chip) | die Regelung hält den Wert |
+| Kopfzeile | schwarz, nur WLAN-Symbol + Temperatur (kein Titel, keine Trennlinie) |
 
 ## Nicht vergessen: es gibt mehr als die Hauptanzeige
 
-Die Mockups zeigen den Normalbetrieb. Das Display kennt aber noch weitere Vollbild-Screens
-(alle in [`../../src/display.cpp`](../../src/display.cpp)) — wenn nur die Hauptanzeige neu
-gestaltet wird, stehen die anderen stilistisch daneben:
+Das finale Layout betrifft den Normalbetrieb. Das Display kennt aber weitere Vollbild-Screens
+(alle in [`../../src/display.cpp`](../../src/display.cpp)) — wird nur die Hauptanzeige neu
+gestaltet, stehen die anderen stilistisch daneben:
 
 | Screen | Funktion | Inhalt |
 | :--- | :--- | :--- |
-| Normalbetrieb | `drawBackground()` + `drawLegend()` + `updateDisplay()` | Gegenstand der Mockups |
+| Normalbetrieb | `drawBackground()` + `drawLegend()` + `updateDisplay()` | Gegenstand dieses Layouts |
 | Einstellungen / Kalibrierung | `drawSettingsScreen()` + `updateSettingsDisplay()` | Enc/Out/P1/P1S/P2/P2S, Warnzeile der Kalibrier-Plausibilität |
 | Referenzfahrt | `drawHomingScreen()` | „Homing…", IP-Adresse, Firmware-Version |
 | Systemfehler | `drawErrorScreen()` | Fehlerhinweis bei `STATE_ERROR` |
 | Voltmeter-Update (#32) | `drawVmUpdateScreen()` + `updateVmUpdateScreen()` | Fortschrittsbalken, Prozent, Statusmeldung, „Variac gesperrt - Ausgang AUS" |
-| OTA-Update (#26, **neu in V4.7.0**) | `drawOtaScreen()` + `updateOtaScreen()` | Fortschrittsbalken, Prozent, Firmware/Filesystem, „Gerät nicht ausschalten!" |
+| OTA-Update (#26, V4.7.0) | `drawOtaScreen()` + `updateOtaScreen()` | Fortschrittsbalken, Prozent, Firmware/Filesystem, „Gerät nicht ausschalten!" |
 
-Die beiden Update-Screens sind bewusst gleich aufgebaut (gleiche Balkengeometrie), und
-beide gehen mit einem gesperrten Variac einher — sie sollten also dieselbe Formensprache
-bekommen wie das neue Hauptlayout. Auch relevant: Seit V4.7.0 stellt `forceSafeState()`
-beim Sperren einen definierten Zustand her (Ausgang aus, Strombegrenzung ein, Regelung aus,
-Preset- und x10-LED aus) — die Statusdarstellung im Redesign sollte diesen Zustand
-eindeutig zeigen können.
+Die Update-Screens sollten dieselbe Formensprache bekommen wie das neue Hauptlayout. Seit
+V4.7.0 stellt `forceSafeState()` beim Sperren einen definierten Zustand her (Ausgang aus,
+Strombegrenzung ein, Regelung aus, Preset-/x10-LED aus) — die Chip-Darstellung im Redesign
+zeigt genau diesen Zustand eindeutig an.
 
 ## Technische Notiz zur Umsetzung
 
-- Icons werden – wie die bestehenden – als **16×16-XBM** in `src/icons.h` abgelegt
-  (Material Symbols, Apache-2.0). Neu nötig: Warndreieck, Blitz-im-Dreieck, Limit-Pfeil (→|), Schloss.
-- Schriften sind frei wählbar (TFT_eSPI-Fonts 2/4/6/7/8 bzw. Smooth-Fonts).
-- **Architektur-Entscheidung**: für flimmerfreie große Grafik/Animation empfiehlt sich der
-  Umstieg des `updateDisplay()`-Renderings auf einen **Sprite-Framebuffer** (PSRAM,
-  240×320×2 B ≈ 150 KB passen locker). Das ist der größte Umbau und noch offen.
+- **Icons als Zeichenprimitive** (kein XBM): Chips, Warndreieck, Blitz, Limit-Pfeil (→|) und
+  Schloss werden mit `fillTriangle`/`drawLine`/`fillRoundRect`/`fillCircle` gezeichnet. WLAN
+  bleibt vorerst als 16×16-XBM, Thermometer als Kontur-Primitive.
+- **Schriften**: glatte Vektor-FreeFonts — `FreeSansBold24pt7b` (Ist-Spannung),
+  `FreeSans24pt7b` (graue Zielspannung, nicht fett), `FreeSansBold12pt7b`/`9pt7b` (Labels).
+  Bei aktivem `LOAD_GFXFF` sind sie schon von TFT_eSPI eingebunden — **nicht** erneut includen
+  (Doppeldefinition), direkt via `&FreeSansBold…` verwenden.
+- Farben (RGB565): `TFT_YELLOW`, `TFT_RED`, dunkleres Blau (`0x1A9B`, Kontrast zur weißen
+  Preset-Nummer), Hellgrau (Ausgang aus), mittleres Grau (`0x9492`) für die Zielspannung.
+- **Rendering**: Dirty-Check pro Zone (nur Geändertes neu zeichnen, flimmerfrei); Warnspalte
+  und Werte-Spalte haben **getrennte Lösch-Bereiche**, damit nichts gegenseitig überschrieben wird.
 
 ---
 
-*Erzeugt als Diskussionsgrundlage für das Display-Redesign. Die SVGs sind maßstabsgetreu
-240×320. Nach der Entscheidung bleibt nur das finale Mockup; die übrigen Dateien und diese
-Notizen werden entfernt bzw. auf das gewählte Layout eingedampft.*
+*Die SVGs sind maßstabsgetreu 240×320 und werden aus `scratchpad/gen_final.py` erzeugt.*

@@ -1,8 +1,8 @@
-# TFT-Display – Redesign (finales Layout)
+# TFT-Display – Redesign (Beta 2)
 
-> **Status:** Umgesetzt und am Gerät iteriert (Branch `feature/redesign-display`, aufsetzend
-> auf V4.7.0). Der Normalbetrieb-Screen ist neu gestaltet und läuft auf dem Gerät; die übrigen
-> Screens bleiben vorerst unverändert. Feinschliff (Größen/Abstände) noch im Gang.
+> **Status:** Beta 2 — umgesetzt und am Gerät durchiteriert (Branch `feature/redesign-display`,
+> aufsetzend auf V4.7.0). Der Normalbetrieb-Screen ist neu gestaltet und läuft; die übrigen
+> Vollbild-Screens bleiben vorerst unverändert.
 
 ## Ziel
 
@@ -10,15 +10,18 @@ Das TFT (240×320, Portrait, ILI9341) wird grafischer und hebt die **wichtigen I
 hervor**. Bewusst **keine** Anlehnung an die Web-Oberfläche und **keine Gauge** – die
 Zeigerinstrumente sitzen bereits auf der Frontplatte. Kernideen:
 
-- **Ist- und Zielspannung** gestapelt, rechtsbündig in einer Zahlenspalte; links kleine
-  Labels „Ist"/„Ziel". **Ist** groß, fett, farbcodiert nach Sicherheitszustand; **Ziel**
-  gleich groß, aber **grau und nicht fett**.
-- **Zwei Warndreiecke** in eigener linker Spalte (Achtung / > 50 V): aktiv pulsierend
-  (Farbe↔dim), sonst dim-grau.
-- **Drei bedienbare Chips** (Ausgang · Limit · Regelung), spaltengleich über den Presets:
-  nur das Frontplatten-Symbol, leuchtet farbig = EIN, grau = AUS (wie die Taster-LED).
+- **Ist- und Zielspannung** gestapelt, **rechtsbündig** (ohne Labels — Größe/Farbe reichen).
+  **Ist** groß + fett + farbcodiert nach Sicherheitszustand; **Ziel** kleiner, **grau** und
+  **nicht fett**.
+- **Rahmen** (Radius wie Chips, links/rechts an den äußeren Chips ausgerichtet) um Werte +
+  Warnfeld — trennt Messwerte vom Bedienbereich und füllt den oberen Rand.
+- **Ein gelbes Achtung-Dreieck** (schwarzes „!") — nur bei **ausgeschalteter Strombegrenzung**,
+  **hartes Blinken** (an/aus). Kein Dauer-Platzhalter, keine > 50-V-Warnung mehr.
+- **Drei bedienbare Chips** (Ausgang · Limit · Regelung): nur das Frontplatten-Symbol,
+  leuchtet farbig = EIN, grau = AUS (wie die Taster-LED).
 - **Presets** im Look der Taster 1 · 2 · 3; das passende Preset leuchtet blau.
-- Glatte Vektor-Schrift (TFT_eSPI-FreeFonts), Kopfzeile mit WLAN-Symbol + Temperatur.
+- Glatte Vektor-Schrift (TFT_eSPI-FreeFonts), **Double-Buffering** (Sprite) gegen Flackern,
+  Kopfzeile mit WLAN-Symbol + Temperatur.
 
 ## Das finale Layout (drei Betriebszustände)
 
@@ -26,19 +29,19 @@ Ein Layout — die Anzeige ändert sich mit dem Zustand:
 
 <table>
   <tr>
-    <th><img src="final-1-mit-limit.svg" width="220" alt="Mit Strombegrenzung"></th>
+    <th><img src="final-1-mit-limit.svg" width="220" alt="Normal (Limit ein)"></th>
     <th><img src="final-2-ohne-limit.svg" width="220" alt="Ohne Strombegrenzung"></th>
     <th><img src="final-3-ausgang-aus.svg" width="220" alt="Ausgang aus"></th>
   </tr>
   <tr>
-    <td valign="top"><b>① Mit Strombegrenzung</b><br>
-      Ausgang + Limit + Regelung EIN. Ist <b>gelb</b>, Ziel grau. Nur das Blitz-Dreieck
-      (&gt; 50 V) pulst. Ziel 230 V = Preset 3 → P3 blau (Schloss = Regelung hält).</td>
+    <td valign="top"><b>① Normal (Limit ein)</b><br>
+      Ausgang + Limit + Regelung EIN. Ist <b>gelb</b>, Ziel grau. <b>Kein</b> Warndreieck.
+      Ziel 230 V = Preset 3 → P3 blau (Schloss = Regelung hält).</td>
     <td valign="top"><b>② Ohne Strombegrenzung</b><br>
-      Limit-Chip grau → Ist <b>rot</b>; Achtung-Dreieck + Blitz-Dreieck pulsen.
-      Regelung weiter EIN.</td>
+      Limit-Chip grau → Ist <b>rot</b>; das gelbe Achtung-Dreieck (schwarzes „!") erscheint
+      und blinkt hart. Regelung weiter EIN.</td>
     <td valign="top"><b>③ Ausgang aus</b><br>
-      Alle Chips grau, Warndreiecke dim-grau, Ist <b>hellgrau</b> (~0 V). Ziel bleibt grau;
+      Alle Chips grau, kein Warndreieck, Ist <b>hellgrau</b> (~0 V). Ziel bleibt grau;
       Preset 3 bleibt blau (folgt dem Zielwert).</td>
   </tr>
 </table>
@@ -49,12 +52,11 @@ Ein Layout — die Anzeige ändert sich mit dem Zustand:
 
 | Element | Bedeutung |
 | :--- | :--- |
-| **Ist-Spannung** (groß, fett) | **gelb** = Ausgang ein mit Limit · **rot** = ohne Limit · **hellgrau** = Ausgang aus |
-| **Zielspannung** (groß, **grau**, nicht fett) | rechtsbündig unter der Ist-Spannung |
+| **Ist-Spannung** (groß, fett, rechtsbündig) | **gelb** = Ausgang ein mit Limit · **rot** = ohne Limit · **hellgrau** = Ausgang aus |
+| **Zielspannung** (kleiner, **grau**, nicht fett) | rechtsbündig unter der Ist-Spannung |
+| **Rahmen** (Radius wie Chips) | umschließt Werte + Warnfeld, links/rechts an den äußeren Chips ausgerichtet |
+| **Achtung-Dreieck** (gelb, schwarzes „!") | erscheint **nur** bei ausgeschalteter Strombegrenzung (unabhängig vom Ausgang); **hartes Blinken** (1 s an / 1 s aus), sonst leeres Feld |
 | Chips **Ausgang / Limit / Regelung** | nur das Symbol (⚡ / →\| / 🔒 Schloss): leuchtet farbig = **EIN**, grau = **AUS** (wie die Taster-LED) |
-| **Achtung-Dreieck** (rot, links oben) | Strombegrenzung **aus** — **unabhängig vom Ausgang**; pulst (1 s/1 s, Farbe↔dim) |
-| **Blitz-Dreieck** (gelb, links unten) | Ausgangsspannung > 50 V (Berührungsgefahr) — pulst |
-| Warndreieck inaktiv | dim-grau am selben Platz |
 | **Preset** blau umrandet | **Zielwert** entspricht dem Preset (auch bei Ausgang aus) |
 | **Schloss** (Preset / Regelung-Chip) | die Regelung hält den Wert |
 | Kopfzeile | schwarz, nur WLAN-Symbol + Temperatur (kein Titel, keine Trennlinie) |
@@ -81,17 +83,22 @@ zeigt genau diesen Zustand eindeutig an.
 
 ## Technische Notiz zur Umsetzung
 
-- **Icons als Zeichenprimitive** (kein XBM): Chips, Warndreieck, Blitz, Limit-Pfeil (→|) und
-  Schloss werden mit `fillTriangle`/`drawLine`/`fillRoundRect`/`fillCircle` gezeichnet. WLAN
-  bleibt vorerst als 16×16-XBM, Thermometer als Kontur-Primitive.
+- **Icons als Zeichenprimitive** (kein XBM): Chips (Blitz, Limit-Pfeil →|, Schloss) und das
+  Warndreieck (`fillRoundTri()` = gefülltes Dreieck mit abgerundeten Ecken) mit
+  `fillTriangle`/`fillRoundRect`/`fillCircle`. WLAN als `drawSmoothArc`-Fächer, Thermometer als
+  Röhre (Umriss) + gefüllter Quecksilbersäule/Kolben.
 - **Schriften**: glatte Vektor-FreeFonts — `FreeSansBold24pt7b` (Ist-Spannung),
-  `FreeSans24pt7b` (graue Zielspannung, nicht fett), `FreeSansBold12pt7b`/`9pt7b` (Labels).
-  Bei aktivem `LOAD_GFXFF` sind sie schon von TFT_eSPI eingebunden — **nicht** erneut includen
+  `FreeSans18pt7b` (graue Zielspannung, nicht fett), Font 4 (Temperatur). Bei aktivem
+  `LOAD_GFXFF` sind sie schon von TFT_eSPI eingebunden — **nicht** erneut includen
   (Doppeldefinition), direkt via `&FreeSansBold…` verwenden.
-- Farben (RGB565): `TFT_YELLOW`, `TFT_RED`, dunkleres Blau (`0x1A9B`, Kontrast zur weißen
-  Preset-Nummer), Hellgrau (Ausgang aus), mittleres Grau (`0x9492`) für die Zielspannung.
-- **Rendering**: Dirty-Check pro Zone (nur Geändertes neu zeichnen, flimmerfrei); Warnspalte
-  und Werte-Spalte haben **getrennte Lösch-Bereiche**, damit nichts gegenseitig überschrieben wird.
+- **Double-Buffering gegen Flackern**: Ist/Ziel werden in `TFT_eSprite` gezeichnet und in einem
+  Rutsch gepusht (statt löschen → neu beschriften). Sprites werden einmal angelegt; Fallback auf
+  Direktzeichnen, falls das Anlegen scheitert.
+- Farben (RGB565): `TFT_YELLOW`/`TFT_RED` (Warndreieck gelb, „!" schwarz), dunkleres Blau
+  (`0x1A9B`, Kontrast zur weißen Preset-Nummer), Hellgrau (Ausgang aus), mittleres Grau
+  (`0x9492`) für Ziel, `0x52AA` für den Rahmen.
+- **Rendering**: Dirty-Check pro Zone; das Warndreieck-Feld und die Werte-Sprites haben
+  **getrennte Bereiche**, damit nichts gegenseitig überschrieben wird.
 
 ---
 

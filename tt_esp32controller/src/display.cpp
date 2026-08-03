@@ -30,6 +30,8 @@ static const uint16_t COL_BLUE    = 0x1A9B;      // dunkleres Blau (mehr Kontras
 static const uint16_t COL_CHIPOFF = 0x39E7;      // inaktiver Chip-Rand / inaktives Icon (dezent grau)
 static const uint16_t COL_LABEL   = TFT_DARKGREY;// graue Beschriftungen
 static const uint16_t COL_VGREY   = TFT_LIGHTGREY;// Spannung bei Ausgang AUS
+static const uint16_t COL_FRAME   = 0x52AA;      // grauer Rundrahmen um den Spannungs-/Warnbereich
+static const uint16_t COL_ZIEL    = 0x9492;      // mittleres Grau für die Zielspannung
 
 // Farbzustand der grossen Spannung
 enum VoltColor : uint8_t { VCOL_GREY, VCOL_YELLOW, VCOL_RED };
@@ -110,17 +112,42 @@ static void icoLock(int cx, int cy, uint16_t c) {          // Schloss (Regelung 
   tft.fillCircle(cx, cy + 6, 2, TFT_BLACK);                // Schlüsselloch
 }
 
-static void icoWarnTri(int cx, int cy, int s, uint16_t fill, bool bolt) {  // Warndreieck (klare Symbole, saubere Kanten)
+// Gefülltes Dreieck mit abgerundeten Ecken (Radius r) — Bogen tangential an beide Kanten.
+// Hexagon der Tangentenpunkte füllen + Kreis je Ecke.
+static void fillRoundTri(int X0, int Y0, int X1, int Y1, int X2, int Y2, float r, uint16_t col) {
+  float vx[3] = { (float)X0, (float)X1, (float)X2 };
+  float vy[3] = { (float)Y0, (float)Y1, (float)Y2 };
+  float tx[6], ty[6], ox[3], oy[3];
+  for (int i = 0; i < 3; i++) {
+    int p = (i + 2) % 3, n = (i + 1) % 3;
+    float d1x = vx[p] - vx[i], d1y = vy[p] - vy[i];
+    float d2x = vx[n] - vx[i], d2y = vy[n] - vy[i];
+    float l1 = sqrtf(d1x*d1x + d1y*d1y), l2 = sqrtf(d2x*d2x + d2y*d2y);
+    d1x/=l1; d1y/=l1; d2x/=l2; d2y/=l2;
+    float half = acosf(d1x*d2x + d1y*d2y) / 2.0f;
+    float t = r / tanf(half), ins = r / sinf(half);
+    float bx = d1x + d2x, by = d1y + d2y, bl = sqrtf(bx*bx + by*by);
+    bx/=bl; by/=bl;
+    tx[2*i]   = vx[i] + d1x*t; ty[2*i]   = vy[i] + d1y*t;
+    tx[2*i+1] = vx[i] + d2x*t; ty[2*i+1] = vy[i] + d2y*t;
+    ox[i] = vx[i] + bx*ins; oy[i] = vy[i] + by*ins;
+  }
+  for (int i = 1; i < 5; i++)
+    tft.fillTriangle((int)tx[0], (int)ty[0], (int)tx[i], (int)ty[i], (int)tx[i+1], (int)ty[i+1], col);
+  for (int i = 0; i < 3; i++)
+    tft.fillCircle((int)(ox[i] + 0.5f), (int)(oy[i] + 0.5f), (int)(r + 0.5f), col);
+}
+
+static void icoWarnTri(int cx, int cy, int s, uint16_t fill, bool bolt) {  // Warndreieck, Ecken leicht abgerundet
   int by = (int)(s * 0.85f);
-  tft.fillTriangle(cx, cy - s, cx - s, cy + by, cx + s, cy + by, fill);
+  fillRoundTri(cx, cy - s, cx - s, cy + by, cx + s, cy + by, 5.0f, fill);
   if (bolt) {
-    // klar erkennbarer Blitz-im-Dreieck (>50 V)
     tft.fillTriangle(cx + 3, cy - (int)(s * 0.55f), cx - 5, cy + (int)(s * 0.12f), cx + 1, cy + (int)(s * 0.12f), TFT_BLACK);
     tft.fillTriangle(cx - 3, cy + (int)(s * 0.62f), cx + 5, cy - (int)(s * 0.12f), cx - 1, cy - (int)(s * 0.12f), TFT_BLACK);
   } else {
-    // dickes Ausrufezeichen (Gefahr)
-    tft.fillRect(cx - 2, cy - (int)(s * 0.42f), 4, (int)(s * 0.55f), TFT_BLACK);
-    tft.fillRect(cx - 2, cy + (int)(s * 0.34f), 4, 4, TFT_BLACK);
+    // fettes Ausrufezeichen in Schwarz (auf gelbem Dreieck)
+    tft.fillRect(cx - 3, cy - (int)(s * 0.42f), 6, (int)(s * 0.5f), TFT_BLACK);
+    tft.fillCircle(cx, cy + (int)(s * 0.5f), 3, TFT_BLACK);
   }
 }
 
@@ -140,50 +167,93 @@ static uint8_t currentWifiIcon() {
 }
 
 static void drawWifi(uint8_t st) {
-  tft.fillRect(8, 6, 16, 16, TFT_BLACK);
-  if (st == WIFI_ICON_CONNECTED)  tft.drawXBitmap(8, 6, icon_wifi,      16, 16, TFT_WHITE, TFT_BLACK);
-  else if (st == WIFI_ICON_AP)    tft.drawXBitmap(8, 6, icon_wifi_find, 16, 16, TFT_WHITE, TFT_BLACK);
+  tft.fillRect(3, 4, 32, 26, TFT_BLACK);
+  const int cx = 17, by = 25;
+  if (st == WIFI_ICON_CONNECTED || st == WIFI_ICON_AP) {
+    tft.fillCircle(cx, by, 2, TFT_WHITE);
+    tft.drawSmoothArc(cx, by, 8,  6,  138, 222, TFT_WHITE, TFT_BLACK);
+    tft.drawSmoothArc(cx, by, 14, 12, 138, 222, TFT_WHITE, TFT_BLACK);
+    if (st == WIFI_ICON_AP) tft.fillCircle(cx + 11, by - 3, 3, TFT_WHITE);   // Such-Indikator (Config-AP)
+  }
+  // WIFI_ICON_NONE: leer
 }
 
 static void drawTemp(float t, bool ok) {
-  tft.fillRect(150, 2, 90, 36, TFT_BLACK);
-  // Thermometer-Kontur (nur Umriss, ohne Füllanzeige)
-  int cx = 172, top = 11;
-  tft.drawRoundRect(cx - 3, top, 6, 12, 3, TFT_WHITE);
-  tft.drawCircle(cx, top + 14, 4, TFT_WHITE);
+  tft.fillRect(146, 2, 94, 40, TFT_BLACK);
+  // Thermometer: Röhre umrandet, unten Quecksilbersäule + Kolben gefüllt
+  int cx = 162, top = 5, tubeW = 8, tubeH = 20, bulbCy = 30, bulbR = 6;
+  tft.drawRoundRect(cx - tubeW / 2, top, tubeW, tubeH, tubeW / 2, TFT_WHITE);   // Röhren-Umriss
+  tft.fillCircle(cx, bulbCy, bulbR, TFT_WHITE);                                  // Kolben gefüllt
+  int mercTop = top + tubeH / 2;                                                 // ab Mitte gefüllt
+  tft.fillRect(cx - (tubeW / 2 - 2), mercTop, tubeW - 4, bulbCy - mercTop + 1, TFT_WHITE);
+  // Wert grösser (Font 4)
   tft.setTextColor(TFT_WHITE);
   tft.setTextPadding(0);
   tft.setTextDatum(MR_DATUM);
   String s = ok ? String((int)lroundf(t)) : String("N/A");
-  tft.drawString(s, 214, 20, 2);                  // Font 2 (kleiner)
+  tft.drawString(s, 210, 20, 4);
   if (ok) {
-    tft.drawCircle(219, 13, 2, TFT_WHITE);        // Grad-Zeichen (Font 2 hat kein °)
+    tft.drawCircle(215, 11, 3, TFT_WHITE);        // Grad-Zeichen (grösser)
     tft.setTextDatum(ML_DATUM);
-    tft.drawString("C", 223, 20, 2);
+    tft.drawString("C", 220, 20, 4);
   }
 }
 
 // ------------------------------------------------------------------ Spannung / Ziel
-// Ist-Spannung: grosser, farbcodierter Wert, rechtsbündig (eigene Zahlenspalte rechts).
-static void drawIstValue(int v, uint16_t col) {
-  tft.fillRect(102, 53, 134, 40, TFT_BLACK);
-  tft.setFreeFont(&FreeSansBold24pt7b);        // fett
-  tft.setTextDatum(MR_DATUM);
-  tft.setTextColor(col);
-  tft.setTextPadding(0);
-  tft.drawString(String(v) + " V", 232, 72);
-  tft.setTextFont(2);
+// Double-Buffering gegen Flackern: die grossen Zahlen werden in einen Sprite gezeichnet und
+// in einem Rutsch gepusht (statt löschen -> neu beschriften). Sprites werden einmal angelegt.
+static TFT_eSprite sprIst  = TFT_eSprite(&tft);
+static TFT_eSprite sprZiel = TFT_eSprite(&tft);
+static int spritesState = 0;   // 0 = uninitialisiert, 1 = ok, 2 = Anlegen fehlgeschlagen
+
+static void ensureSprites() {
+  if (spritesState != 0) return;
+  sprIst.setColorDepth(16);
+  sprZiel.setColorDepth(16);
+  bool ok = (sprIst.createSprite(136, 44) != nullptr) && (sprZiel.createSprite(136, 36) != nullptr);
+  spritesState = ok ? 1 : 2;
 }
 
-// Zielspannung: gleich gross wie Ist, aber grau und NICHT fett, rechtsbündig darunter.
+// Ist-Spannung: grosser, fetter, farbcodierter Wert, rechtsbündig im Rahmen.
+static void drawIstValue(int v, uint16_t col) {
+  ensureSprites();
+  if (spritesState == 1) {
+    sprIst.fillSprite(TFT_BLACK);
+    sprIst.setFreeFont(&FreeSansBold24pt7b);
+    sprIst.setTextDatum(MR_DATUM);
+    sprIst.setTextColor(col, TFT_BLACK);
+    sprIst.drawString(String(v) + " V", 132, 22);
+    sprIst.pushSprite(96, 52);
+  } else {
+    tft.fillRect(96, 52, 136, 44, TFT_BLACK);
+    tft.setFreeFont(&FreeSansBold24pt7b);
+    tft.setTextDatum(MR_DATUM);
+    tft.setTextColor(col);
+    tft.setTextPadding(0);
+    tft.drawString(String(v) + " V", 228, 74);
+    tft.setTextFont(2);
+  }
+}
+
+// Zielspannung: kleiner, grau und NICHT fett, rechtsbündig darunter.
 static void drawZielValue(int v) {
-  tft.fillRect(102, 101, 134, 40, TFT_BLACK);
-  tft.setFreeFont(&FreeSans24pt7b);            // nicht fett
-  tft.setTextDatum(MR_DATUM);
-  tft.setTextColor(0x9492);                    // klares Grau (nicht weiss)
-  tft.setTextPadding(0);
-  tft.drawString(String(v) + " V", 232, 120);
-  tft.setTextFont(2);
+  ensureSprites();
+  if (spritesState == 1) {
+    sprZiel.fillSprite(TFT_BLACK);
+    sprZiel.setFreeFont(&FreeSans18pt7b);
+    sprZiel.setTextDatum(MR_DATUM);
+    sprZiel.setTextColor(COL_ZIEL, TFT_BLACK);
+    sprZiel.drawString(String(v) + " V", 132, 18);
+    sprZiel.pushSprite(96, 100);
+  } else {
+    tft.fillRect(96, 100, 136, 36, TFT_BLACK);
+    tft.setFreeFont(&FreeSans18pt7b);
+    tft.setTextDatum(MR_DATUM);
+    tft.setTextColor(COL_ZIEL);
+    tft.setTextPadding(0);
+    tft.drawString(String(v) + " V", 228, 118);
+    tft.setTextFont(2);
+  }
 }
 
 // ------------------------------------------------------------------ Chips
@@ -259,8 +329,7 @@ void updateDisplay() {
   int  target = (int)lroundf(setpoint_voltage);
   uint8_t vcol = !out ? VCOL_GREY : (limit ? VCOL_YELLOW : VCOL_RED);
   bool danger = !limit;                          // Strombegrenzung aus -> Warnung (unabhängig vom Ausgang)
-  bool hv     = received_rms_value > 50.0f;      // Berührungsspannung
-  bool blinkOn = ((millis() / 1000) % 2) == 0;   // Blink-Puls: 1 s hell / 1 s dim
+  bool blinkOn = ((millis() / 1000) % 2) == 0;   // hartes Blinken: 1 s an / 1 s aus
 
   // Preset ist aktiv, wenn der Zielwert einem Preset entspricht — auch bei Ausgang aus.
   int pv[3] = { A_p1->getValuePreset(), A_p2->getValuePreset(), A_p3->getValuePreset() };
@@ -284,11 +353,13 @@ void updateDisplay() {
     drawZielValue(target);
   }
 
-  // --- Warnsymbole in eigener linker Spalte (grösser, weiter auseinander) ---
-  uint8_t dState = !danger ? 0 : (blinkOn ? 1 : 2);
-  uint8_t hState = !hv     ? 0 : (blinkOn ? 1 : 2);
-  if (dState != actDispValues.nWarnD) { actDispValues.nWarnD = dState; drawWarn(32, 70,  18, false, danger, blinkOn); }
-  if (hState != actDispValues.nWarnH) { actDispValues.nWarnH = hState; drawWarn(32, 124, 18, true,  hv,     blinkOn); }
+  // --- Achtung-Dreieck (Strombegrenzung aus): nur wenn aktiv, gross, hartes Blinken ---
+  uint8_t triShown = (danger && blinkOn) ? 1 : 0;
+  if (triShown != actDispValues.nWarnD) {
+    actDispValues.nWarnD = triShown;
+    tft.fillRect(25, 63, 70, 72, TFT_BLACK);   // Dreieck-Feld im Rahmen leeren (ohne Rahmenrand)
+    if (triShown) icoWarnTri(60, 100, 34, TFT_YELLOW, false);   // gelbes Warndreieck, schwarzes "!"
+  }
 
   // --- 3 Schalter-Chips (spaltengleich über den Presets) ---
   const int CY = 170, CH = 54, CW = 68;
@@ -409,13 +480,9 @@ void drawHomingScreen() {
 void drawBackground() {
   tftStartWrite();
   tft.fillScreen(TFT_BLACK);
-  tft.setFreeFont(&FreeSansBold12pt7b);        // Labels grösser + weiter rechts
-  tft.setTextColor(COL_LABEL, TFT_BLACK);
-  tft.setTextDatum(ML_DATUM);
-  tft.setTextPadding(0);
-  tft.drawString("Ist",  58, 72);
-  tft.drawString("Ziel", 58, 120);
-  tft.setTextFont(2);
+  // Rahmen um Spannungs-/Warnbereich; links/rechts an den äusseren Chips ausgerichtet (x=12..236),
+  // Radius wie bei den Chips. Keine "Ist"/"Ziel"-Labels mehr.
+  thickRoundRect(12, 46, 224, 106, 9, 2, COL_FRAME);
   tftEndWrite();
 }
 
@@ -423,14 +490,8 @@ void drawBackground() {
  * @brief Zeichnet die statischen Beschriftungen der Hauptanzeige (Redesign).
  */
 void drawLegend() {
-  tftStartWrite();
-  tft.setFreeFont(&FreeSansBold9pt7b);   // ~20% kleiner
-  tft.setTextDatum(TL_DATUM);
-  tft.setTextColor(COL_LABEL, TFT_BLACK);
-  tft.setTextPadding(0);
-  tft.drawString("Presets", 12, 232);
-  tft.setTextFont(2);
-  tftEndWrite();
+  // Keine statische Beschriftung mehr — kein "Presets"-Text (Kacheln sind selbsterklärend).
+  // (Bleibt als leerer Aufruf im displayUpdateTask erhalten.)
 }
 
 /**

@@ -227,15 +227,26 @@ void cb_RegAction(Action* act, ButtonEvent event) {
     }
     else if (event == ButtonEvent::RELEASED) {
         if (wasLong) { wasLong = false; return; }   // war ein Langdruck -> Regelung unangetastet lassen
-        act->toggle();
-        if (act->getState()) {
-            isRecallPreset = true;                  // REG ein: Anfahrt auf Sollwert, danach Halten
-        } else {
-            is_regulation_active = false;           // REG aus: automatische Regelung stoppen
-            regPhase = RP_IDLE;
-        }
-        logMessage(LOG_INFO, "HARDWARE: Voltage Regulation -> %s", act->getState() ? "ON" : "OFF");
+        toggleRegulation();                         // gemeinsame Logik (auch Web/API), GitHub-#27
     }
+}
+
+/**
+ * @brief Schaltet die Spannungsregelung um (Gerätetaste UND Web/API, GitHub-#27).
+ * EIN: löst über isRecallPreset eine Vorsteuer-Anfahrt auf den Sollwert aus, danach Halten —
+ *      damit ein nach dem Preset entstandener Lastabfall auch wirklich nachgeregelt wird.
+ * AUS: stoppt die automatische Regelung sofort.
+ * Beide Bedienwege müssen hier durch, sonst togglet der Web-Pfad nur die LED, ohne zu regeln.
+ */
+void toggleRegulation() {
+    A_reg->toggle();
+    if (A_reg->getState()) {
+        isRecallPreset = true;            // REG ein: Anfahrt auf Sollwert, danach Halten
+    } else {
+        is_regulation_active = false;     // REG aus: automatische Regelung stoppen
+        regPhase = RP_IDLE;
+    }
+    logMessage(LOG_INFO, "HARDWARE: Voltage Regulation -> %s", A_reg->getState() ? "ON" : "OFF");
 }
 
 /**

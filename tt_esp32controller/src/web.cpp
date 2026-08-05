@@ -125,7 +125,7 @@ void initWebServer() {
       
       if (action == "toggle_output") { A_onoff->toggle(); }
       else if (action == "toggle_limit") { A_limit->toggle(); }
-      else if (action == "toggle_regulation") { A_reg->toggle(); }
+      else if (action == "toggle_regulation") { toggleRegulation(); }   // GitHub-#27: Feedforward mit anstossen
       else if (action == "recall_p1") { cb_ValueAction(A_p1, ButtonEvent::RELEASED); }
       else if (action == "recall_p2") { cb_ValueAction(A_p2, ButtonEvent::RELEASED); }
       else if (action == "recall_p3") { cb_ValueAction(A_p3, ButtonEvent::RELEASED); }

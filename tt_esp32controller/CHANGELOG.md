@@ -6,6 +6,18 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
+## [V4.8.1] – 2026-08-06
+
+### Behoben
+- **Regelung wurde über die Web-/API-Bedienung nicht nachgeführt** (GitHub-#27): Wurde die
+  Regelung per Dashboard/`POST /api/command?action=toggle_regulation` eingeschaltet, schaltete
+  das nur die LED — der Feedforward wurde nicht angestossen, ein nach dem Preset entstandener
+  Lastabfall blieb unkorrigiert. Ursache: nur `A_reg->toggle()` ohne `isRecallPreset`, dadurch
+  bleibt `is_regulation_active` false und `motorControlTask` verlässt `RP_IDLE` nie. Behoben durch
+  eine gemeinsame Funktion `toggleRegulation()`, die Gerätetaste **und** Web/API benutzen — beide
+  Wege stossen jetzt identisch die Anfahrt auf den Sollwert an (und räumen beim Ausschalten auf).
+  (Die Gerätetaste selbst war seit V4.8.0 bereits korrekt.)
+
 ## [V4.8.0] – 2026-08-05
 
 ### Neu

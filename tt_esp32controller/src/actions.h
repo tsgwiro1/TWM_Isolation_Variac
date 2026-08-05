@@ -40,6 +40,9 @@ void cb_SettingsValueAction(Action* act, ButtonEvent event);
 void cb_x10Action(Action* act, ButtonEvent event);
 void cb_RegAction(Action* act, ButtonEvent event);
 void cb_SettingsOnOffAction(Action* act, ButtonEvent event);
+// Schaltet die Spannungsregelung um — gemeinsame Logik für Gerätetaste UND Web/API,
+// damit beide Wege den Feedforward gleich anstossen (GitHub-#27).
+void toggleRegulation();
 // Initialisierung (setup)
 void initActions();
 void initSettingsActions();

@@ -4,7 +4,7 @@
 > Zielspannungs-Zeile durch einen Regelabweichungsbalken (zwei zur Laufzeit umschaltbare
 > Varianten). Die On-Device-Umsetzung verfeinert die hier gezeigten Mockups: grössere
 > Ist-Spannung mit eigenem Font, generierte Icons für Warndreieck und Thermometer, überarbeitete
-> Kopfzeile. Die SVGs bleiben als Design-Stand; Umsetzungs-Spezifikation:
+> Kopfzeile. Umsetzungs-Spezifikation:
 > [`umsetzung-regelabweichungsbalken.md`](umsetzung-regelabweichungsbalken.md).
 
 ## Ziel
@@ -32,35 +32,22 @@ Zeigerinstrumente sitzen bereits auf der Frontplatte. Kernideen:
 - Glatte Vektor-Schrift (TFT_eSPI-FreeFonts), **Double-Buffering** (Sprite) gegen Flackern,
   Kopfzeile mit WLAN-Symbol + Temperatur.
 
-## Das finale Layout (drei Betriebszustände)
+## Betriebszustände
 
-Ein Layout — die Anzeige ändert sich mit dem Zustand. Gezeigt ist **Variante A** (feste Zonen
-+ Pfeil) des Regelabweichungsbalkens; Variante B (Füllbalken) zeigt sich am selben Rahmen,
-siehe [`umsetzung-regelabweichungsbalken.md`](umsetzung-regelabweichungsbalken.md):
+Ein Layout — die Anzeige ändert sich mit dem Zustand. Der Regelabweichungsbalken hat zwei
+Varianten (A = feste Zonen + Pfeil, B = Füllbalken), per Langdruck auf die Regelungstaste
+umschaltbar; Details in [`umsetzung-regelabweichungsbalken.md`](umsetzung-regelabweichungsbalken.md).
 
-<table>
-  <tr>
-    <th><img src="final-1-mit-limit.svg" width="220" alt="Normal (Limit ein)"></th>
-    <th><img src="final-2-ohne-limit.svg" width="220" alt="Ohne Strombegrenzung"></th>
-    <th><img src="final-3-ausgang-aus.svg" width="220" alt="Ausgang aus"></th>
-  </tr>
-  <tr>
-    <td valign="top"><b>① Normal (Limit ein)</b><br>
-      Ausgang + Limit + Regelung EIN. Ist <b>gelb</b>. Warndreieck dim-grau (inaktiv).
-      Regelabweichungsbalken grün (Regelung trifft), Pfeil mittig. Ziel 230 V = Preset 3 →
-      P3 blau (Schloss = Regelung hält).</td>
-    <td valign="top"><b>② Ohne Strombegrenzung</b><br>
-      Limit-Chip grau → Ist <b>rot</b>; das gelbe Achtung-Dreieck (schwarzes „!") aktiv und
-      blinkt hart. Balken zeigt eine Abweichung in der gelben Zone. Regelung weiter EIN.</td>
-    <td valign="top"><b>③ Ausgang aus</b><br>
-      Alle Chips grau, Warndreieck dim-grau, Ist <b>hellgrau</b> (~0 V). Balken einheitlich
-      grau (kein Regelfehler, da Ausgang aus). Preset 3 bleibt blau (folgt dem Zielwert).</td>
-  </tr>
-</table>
+- **① Normal (Limit ein):** Ausgang + Limit + Regelung EIN. Ist **gelb**. Warndreieck dim-grau
+  (inaktiv). Balken grün (Regelung trifft), Pfeil mittig. Ziel 230 V = Preset 3 → P3 blau
+  (Schloss = Regelung hält).
+- **② Ohne Strombegrenzung:** Limit-Chip grau → Ist **rot**; das gelbe Achtung-Dreieck
+  (schwarzes „!") aktiv und blinkt hart. Balken zeigt eine Abweichung in der gelben Zone.
+  Regelung weiter EIN.
+- **③ Ausgang aus:** Alle Chips grau, Warndreieck dim-grau, Ist **hellgrau** (~0 V). Balken
+  einheitlich grau (kein Regelfehler, da Ausgang aus). Preset 3 bleibt blau (folgt dem Zielwert).
 
 ## Anzeige-Logik
-
-<img src="legend.svg" width="470" alt="Anzeige-Logik">
 
 | Element | Bedeutung |
 | :--- | :--- |
@@ -117,6 +104,5 @@ zeigt genau diesen Zustand eindeutig an.
 
 ---
 
-*Die SVGs sind maßstabsgetreu 240×320. Vollständige Geometrie, Zustandslogik und beide
-Balken-Varianten (inkl. Umschalt-Mechanik) stehen in
-[`umsetzung-regelabweichungsbalken.md`](umsetzung-regelabweichungsbalken.md).*
+*Vollständige Geometrie, Zustandslogik und beide Balken-Varianten (inkl. Umschalt-Mechanik)
+stehen in [`umsetzung-regelabweichungsbalken.md`](umsetzung-regelabweichungsbalken.md).*

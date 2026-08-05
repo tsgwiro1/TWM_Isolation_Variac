@@ -7,9 +7,9 @@
 
 // Firmware-Version (entspricht dem CHANGELOG)
 #ifdef SIM
-#define FW  "Firmware V4.7.0 (SIM)"
+#define FW  "Firmware V4.8.0 (SIM)"
 #else
-#define FW  "Firmware V4.7.0"
+#define FW  "Firmware V4.8.0"
 #endif
 
 // System
@@ -18,6 +18,9 @@ extern volatile bool hardwareInitialized;  // "Wächter"-Variable für den Hardw
 enum SystemMode { MODE_NORMAL, MODE_SETTINGS };
 extern volatile SystemMode currentMode;
 extern volatile bool requestEnterSettingsMode;
+// Regelabweichungs-Balken: umschaltbare Darstellungs-Variante (0 = A: Zonen+Pfeil, 1 = B: Füllbalken).
+// Wird per Langdruck auf die Regelungstaste umgeschaltet und im NVS (Config) persistiert.
+extern volatile uint8_t displayVariant;
 // GitHub-#18: Sperrt den displayUpdateTask, solange der "Homing..."-Screen steht.
 // isHomingActive() allein reicht nicht: dessen Flag setzt erst homing() selbst, der
 // Moduswechsel steht aber schon davor — in diesem Fenster hat der Display-Task den

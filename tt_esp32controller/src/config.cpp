@@ -26,6 +26,7 @@
 #define DEFAULT_REG_SETTLE_MS     150
 #define DEFAULT_REG_UNDERSHOOT_V  5.0f
 #define DEFAULT_DEBUG true
+#define DEFAULT_DISPLAY_VARIANT 0
 
 // Liefert den rohen Config-JSON-String aus dem NVS (leer, wenn keiner existiert).
 String configRawJson() {
@@ -56,6 +57,7 @@ void applyDefaultConfiguration() {
     reg_settle_ms    = DEFAULT_REG_SETTLE_MS;
     reg_undershoot_v = DEFAULT_REG_UNDERSHOOT_V;
     debugEnabled = DEFAULT_DEBUG;
+    displayVariant = DEFAULT_DISPLAY_VARIANT;
     if (hardwareInitialized) {
       A_p1->setValuePreset(DEFAULT_VOLTAGE_PRESET);
       A_p2->setValuePreset(DEFAULT_VOLTAGE_PRESET);
@@ -83,6 +85,7 @@ String applyAndValidateConfig(JsonObject doc) {
   float    tempRegDamping    = reg_damping;
   uint32_t tempRegSettle     = reg_settle_ms;
   float    tempRegUndershoot = reg_undershoot_v;
+  uint8_t  tempVariant       = displayVariant;
 
   bool calibrationHasErrors = false;
 
@@ -229,6 +232,16 @@ String applyAndValidateConfig(JsonObject doc) {
     }
   }
 
+  // --- Display-Variante validieren (0 oder 1; optional, abwärtskompatibel) ---
+  if (!doc["display"].isNull()) {
+    JsonObject display = doc["display"];
+    if (!display["variant"].isNull()) {
+      int v = display["variant"] | -1;
+      if (v != 0 && v != 1) errors["display_variant"] = "must be 0 or 1";
+      else tempVariant = (uint8_t)v;
+    }
+  }
+
   // --- Finale Entscheidung ---
   if (errors.size() == 0) {
     // KEINE FEHLER: Wende die validierten Werte auf die globalen Variablen an.
@@ -244,7 +257,8 @@ String applyAndValidateConfig(JsonObject doc) {
     reg_damping      = tempRegDamping;
     reg_settle_ms    = tempRegSettle;
     reg_undershoot_v = tempRegUndershoot;
-    
+    displayVariant   = tempVariant;
+
     // Wende die validierten Presets an
     if (!doc["presets"].isNull() && hardwareInitialized) {
       JsonObject presets = doc["presets"];
@@ -359,6 +373,8 @@ void saveConfiguration() {
   doc["regulation"]["damping"]      = serialized(String(reg_damping, 2));
   doc["regulation"]["settle_ms"]    = reg_settle_ms;
   doc["regulation"]["undershoot_v"] = serialized(String(reg_undershoot_v, 1));
+
+  doc["display"]["variant"] = displayVariant;
 
   doc["calibration"]["min_pos"] = minWiperPos;
   doc["calibration"]["max_pos"] = maxWiperPos;

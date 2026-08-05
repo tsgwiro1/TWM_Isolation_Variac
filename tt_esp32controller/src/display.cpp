@@ -11,19 +11,23 @@
 #include "actions.h"  // A_* Zustände/Presets für die Anzeige
 #include "system.h"   // wiperTemp
 #include "icons.h"    // XBM-Symbole (WLAN) für die Kopfzeile
-// FreeFonts (FreeSansBold12pt7b/24pt7b) sind bei aktivem LOAD_GFXFF bereits von TFT_eSPI
-// eingebunden — nicht erneut includen (sonst Doppeldefinition). Direkt via &FreeSansBold… nutzen.
+// Ist-Spannung nutzt einen eigenen grossen Font (Arial Bold @56px, grösser als die max. 24pt
+// der TFT_eSPI-FreeFonts). GFXglyph/GFXfont kommen aus TFT_eSPI (via display.h); bei aktivem
+// LOAD_GFXFF sind die Standard-FreeFonts schon eingebunden, daher hier nur der eigene Font.
+#include "fonts/font_volt56.h"
+#include "warn_icon.h"     // generiertes Warndreieck (runde Ecken), RGB565 in Gelb + Dim-Grau
+#include "thermo_icon.h"   // generiertes Thermometer-Icon (weiss), RGB565
 
 TFT_eSPI tft = TFT_eSPI();
 SemaphoreHandle_t tftMutex;  // Mutex zum Schutz des TFT-Displays
 
 // ============================================================================
-//  Normalbetrieb-Screen (Redesign, Basis Mockup C) – 240x320 Portrait
-//  Kopfzeile (schwarz) mit WLAN + Temperatur, grosse farbcodierte Ist-Spannung,
-//  Ziel darunter, 5 Status-Chips (Icon + EIN/AUS bzw. Warn-Symbol), 3 Presets.
-//  Icons als Zeichenprimitive; Dirty-Check pro Zone (flimmerfrei ohne Framebuffer).
+//  Normalbetrieb-Screen (Redesign) – 240x320 Portrait
+//  Kopfzeile (schwarz) mit WLAN- und Thermometer-Icon + Temperatur, grosse farbcodierte
+//  Ist-Spannung (eigener Font), Warndreieck + Regelabweichungsbalken, 3 Chips, 3 Presets.
+//  Icons teils Zeichenprimitive, teils generierte Bitmaps (warn_icon.h/thermo_icon.h);
+//  Dirty-Check pro Zone, Sprites (Ist/Balken/Temp) gegen Flackern.
 // ============================================================================
-#define HDR_H 40                      // Höhe der schwarzen Kopfzeile
 
 // Farben (RGB565)
 static const uint16_t COL_BLUE    = 0x1A9B;      // dunkleres Blau (mehr Kontrast zur weissen Preset-Nummer)
@@ -31,7 +35,28 @@ static const uint16_t COL_CHIPOFF = 0x39E7;      // inaktiver Chip-Rand / inakti
 static const uint16_t COL_LABEL   = TFT_DARKGREY;// graue Beschriftungen
 static const uint16_t COL_VGREY   = TFT_LIGHTGREY;// Spannung bei Ausgang AUS
 static const uint16_t COL_FRAME   = 0x52AA;      // grauer Rundrahmen um den Spannungs-/Warnbereich
-static const uint16_t COL_ZIEL    = 0x9492;      // mittleres Grau für die Zielspannung
+static const uint16_t COL_GREEN   = 0x3E6D;      // Regelabweichung: grün (Treffer / grüne Zone)
+static const uint16_t COL_BARBG   = 0x18C3;      // Balken-Track (Variante B, neutral dunkel)
+static const uint16_t COL_BAROFF  = 0x2987;      // Balken-Track bei Ausgang aus (grau)
+
+// Regelabweichungs-Balken (ersetzt die Zielspannungs-Zeile): Geometrie + Zonen
+#define BAR_X    20
+#define BAR_Y    128          // 4 px höher (inkl. Pfeil/Füllung; Labels folgen in drawBackground)
+#define BAR_W    208
+#define BAR_H    7            // Variante B (Füllbalken): volle Dicke
+#define BAR_HA   4            // Variante A (Zonen+Pfeil): halbe Dicke
+#define BAR_CX   124          // 0-V-Mitte
+#define BAR_PXV  20.8f        // px pro Volt (208/2/5V)
+#define DEV_ZONE_GREEN   2.0f
+#define DEV_ZONE_YELLOW  4.0f
+#define DEV_ZONE_MAX     5.0f
+#define DEV_MARK_MIN     0.3f // Variante B: unterhalb -> grüner Strich statt Mini-Füllung
+// Sprite für den Balken (flackerfrei via Push). Deckt x=14..233, y=(BAR_Y-16)..(BAR_Y+9) ab
+// (ohne Rahmenrand x=12/13 & 234/235, ohne Zonen-Labels ab y=143).
+#define BAR_SPR_X   14
+#define BAR_SPR_Y   (BAR_Y - 16)
+#define BAR_SPR_W   220
+#define BAR_SPR_H   26
 
 // Farbzustand der grossen Spannung
 enum VoltColor : uint8_t { VCOL_GREY, VCOL_YELLOW, VCOL_RED };
@@ -49,14 +74,18 @@ struct displayValues {
   int   preset1, preset2, preset3;
   int   setup1, setup2;
   // Normalbetrieb (Redesign)
-  int     nVolt;      // gerundete Ist-Spannung
-  uint8_t nVoltCol;   // VoltColor
-  int     nTarget;    // Ziel (V)
-  uint8_t nOut, nLimit, nReg;   // Chip-Zustände (3 bedienbare Chips)
-  uint8_t nWarnD, nWarnH;       // Warnsymbole (0=inaktiv, 1=hell, 2=dim) für den Blink-Puls
-  int     nPreset[3]; // Preset-Spannungen
-  int8_t  nActive;    // aktives Preset (0..2) oder -1
-  uint8_t nHeld;      // Regelung hält den Presetwert (Schloss)
+  int      nVolt;      // gerundete Ist-Spannung
+  uint8_t  nVoltCol;   // VoltColor
+  uint16_t nWarnCol;   // aktuelle Farbe des Achtung-Dreiecks (Dirty-Check, 0 = noch nie gezeichnet)
+  uint8_t  nOut, nLimit, nReg;   // Chip-Zustände (3 bedienbare Chips)
+  int      nPreset[3]; // Preset-Spannungen
+  int8_t   nActive;    // aktives Preset (0..2) oder -1
+  uint8_t  nHeld;      // Regelung hält den Presetwert (Schloss)
+  // Regelabweichungs-Balken (ersetzt die Zielspannungs-Zeile)
+  int      nMarkerX;   // Marker-/Füllposition (px)
+  uint16_t nBarCol;    // aktuelle Zonenfarbe
+  uint8_t  nBarOut;    // Ausgang-Zustand des Balkens
+  uint8_t  nVariant;   // aktive Balken-Variante (0/1)
 };
 
 static displayValues actDispValues;
@@ -112,48 +141,31 @@ static void icoLock(int cx, int cy, uint16_t c) {          // Schloss (Regelung 
   tft.fillCircle(cx, cy + 6, 2, TFT_BLACK);                // Schlüsselloch
 }
 
-// Gefülltes Dreieck mit abgerundeten Ecken (Radius r) — Bogen tangential an beide Kanten.
-// Hexagon der Tangentenpunkte füllen + Kreis je Ecke.
-static void fillRoundTri(int X0, int Y0, int X1, int Y1, int X2, int Y2, float r, uint16_t col) {
-  float vx[3] = { (float)X0, (float)X1, (float)X2 };
-  float vy[3] = { (float)Y0, (float)Y1, (float)Y2 };
-  float tx[6], ty[6], ox[3], oy[3];
-  for (int i = 0; i < 3; i++) {
-    int p = (i + 2) % 3, n = (i + 1) % 3;
-    float d1x = vx[p] - vx[i], d1y = vy[p] - vy[i];
-    float d2x = vx[n] - vx[i], d2y = vy[n] - vy[i];
-    float l1 = sqrtf(d1x*d1x + d1y*d1y), l2 = sqrtf(d2x*d2x + d2y*d2y);
-    d1x/=l1; d1y/=l1; d2x/=l2; d2y/=l2;
-    float half = acosf(d1x*d2x + d1y*d2y) / 2.0f;
-    float t = r / tanf(half), ins = r / sinf(half);
-    float bx = d1x + d2x, by = d1y + d2y, bl = sqrtf(bx*bx + by*by);
-    bx/=bl; by/=bl;
-    tx[2*i]   = vx[i] + d1x*t; ty[2*i]   = vy[i] + d1y*t;
-    tx[2*i+1] = vx[i] + d2x*t; ty[2*i+1] = vy[i] + d2y*t;
-    ox[i] = vx[i] + bx*ins; oy[i] = vy[i] + by*ins;
-  }
-  for (int i = 1; i < 5; i++)
-    tft.fillTriangle((int)tx[0], (int)ty[0], (int)tx[i], (int)ty[i], (int)tx[i+1], (int)ty[i+1], col);
-  for (int i = 0; i < 3; i++)
-    tft.fillCircle((int)(ox[i] + 0.5f), (int)(oy[i] + 0.5f), (int)(r + 0.5f), col);
-}
-
-static void icoWarnTri(int cx, int cy, int s, uint16_t fill, bool bolt) {  // Warndreieck, Ecken leicht abgerundet
-  int by = (int)(s * 0.85f);
-  fillRoundTri(cx, cy - s, cx - s, cy + by, cx + s, cy + by, 5.0f, fill);
-  if (bolt) {
-    tft.fillTriangle(cx + 3, cy - (int)(s * 0.55f), cx - 5, cy + (int)(s * 0.12f), cx + 1, cy + (int)(s * 0.12f), TFT_BLACK);
-    tft.fillTriangle(cx - 3, cy + (int)(s * 0.62f), cx + 5, cy - (int)(s * 0.12f), cx - 1, cy - (int)(s * 0.12f), TFT_BLACK);
-  } else {
-    // fettes Ausrufezeichen in Schwarz (auf gelbem Dreieck)
-    tft.fillRect(cx - 3, cy - (int)(s * 0.42f), 6, (int)(s * 0.5f), TFT_BLACK);
-    tft.fillCircle(cx, cy + (int)(s * 0.5f), 3, TFT_BLACK);
-  }
-}
+// (Warndreieck wird jetzt als generiertes Icon gepusht — siehe warn_icon.h; die frühere
+//  primitive fillRoundTri/icoWarnTri-Zeichnung entfiel wegen unsauberer Ecken.)
 
 // Dickerer Rahmen: t konzentrische Rechtecke.
 static void thickRoundRect(int x, int y, int w, int h, int r, int t, uint16_t c) {
   for (int i = 0; i < t; i++) tft.drawRoundRect(x + i, y + i, w - 2 * i, h - 2 * i, (r - i > 1) ? r - i : 1, c);
+}
+
+// ------------------------------------------------------------------ Double-Buffering-Sprites
+// Grosse Zahlen/Balken/Temperatur werden in Sprites gezeichnet und in einem Rutsch gepusht
+// (flackerfrei statt löschen -> neu zeichnen). Sprites werden einmal angelegt.
+static TFT_eSprite sprIst  = TFT_eSprite(&tft);
+static TFT_eSprite sprBar  = TFT_eSprite(&tft);   // Regelabweichungs-Balken
+static TFT_eSprite sprTemp = TFT_eSprite(&tft);   // Kopfzeile: Temperatur (Symbol + Wert)
+static int spritesState = 0;   // 0 = uninitialisiert, 1 = ok, 2 = Anlegen fehlgeschlagen
+
+static void ensureSprites() {
+  if (spritesState != 0) return;
+  sprIst.setColorDepth(16);
+  sprBar.setColorDepth(16);
+  sprTemp.setColorDepth(16);
+  bool ok = (sprIst.createSprite(156, 50) != nullptr)
+         && (sprBar.createSprite(BAR_SPR_W, BAR_SPR_H) != nullptr)
+         && (sprTemp.createSprite(94, 30) != nullptr);   // nur bis y31 -> überdeckt die obere Rahmenlinie (y36) nicht
+  spritesState = ok ? 1 : 2;
 }
 
 // ------------------------------------------------------------------ Kopfzeile
@@ -167,91 +179,70 @@ static uint8_t currentWifiIcon() {
 }
 
 static void drawWifi(uint8_t st) {
-  tft.fillRect(3, 4, 32, 26, TFT_BLACK);
-  const int cx = 17, by = 25;
+  tft.fillRect(2, 1, 40, 26, TFT_BLACK);
+  // 2 px grösser als zuvor; vertikal auf die Mitte des Temp-Icons zentriert (Symbol y4..22, Mitte 13).
+  const int cx = 17, by = 20;
   if (st == WIFI_ICON_CONNECTED || st == WIFI_ICON_AP) {
     tft.fillCircle(cx, by, 2, TFT_WHITE);
-    tft.drawSmoothArc(cx, by, 8,  6,  138, 222, TFT_WHITE, TFT_BLACK);
-    tft.drawSmoothArc(cx, by, 14, 12, 138, 222, TFT_WHITE, TFT_BLACK);
-    if (st == WIFI_ICON_AP) tft.fillCircle(cx + 11, by - 3, 3, TFT_WHITE);   // Such-Indikator (Config-AP)
+    tft.drawSmoothArc(cx, by, 9,  7,  138, 222, TFT_WHITE, TFT_BLACK);
+    tft.drawSmoothArc(cx, by, 16, 14, 138, 222, TFT_WHITE, TFT_BLACK);
+    if (st == WIFI_ICON_AP) tft.fillCircle(cx + 12, by - 3, 3, TFT_WHITE);   // Such-Indikator (Config-AP)
   }
   // WIFI_ICON_NONE: leer
 }
 
+// Temperatur (Symbol + Wert + °C) flackerfrei in ein Sprite; Direktzeichnen als Fallback.
+// Koordinaten in Geräte-Pixeln; Offset (OX,OY) verschiebt sie in den Sprite-Ursprung.
 static void drawTemp(float t, bool ok) {
-  tft.fillRect(146, 2, 94, 40, TFT_BLACK);
-  // Thermometer: Röhre umrandet, unten Quecksilbersäule + Kolben gefüllt
-  int cx = 162, top = 5, tubeW = 8, tubeH = 20, bulbCy = 30, bulbR = 6;
-  tft.drawRoundRect(cx - tubeW / 2, top, tubeW, tubeH, tubeW / 2, TFT_WHITE);   // Röhren-Umriss
-  tft.fillCircle(cx, bulbCy, bulbR, TFT_WHITE);                                  // Kolben gefüllt
-  int mercTop = top + tubeH / 2;                                                 // ab Mitte gefüllt
-  tft.fillRect(cx - (tubeW / 2 - 2), mercTop, tubeW - 4, bulbCy - mercTop + 1, TFT_WHITE);
-  // Wert grösser (Font 4)
-  tft.setTextColor(TFT_WHITE);
-  tft.setTextPadding(0);
-  tft.setTextDatum(MR_DATUM);
-  String s = ok ? String((int)lroundf(t)) : String("N/A");
-  tft.drawString(s, 210, 20, 4);
-  if (ok) {
-    tft.drawCircle(215, 11, 3, TFT_WHITE);        // Grad-Zeichen (grösser)
-    tft.setTextDatum(ML_DATUM);
-    tft.drawString("C", 220, 20, 4);
+  ensureSprites();
+  TFT_eSPI* g; int OX, OY;
+  if (spritesState == 1) { sprTemp.fillSprite(TFT_BLACK); g = &sprTemp; OX = 146; OY = 1; }
+  else { tft.fillRect(146, 1, 94, 30, TFT_BLACK); g = &tft; OX = 0; OY = 0; }
+  // Thermometer-Icon (generiert, weiss). pushImage NICHT über den TFT_eSPI*-Zeiger (nicht virtuell)
+  // -> auf dem konkreten Objekt aufrufen. SwapBytes: Bitmap liegt als Standard-RGB565 vor.
+  if (spritesState == 1) {
+    sprTemp.setSwapBytes(true);
+    sprTemp.pushImage(159 - OX, 1 - OY, THERMO_W, THERMO_H, thermoIcon);
+    sprTemp.setSwapBytes(false);
+  } else {
+    bool sw = tft.getSwapBytes(); tft.setSwapBytes(true);
+    tft.pushImage(159, 1, THERMO_W, THERMO_H, thermoIcon);
+    tft.setSwapBytes(sw);
   }
+  // Wert (Font 4) + °C, vertikal an Icon/WLAN angeglichen (Mitte y16, etwas tiefer als zuvor)
+  g->setTextColor(TFT_WHITE);
+  g->setTextPadding(0);
+  g->setTextDatum(MR_DATUM);
+  String s = ok ? String((int)lroundf(t)) : String("N/A");
+  g->drawString(s, 210 - OX, 18 - OY, 4);
+  if (ok) {
+    g->drawCircle(215 - OX, 9 - OY, 3, TFT_WHITE);   // Grad-Zeichen
+    g->setTextDatum(ML_DATUM);
+    g->drawString("C", 220 - OX, 18 - OY, 4);
+  }
+  if (spritesState == 1) sprTemp.pushSprite(146, 1);
 }
 
 // ------------------------------------------------------------------ Spannung / Ziel
-// Double-Buffering gegen Flackern: die grossen Zahlen werden in einen Sprite gezeichnet und
-// in einem Rutsch gepusht (statt löschen -> neu beschriften). Sprites werden einmal angelegt.
-static TFT_eSprite sprIst  = TFT_eSprite(&tft);
-static TFT_eSprite sprZiel = TFT_eSprite(&tft);
-static int spritesState = 0;   // 0 = uninitialisiert, 1 = ok, 2 = Anlegen fehlgeschlagen
-
-static void ensureSprites() {
-  if (spritesState != 0) return;
-  sprIst.setColorDepth(16);
-  sprZiel.setColorDepth(16);
-  bool ok = (sprIst.createSprite(136, 44) != nullptr) && (sprZiel.createSprite(136, 36) != nullptr);
-  spritesState = ok ? 1 : 2;
-}
-
 // Ist-Spannung: grosser, fetter, farbcodierter Wert, rechtsbündig im Rahmen.
+// (Zielspannung als Text entfällt — sie bleibt über den blauen Preset sichtbar; die
+//  Regelabweichung zeigt der Balken darunter.)
 static void drawIstValue(int v, uint16_t col) {
   ensureSprites();
   if (spritesState == 1) {
     sprIst.fillSprite(TFT_BLACK);
-    sprIst.setFreeFont(&FreeSansBold24pt7b);
+    sprIst.setFreeFont(&fontVolt56);
     sprIst.setTextDatum(MR_DATUM);
     sprIst.setTextColor(col, TFT_BLACK);
-    sprIst.drawString(String(v) + " V", 132, 22);
-    sprIst.pushSprite(96, 52);
+    sprIst.drawString(String(v) + " V", 154, 25);
+    sprIst.pushSprite(74, 45);
   } else {
-    tft.fillRect(96, 52, 136, 44, TFT_BLACK);
-    tft.setFreeFont(&FreeSansBold24pt7b);
+    tft.fillRect(74, 45, 156, 50, TFT_BLACK);
+    tft.setFreeFont(&fontVolt56);
     tft.setTextDatum(MR_DATUM);
     tft.setTextColor(col);
     tft.setTextPadding(0);
-    tft.drawString(String(v) + " V", 228, 74);
-    tft.setTextFont(2);
-  }
-}
-
-// Zielspannung: kleiner, grau und NICHT fett, rechtsbündig darunter.
-static void drawZielValue(int v) {
-  ensureSprites();
-  if (spritesState == 1) {
-    sprZiel.fillSprite(TFT_BLACK);
-    sprZiel.setFreeFont(&FreeSans18pt7b);
-    sprZiel.setTextDatum(MR_DATUM);
-    sprZiel.setTextColor(COL_ZIEL, TFT_BLACK);
-    sprZiel.drawString(String(v) + " V", 132, 18);
-    sprZiel.pushSprite(96, 100);
-  } else {
-    tft.fillRect(96, 100, 136, 36, TFT_BLACK);
-    tft.setFreeFont(&FreeSans18pt7b);
-    tft.setTextDatum(MR_DATUM);
-    tft.setTextColor(COL_ZIEL);
-    tft.setTextPadding(0);
-    tft.drawString(String(v) + " V", 228, 118);
+    tft.drawString(String(v) + " V", 228, 70);
     tft.setTextFont(2);
   }
 }
@@ -266,20 +257,6 @@ static void drawToggleChip(int x, int y, int w, int h, int kind, bool on, uint16
   if      (kind == 0) icoBolt(cx, cy, ic);
   else if (kind == 1) icoLimit(cx, cy, ic);
   else                icoLock(cx, cy, ic);   // Regelung = Schloss (hält die Spannung)
-}
-
-static uint16_t dim565(uint16_t c) {
-  uint16_t r = (c >> 11) & 0x1F, g = (c >> 5) & 0x3F, b = c & 0x1F;
-  return ((r >> 1) << 11) | ((g >> 1) << 5) | (b >> 1);   // halbe Helligkeit -> dim-Farbe
-}
-
-// Rahmenloses Warnsymbol links an der Spannung: aktiv pulsierend Farbe<->dim-Farbe, inaktiv dim-grau.
-static void drawWarn(int cx, int cy, int s, bool bolt, bool active, bool blinkOn) {
-  int topY = cy - s - 1, botY = cy + (int)(s * 0.85f) + 2;   // enge Box, damit die beiden Dreiecke sich nicht gegenseitig löschen
-  tft.fillRect(cx - s - 1, topY, 2 * s + 2, botY - topY, TFT_BLACK);
-  uint16_t base = bolt ? TFT_YELLOW : TFT_RED;
-  uint16_t col = !active ? COL_CHIPOFF : (blinkOn ? base : dim565(base));
-  icoWarnTri(cx, cy, s, col, bolt);
 }
 
 // ------------------------------------------------------------------ Presets
@@ -300,6 +277,78 @@ static void drawPreset(int x, int y, int w, int h, int num, int val, bool active
     int lx = x + w - 15, ly = y + 7;
     tft.fillRoundRect(lx, ly + 4, 9, 7, 2, COL_BLUE);
     tft.drawRoundRect(lx + 2, ly, 5, 6, 2, COL_BLUE);
+  }
+}
+
+// ------------------------------------------------------------------ Regelabweichungs-Balken
+// Ersetzt die frühere Zielspannungs-Zeile: zeigt Ist - Ziel auf einer Skala -5V..+5V.
+// Zwei Varianten (per Langdruck auf die Regelungstaste umschaltbar).
+
+// Beide Varianten zeichnen in ein Sprite (Ursprung ox/oy) und werden in einem Rutsch gepusht
+// -> kein Clear-then-Draw auf dem TFT, damit flackert der bewegte Pfeil nicht mehr.
+// Fallback (Sprite-Anlage fehlgeschlagen): Direktzeichnen auf tft mit ox=oy=0 nach Clear.
+
+// Variante A: feste Farbzonen (rot/gelb/grün) + Pfeil-Marker; Linie nur halb so dick (BAR_HA).
+static void renderBarA(TFT_eSPI& g, int ox, int oy, bool out, int markerX, uint16_t markerCol) {
+  int by = BAR_Y - oy, ay = (BAR_Y - 12) - oy;
+  int tickTop = (BAR_Y - 3) - oy;                 // feiner 0-V-Strich, ragt über/unter die Linie
+  if (!out) {
+    g.fillRoundRect(BAR_X - ox, by, BAR_W, BAR_HA, 2, COL_BAROFF);
+    g.drawFastVLine(BAR_CX - ox, tickTop, BAR_HA + 6, TFT_WHITE);
+    g.fillTriangle(BAR_CX - ox, by, BAR_CX - ox - 7, ay, BAR_CX - ox + 7, ay, COL_VGREY);
+    return;
+  }
+  // Zonen (vollständig, symmetrisch um die Mitte): rot | gelb | grün | gelb | rot
+  g.fillRect(20  - ox, by, 21, BAR_HA, TFT_RED);
+  g.fillRect(41  - ox, by, 41, BAR_HA, TFT_YELLOW);
+  g.fillRect(82  - ox, by, 84, BAR_HA, COL_GREEN);
+  g.fillRect(166 - ox, by, 41, BAR_HA, TFT_YELLOW);
+  g.fillRect(207 - ox, by, 21, BAR_HA, TFT_RED);
+  g.drawFastVLine(BAR_CX - ox, tickTop, BAR_HA + 6, TFT_WHITE);     // 0-V-Markierung
+  int ax = constrain(markerX, BAR_X + 7, BAR_X + BAR_W - 7) - ox;   // Spitze bleibt in den Zonen
+  g.fillTriangle(ax, by, ax - 7, ay, ax + 7, ay, markerCol);
+}
+
+// Variante B: neutraler Track, farbige Füllung von der Mitte bis zur Abweichung (volle Dicke);
+// grüner Strich in der Mitte, solange die Abweichung ~0 ist.
+static void renderBarB(TFT_eSPI& g, int ox, int oy, bool out, int markerX, uint16_t fillCol, float absDev) {
+  int by = BAR_Y - oy;
+  if (!out) {
+    g.fillRoundRect(BAR_X - ox, by, BAR_W, BAR_H, 3, COL_BAROFF);
+    g.drawFastVLine(BAR_CX - ox, (BAR_Y - 3) - oy, BAR_H + 6, TFT_WHITE);   // feiner 0-V-Strich
+    return;
+  }
+  g.fillRoundRect(BAR_X - ox, by, BAR_W, BAR_H, 3, COL_BARBG);
+  if (absDev < DEV_MARK_MIN) {
+    g.fillRoundRect(BAR_CX - ox - 3, (BAR_Y - 3) - oy, 6, BAR_H + 6, 3, COL_GREEN);   // Treffer: grüner Strich (0 V)
+  } else {
+    int fillX = (markerX < BAR_CX) ? markerX : BAR_CX;
+    g.fillRect(fillX - ox, by, abs(markerX - BAR_CX), BAR_H, fillCol);
+    g.drawFastVLine(BAR_CX - ox, (BAR_Y - 3) - oy, BAR_H + 6, TFT_WHITE);   // feiner 0-V-Strich
+  }
+}
+
+static void drawBarA(bool out, int markerX, uint16_t markerCol) {
+  ensureSprites();
+  if (spritesState == 1) {
+    sprBar.fillSprite(TFT_BLACK);
+    renderBarA(sprBar, BAR_SPR_X, BAR_SPR_Y, out, markerX, markerCol);
+    sprBar.pushSprite(BAR_SPR_X, BAR_SPR_Y);
+  } else {
+    tft.fillRect(14, BAR_Y - 16, 219, 25, TFT_BLACK);
+    renderBarA(tft, 0, 0, out, markerX, markerCol);
+  }
+}
+
+static void drawBarB(bool out, int markerX, uint16_t fillCol, float absDev) {
+  ensureSprites();
+  if (spritesState == 1) {
+    sprBar.fillSprite(TFT_BLACK);
+    renderBarB(sprBar, BAR_SPR_X, BAR_SPR_Y, out, markerX, fillCol, absDev);
+    sprBar.pushSprite(BAR_SPR_X, BAR_SPR_Y);
+  } else {
+    tft.fillRect(14, BAR_Y - 16, 219, 25, TFT_BLACK);
+    renderBarB(tft, 0, 0, out, markerX, fillCol, absDev);
   }
 }
 
@@ -326,17 +375,16 @@ void updateDisplay() {
   bool limit = A_limit->getState();
   bool reg   = A_reg->getState();
   int  volt  = (int)lroundf(received_rms_value);
-  int  target = (int)lroundf(setpoint_voltage);
   uint8_t vcol = !out ? VCOL_GREY : (limit ? VCOL_YELLOW : VCOL_RED);
   bool danger = !limit;                          // Strombegrenzung aus -> Warnung (unabhängig vom Ausgang)
   bool blinkOn = ((millis() / 1000) % 2) == 0;   // hartes Blinken: 1 s an / 1 s aus
 
-  // Preset ist aktiv, wenn der Zielwert einem Preset entspricht — auch bei Ausgang aus.
+  // Preset gilt nur bei explizitem Aufruf als aktiv (LED an), nicht bei zufälliger Wertgleichheit.
   int pv[3] = { A_p1->getValuePreset(), A_p2->getValuePreset(), A_p3->getValuePreset() };
   int8_t active = -1;
-  for (int i = 0; i < 3; i++) {
-    if (abs(target - pv[i]) <= 2) { active = (int8_t)i; break; }
-  }
+  if      (A_p1->getState()) active = 0;
+  else if (A_p2->getState()) active = 1;
+  else if (A_p3->getState()) active = 2;
   bool held = (active >= 0) && reg;
 
   // --- Grosse Spannung (Wert- oder Farbwechsel); nur die Mittelzone leeren, Warnspalte links bleibt ---
@@ -347,22 +395,39 @@ void updateDisplay() {
     drawIstValue(volt, vc);
   }
 
-  // --- Zielwert (grau, gleich gross, rechtsbündig darunter) ---
-  if (target != actDispValues.nTarget) {
-    actDispValues.nTarget = target;
-    drawZielValue(target);
+  // --- Achtung-Dreieck (Strombegrenzung aus, unabhängig vom Ausgang): immer sichtbar,
+  //     dim-grau wenn inaktiv, hart blinkend gelb<->grau wenn aktiv ---
+  uint16_t triCol = !danger ? COL_CHIPOFF : (blinkOn ? TFT_YELLOW : COL_CHIPOFF);
+  if (triCol != actDispValues.nWarnCol) {
+    actDispValues.nWarnCol = triCol;
+    // Generiertes Icon (runde Ecken): 52x48 px, deckt sein Feld selbst mit Schwarz -> kein Clear nötig.
+    // Zentriert auf die Ist-Spannung (Icon-Mitte x47/y70). Gelb wenn aktiv+Blink, sonst dim-grau.
+    // setSwapBytes(true): die Bitmap liegt als Standard-RGB565 vor (sonst kippt die Farbe -> Violett/Weiss).
+    bool sw = tft.getSwapBytes();
+    tft.setSwapBytes(true);
+    tft.pushImage(21, 46, WARN_ICON_W, WARN_ICON_H,
+                  (triCol == TFT_YELLOW) ? warnTriYellow : warnTriGrey);
+    tft.setSwapBytes(sw);
   }
 
-  // --- Achtung-Dreieck (Strombegrenzung aus): nur wenn aktiv, gross, hartes Blinken ---
-  uint8_t triShown = (danger && blinkOn) ? 1 : 0;
-  if (triShown != actDispValues.nWarnD) {
-    actDispValues.nWarnD = triShown;
-    tft.fillRect(25, 63, 70, 72, TFT_BLACK);   // Dreieck-Feld im Rahmen leeren (ohne Rahmenrand)
-    if (triShown) icoWarnTri(60, 100, 34, TFT_YELLOW, false);   // gelbes Warndreieck, schwarzes "!"
+  // --- Regelabweichungs-Balken (ersetzt die Zielspannungs-Zeile) ---
+  float devClamped = constrain(received_rms_value - setpoint_voltage, -DEV_ZONE_MAX, DEV_ZONE_MAX);
+  float absDev = fabsf(devClamped);
+  int   markerX = BAR_CX + (int)lroundf(devClamped * BAR_PXV);
+  uint16_t zoneCol = (absDev <= DEV_ZONE_GREEN) ? COL_GREEN
+                   : (absDev <= DEV_ZONE_YELLOW ? TFT_YELLOW : TFT_RED);
+  if (displayVariant != actDispValues.nVariant || markerX != actDispValues.nMarkerX ||
+      zoneCol != actDispValues.nBarCol || (uint8_t)out != actDispValues.nBarOut) {
+    actDispValues.nVariant = displayVariant;
+    actDispValues.nMarkerX = markerX;
+    actDispValues.nBarCol  = zoneCol;
+    actDispValues.nBarOut  = out;
+    if (displayVariant == 0) drawBarA(out, markerX, zoneCol);
+    else                     drawBarB(out, markerX, zoneCol, absDev);
   }
 
   // --- 3 Schalter-Chips (spaltengleich über den Presets) ---
-  const int CY = 170, CH = 54, CW = 68;
+  const int CY = 180, CH = 54, CW = 68;
   const int cx3[3] = { 12, 90, 168 };
   if ((uint8_t)out != actDispValues.nOut)    { actDispValues.nOut = out;     drawToggleChip(cx3[0], CY, CW, CH, 0, out,   TFT_RED); }
   if ((uint8_t)limit != actDispValues.nLimit){ actDispValues.nLimit = limit; drawToggleChip(cx3[1], CY, CW, CH, 1, limit, TFT_YELLOW); }
@@ -482,7 +547,15 @@ void drawBackground() {
   tft.fillScreen(TFT_BLACK);
   // Rahmen um Spannungs-/Warnbereich; links/rechts an den äusseren Chips ausgerichtet (x=12..236),
   // Radius wie bei den Chips. Keine "Ist"/"Ziel"-Labels mehr.
-  thickRoundRect(12, 46, 224, 106, 9, 2, COL_FRAME);
+  thickRoundRect(12, 36, 224, 126, 9, 2, COL_FRAME);   // 10 px höher: 12 px Luft unter dem Temp-Icon
+  // Statische Zonen-Skala unter dem Regelabweichungs-Balken (-4V/-2V/+2V/+4V).
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(COL_LABEL, TFT_BLACK);
+  tft.setTextPadding(0);
+  tft.drawString("-4V",  41, 147, 2);
+  tft.drawString("-2V",  82, 147, 2);
+  tft.drawString("+2V", 166, 147, 2);
+  tft.drawString("+4V", 207, 147, 2);
   tftEndWrite();
 }
 
@@ -733,15 +806,17 @@ void initDisplayStruct() {
     actDispValues.setup2 = -1;
     actDispValues.nVolt = -1;
     actDispValues.nVoltCol = 255;
-    actDispValues.nTarget = -1;
+    actDispValues.nWarnCol = 0;         // 0 = noch nie gezeichnet -> erste echte Farbe erzwingt Zeichnen
     actDispValues.nOut = 255;
     actDispValues.nLimit = 255;
     actDispValues.nReg = 255;
-    actDispValues.nWarnD = 255;
-    actDispValues.nWarnH = 255;
     actDispValues.nPreset[0] = -1;
     actDispValues.nPreset[1] = -1;
     actDispValues.nPreset[2] = -1;
     actDispValues.nActive = -2;
     actDispValues.nHeld = 255;
+    actDispValues.nMarkerX = -9999;
+    actDispValues.nBarCol = 0;
+    actDispValues.nBarOut = 255;
+    actDispValues.nVariant = 255;
 }

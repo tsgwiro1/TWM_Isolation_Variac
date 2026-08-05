@@ -212,17 +212,29 @@ void cb_x10Action(Action* act, ButtonEvent event) {
  * @param event Der Typ des Tasten-Events.
  */
 void cb_RegAction(Action* act, ButtonEvent event) {
+    // Kurzdruck (RELEASED): Regelung togglen. Langdruck (LONGPRESSED): Balken-Variante umschalten.
+    // Toggle bewusst auf RELEASED statt PRESSED, damit ein Langdruck die Regelung NICHT mit-togglet
+    // (PRESSED feuert bei jedem Tastendruck sofort, vor dem Long-Press-Timeout).
+    static bool wasLong = false;
     if (event == ButtonEvent::PRESSED) {
-          act->toggle();
-          if (act->getState()) {
-              // REG ein: schnelle Anfahrt auf den aktuellen Sollwert, danach Halten
-              isRecallPreset = true;
-          } else {
-              // REG aus: automatische Regelung stoppen (Position halten)
-              is_regulation_active = false;
-              regPhase = RP_IDLE;
-          }
-          logMessage(LOG_INFO, "HARDWARE: Voltage Regulation -> %s", act->getState() ? "ON" : "OFF");
+        wasLong = false;
+    }
+    else if (event == ButtonEvent::LONGPRESSED) {
+        wasLong = true;
+        displayVariant = (displayVariant == 0) ? 1 : 0;   // Regelabweichungs-Balken: Variante A <-> B
+        saveConfiguration();          // im NVS persistieren (überlebt Neustart/OTA)
+        logMessage(LOG_INFO, "DISPLAY: Regelabweichungs-Balken -> Variante %s", displayVariant == 0 ? "A" : "B");
+    }
+    else if (event == ButtonEvent::RELEASED) {
+        if (wasLong) { wasLong = false; return; }   // war ein Langdruck -> Regelung unangetastet lassen
+        act->toggle();
+        if (act->getState()) {
+            isRecallPreset = true;                  // REG ein: Anfahrt auf Sollwert, danach Halten
+        } else {
+            is_regulation_active = false;           // REG aus: automatische Regelung stoppen
+            regPhase = RP_IDLE;
+        }
+        logMessage(LOG_INFO, "HARDWARE: Voltage Regulation -> %s", act->getState() ? "ON" : "OFF");
     }
 }
 

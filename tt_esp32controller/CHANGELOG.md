@@ -6,6 +6,44 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
+## [V4.8.0] – 2026-08-05
+
+### Neu
+- **Regelabweichungsbalken** (Branch `feature/redesign-display`): Der Normalbetrieb-Screen
+  ersetzt die frühere Zielspannungs-Zeile durch einen Balken, der die Abweichung Ist − Ziel
+  auf einer Skala −5 V…+5 V zeigt. Zwei zur Laufzeit umschaltbare Varianten — **A** (feste
+  Farbzonen rot/gelb/grün + Pfeil-Marker) und **B** (Füllbalken von der Mitte). Umschalten per
+  **Langdruck auf die Regelungstaste**; die Wahl (`displayVariant`) wird im NVS/`/api/config`
+  unter `display.variant` persistiert (abwärtskompatibel: fehlt der Schlüssel, bleibt die
+  Variante unverändert). Feiner weißer 0-V-Strich in beiden Varianten.
+- **Achtung-Dreieck immer sichtbar**: dim-grau im Normalfall, kräftig gelb + hartes Blinken
+  bei ausgeschalteter Strombegrenzung (unabhängig vom Ausgang), schwarzes „!". Höhe an die
+  Ist-Spannung gekoppelt.
+- **Eigener grosser Font für die Ist-Spannung** (`src/fonts/font_volt56.h`, Arial-Bold @56 px,
+  Ziffernhöhe 41 px) — die glatten TFT_eSPI-FreeFonts gehen nur bis 24 pt.
+- **Generierte Icons statt Zeichenprimitive**: Warndreieck (`src/warn_icon.h`, saubere runde
+  Ecken, gelb/dim-grau) und Thermometer (`src/thermo_icon.h`) als anti-aliased RGB565-Bitmaps
+  (per `pushImage` mit `setSwapBytes(true)`).
+
+### Behoben
+- **OTA übernahm sporadisch nicht** (neuer Stand geflasht, `espota` meldet „OK", nach dem
+  Reboot lief aber der alte weiter): Ursache ist das im Framework aktive OTA-Rollback
+  (`CONFIG_APP_ROLLBACK_ENABLE`) — ein frisch geflashtes Image bootet als `PENDING_VERIFY`
+  und wurde bei einem frühen Reset (sporadischer Startup-Watchdog, Reset-Grund „other
+  watchdog") auf die alte Partition zurückgerollt. `setup()` bestätigt das Image jetzt sofort
+  (vor Homing/WLAN) via `esp_ota_mark_app_valid_cancel_rollback()`, sodass ein OTA zuverlässig
+  übernimmt.
+
+### Geändert
+- **Neu gestalteter Normalbetrieb-Screen**: Ist-Spannung groß, fett und farbcodiert
+  (gelb = Limit ein · rot = Limit aus · hellgrau = Ausgang aus); Rahmen um Werte-/Warnbereich;
+  drei Schalter-Chips (Ausgang/Limit/Regelung, nur Symbol wie die Taster-LED) und drei Presets
+  (Blau-Rahmen **nur bei explizitem Aufruf**, nicht mehr bei zufälliger Wertgleichheit).
+  Kopfzeile mit größerem WLAN-Fächer und Thermometer-Symbol.
+- **Flackerfrei via Sprites**: Ist-Spannung, Regelabweichungsbalken und die Temperatur-Kopfzeile
+  werden je in ein `TFT_eSprite` gezeichnet und in einem Rutsch gepusht — kein Clear-then-Draw
+  mehr (bewegter Pfeil und wechselnder Temperaturwert flackern nicht).
+
 ## [V4.7.0] – 2026-07-25
 
 ### Neu

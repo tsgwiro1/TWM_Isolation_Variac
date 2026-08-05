@@ -53,6 +53,7 @@ using namespace fs;
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <WiFiManager.h>
+#include "esp_ota_ops.h"   // OTA-Image als gültig markieren (Rollback abschalten)
 
 #include "pins.h"
 #include "state.h"
@@ -106,6 +107,22 @@ void setup() {
     // (Gegenteil von GitHub-#13). Das Gerät ist headless und loggt in RAM/Datei/WebSocket.
     Serial.begin(115200);
     logMessage(LOG_INFO, "SYSTEM: Starting system...");
+
+  // OTA-Rollback ist im Framework aktiv (CONFIG_APP_ROLLBACK_ENABLE): ein frisch per OTA
+  // geflashtes Image bootet als PENDING_VERIFY und wird sonst beim nächsten frühen Reset
+  // (z.B. der sporadische Startup-Watchdog, Reset-Grund "other watchdog") auf die ALTE
+  // Partition zurückgerollt — Symptom: "OTA OK", aber nach dem Reboot läuft der alte Stand.
+  // Deshalb hier SOFORT (vor Homing/WLAN) selbst als gültig bestätigen, damit ein OTA
+  // zuverlässig übernimmt. Diese Firmware nutzt Rollback ohnehin nicht (bestätigt sonst nie).
+  {
+    const esp_partition_t* running = esp_ota_get_running_partition();
+    esp_ota_img_states_t otaState;
+    if (running && esp_ota_get_state_partition(running, &otaState) == ESP_OK
+        && otaState == ESP_OTA_IMG_PENDING_VERIFY) {
+      esp_ota_mark_app_valid_cancel_rollback();
+      logMessage(LOG_INFO, "SYSTEM: OTA image confirmed valid (rollback cancelled)");
+    }
+  }
 
   // Grund des letzten Neustarts protokollieren (GitHub-#26). Macht im Log auf Anhieb
   // unterscheidbar, ob ein geordneter Reset vorlag (OTA, /api/reboot) oder ein Absturz

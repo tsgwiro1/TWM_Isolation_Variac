@@ -1,11 +1,12 @@
 # Paket H — Sicherheit (#11): Umsetzungsplan
 
-**Stand:** 2026-07-19 · Status: **geplant, nicht gestartet** (laut Absprache „optional/später")
+**Stand:** 2026-08-06 · Status: **geplant, nicht gestartet** (laut Absprache „optional/später")
+— das einzige noch offene Paket im [`BACKLOG.md`](BACKLOG.md).
 
 > Dieses Dokument hält den abgestimmten Plan fest, damit Paket H zu einem späteren
 > Zeitpunkt ohne neue Analyse umgesetzt werden kann. Beim Start: nächste
-> MINOR-Version setzen (bei Stand V4.7.0 → **V4.8.0**) und die offenen
-> Entscheidungen (unten) einholen.
+> MINOR-Version setzen (bei Stand V4.8.1 → **V4.9.0**; V4.8.0 ist inzwischen durch das
+> Display-Redesign vergeben) und die offenen Entscheidungen (unten) einholen.
 
 ## Ist-Zustand (Sicherheitslücken)
 

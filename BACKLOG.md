@@ -9,7 +9,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Fortschritt
 
-**Stand:** 2026-07-25 · **Gesamt: 35 / 36 Punkte erledigt**
+**Stand:** 2026-08-06 · **Gesamt: 36 / 37 Punkte erledigt** · aktueller Release **V4.8.1**
+· auf GitHub sind **alle Issues geschlossen**
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -25,6 +26,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | J — Voltmeter-Fernsteuerung via Controller | ✅ erledigt | 7/7 |
 | I — Dokumentation | ✅ erledigt | 2/2 |
 | L — LCD-Optimierung | ✅ erledigt | 2/2 |
+| M — Display-Redesign | ✅ erledigt | 1/1 |
 
 ### Checkliste
 
@@ -76,6 +78,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 - [x] **L — LCD-Optimierung** *(Plan: [`Paket-L-LCD-Optimierung.md`](Paket-L-LCD-Optimierung.md); weitere Punkte können jederzeit dazukommen)*
   - [x] #36 WLAN-Status als Icon auf dem TFT
   - [x] #37 Temperaturanzeige mit Icon, ohne Nachkommastellen
+- [x] **M — Display-Redesign** *(Plan/Mockups: [`display-redesign/`](tt_esp32controller/documentation/display-redesign/))*
+  - [x] #38 Normalbetrieb-Screen neu gestalten
 
 > Diese Checkliste ist die schnelle Abhak-Übersicht. Die Detailtabellen je Paket (unten)
 > tragen Beschreibung, Aufwand und denselben Status.
@@ -234,6 +238,24 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   `documentation/Testanleitung-V4.3.1.md` gelöscht (Zweck erfüllt; Historie behält die Datei).
   Offen aus dem Testlauf bleiben nur die Tools-Nachtests #6/#7 bei Michael.
   Commits `e7b453f` … `ac64d35`, Tags `v4.4.0`–`v4.6.1`.
+- **2026-08-06 — Stand aufgeräumt: alle GitHub-Issues geschlossen, Release V4.8.1.**
+  Die zuletzt noch offenen Tools-Nachtests **#6/#7** sind bei Michael erledigt; auf GitHub
+  ist damit **kein Issue mehr offen** (26 gesamt, 0 offen). Dazwischen zwei Releases:
+  **V4.8.0 — Display-Redesign (neues Paket M, #38).** Michaels Branch
+  `feature/redesign-display` ist auf `main` gemerged, getaggt und der Remote-Branch
+  gelöscht. Der Normalbetrieb-Screen ist komplett neu: Ist-Spannung gross und
+  farbcodiert, **Regelabweichungsbalken** (−5…+5 V) in zwei per Langdruck auf die
+  Regelungstaste umschaltbaren Varianten (persistiert als `display.variant` im NVS),
+  Warndreieck für fehlende Strombegrenzung, Schalter-Chips und Presets im Taster-Look,
+  eigener Font und generierte Icons. Rogers Rückmeldung zum Zwischenstand liegt als
+  `tt_esp32controller/documentation/display-redesign/Feedback-Roger-2026-07-29.md` im Repo.
+  **V4.8.1 — GitHub-#27:** Über Dashboard bzw. `POST /api/command?action=toggle_regulation`
+  eingeschaltete Regelung schaltete nur die LED, ohne den Feedforward anzustossen (reines
+  `A_reg->toggle()` ohne `isRecallPreset` → `is_regulation_active` blieb false, der
+  `motorControlTask` verliess `RP_IDLE` nie); ein Lastabfall nach dem Preset blieb
+  unkorrigiert. Fix: gemeinsame `toggleRegulation()` für Gerätetaste und Web/API. Am Gerät
+  verifiziert (Droop 147 → 150 V, Position 1143 → 1163) und per OTA ausgerollt.
+  Offen bleibt allein **Paket H** (Sicherheit, optional) — es bekäme dann **V4.9.0**.
 - **2026-07-23 — V4.5.0: Paket L umgesetzt und am Gerät abgenommen (35/36).**
   #36 WLAN-Status als Icon in der Kopfzeile (verbunden / Config-AP / kein Symbol,
   Neuzeichnen nur bei Zustandswechsel) und #37 Temperatur mit Thermometer-Icon,
@@ -411,7 +433,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 | **H** | Sicherheit (optional) | Absicherung API/OTA | 11 |
 | **J** | Voltmeter-Fernsteuerung via Controller | Menü/Kalibrierung/Status des Voltmeters über Web/API | 27, 28, 29, 30 |
 | **I** | Dokumentation aktualisieren | Vollständig, auf finalem Stand | 24, 12 |
-| **L** | LCD-Optimierung | Anzeige auf dem Gerät verbessern (Sammlung wächst) | 36, 37 |
+| **L** | LCD-Optimierung | Anzeige auf dem Gerät verbessern | 36, 37 |
+| **M** | Display-Redesign | Normalbetrieb-Screen grafisch neu aufbauen | 38 |
 
 > Begründung: **A** zuerst — Migration ins saubere Repo + verlässliches Flash-/Test-Setup, danach passiert alle Arbeit dort. **B** räumt billige Fehler/Inkonsistenzen weg (inkl. #19, das in C gebraucht wird). **C** ist das Kernanliegen (Regelung) als zusammenhängender Block, mit Sim-Modus #20 als Enabler vorab. **D** härtet das Laufzeitverhalten. **E** schlankt die API, bevor **F** (Refactoring) und **G** (UI) darauf aufbauen — die UI wird gegen die *finale* API gebaut. **H** Sicherheit (laut Absprache optional). **J** (nachträglich aufgenommen) baut die Voltmeter-Fernsteuerung auf der finalen API/UI auf, kommt daher nach **G/H**. **I** Doku zuletzt, weil sie den endgültigen Stand von Code, API und UI beschreibt. *(Buchstabe J liegt vor I, weil später ergänzt — die Reihenfolge richtet sich nach der Tabelle, nicht nach dem Alphabet.)* **K** (Config ins NVS, später ergänzt) liegt bewusst **vor G**: das Web-Redesign braucht mehrere `uploadfs`, und ab K überlebt die Konfiguration/Kalibrierung diese.
 
@@ -528,14 +551,26 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Paket L — LCD-Optimierung
 
-> Sammelpaket: Die Punkte werden gesammelt und gemeinsam umgesetzt, weitere kommen
-> voraussichtlich dazu. Details, technischer Weg und offene Layout-Fragen im Plan
+> Sammelpaket, **abgeschlossen**: Die weitergehende Überarbeitung der Anzeige ist in
+> Paket M (Display-Redesign, V4.8.0) aufgegangen. Details und technischer Weg im Plan
 > [`Paket-L-LCD-Optimierung.md`](Paket-L-LCD-Optimierung.md).
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
 | 36 | Display | WLAN-Status als Icon auf dem TFT | Oben links den WLAN-Zustand als Icon zeigen: verbunden → Material Symbol `wifi`, eigener Config-AP aktiv → `wifi_find`, kein Netz (AP beendet) → Icon entfernen. Zustände sind seit V4.4.0 über `currentSystemState`/`WiFi.status()` unterscheidbar. Icons müssen als Bitmap (XBM) in die Firmware, da TFT_eSPI keine Web-Fonts kann. Kopfzeilen-Layout: Icon links, Titel neu zentriert, Temperatur rechts — Feinjustierung am Gerät. | S | **erledigt** *(V4.5.0, am Gerät verifiziert)* |
 | 37 | Display | Temperaturanzeige mit Icon, ohne Nachkommastellen | Statt `34.00C` neu `34 °C` mit vorangestelltem Material Symbol `device_thermostat`. Offen: ob der TFT-Font das Grad-Zeichen enthält, sonst Kreis zeichnen. | S | **erledigt** *(V4.5.0; Font 2 kann kein `°`, daher als Kreis gezeichnet)* |
+
+---
+
+## Paket M — Display-Redesign
+
+> Umgesetzt auf dem Branch `feature/redesign-display` (Michael Tanner), gemerged und als
+> **V4.8.0** getaggt. Layout-Entwürfe, Mockups und Rückmeldung liegen in
+> [`tt_esp32controller/documentation/display-redesign/`](tt_esp32controller/documentation/display-redesign/).
+
+| ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
+|----|-----------|-------|--------------|---------|--------|
+| 38 | Display | Normalbetrieb-Screen neu gestalten | Grafischer Aufbau statt Textliste: Ist-Spannung gross und nach Sicherheitszustand farbcodiert, **Regelabweichungsbalken** (−5…+5 V) in zwei zur Laufzeit umschaltbaren Varianten (Langdruck auf die Regelungstaste, persistiert als `display.variant` im NVS), Warndreieck bei fehlender Strombegrenzung, Schalter-Chips (Ausgang/Limit/Regelung) und Presets im Look der Frontplatten-Taster, eigener Font und generierte Icons. Bewusst keine Anlehnung ans Web-UI und keine Gauge (Zeigerinstrumente sitzen auf der Frontplatte). | L | **erledigt** *(V4.8.0, am Gerät iteriert)* |
 
 ---
 

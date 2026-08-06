@@ -1,11 +1,13 @@
 # Paket L — LCD-Optimierung
 
-**Status:** #36 + #37 umgesetzt in V4.5.0, am Gerät abgenommen · **Stand:** 2026-07-25 ·
-**Betrifft:** Controller-TFT
+**Status:** **abgeschlossen** — #36 + #37 umgesetzt in V4.5.0, am Gerät abgenommen ·
+**Stand:** 2026-08-06 · **Betrifft:** Controller-TFT
 
 Sammlung von Verbesserungen an der Anzeige auf dem Gerät (TFT 240 × 320, Portrait,
-`tft.setRotation(2)`). Die Punkte werden hier gesammelt und gemeinsam umgesetzt.
-Die erste Charge (L1 + L2) steckt in V4.5.0; weitere Punkte können jederzeit dazukommen.
+`tft.setRotation(2)`). Die erste Charge (L1 + L2) steckt in V4.5.0. Weitere Punkte kamen
+nicht mehr dazu: Die grosse Überarbeitung der Anzeige ist in **Paket M (Display-Redesign,
+V4.8.0)** aufgegangen, das den Normalbetrieb-Screen komplett neu aufbaut. Dieses Dokument
+bleibt als Beleg für die Kopfzeilen-Entscheidungen (Icons, Layout, Gradzeichen) bestehen.
 
 ---
 
@@ -129,7 +131,9 @@ des Projekts vereinbar, verlangt aber einen Hinweis — bei Umsetzung einen Verm
       dass `drawLegend()` kein eigenes Text-Datum setzte und das neue `TC_DATUM` von
       `drawBackground()` erbte — die Fusszeile rutschte dadurch aus dem Display.
       Behoben, indem `drawLegend()` sein `TL_DATUM` selbst setzt.
-- [ ] Weitere Punkte des Pakets sammeln
+- [x] Weitere Punkte des Pakets sammeln — **abgeschlossen**: Die weitergehende
+      Überarbeitung der Anzeige ist in **Paket M (Display-Redesign, V4.8.0)** aufgegangen,
+      das den Normalbetrieb-Screen komplett neu aufbaut. Damit ist Paket L geschlossen.
 
 ## Aufwand (Schätzung, Stand heute)
 

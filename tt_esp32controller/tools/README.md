@@ -237,6 +237,11 @@ Vorführung für den Messestand: läuft **ohne Rückfragen in Endlosschleife**, 
    wie die Regelung nachführt.
 4. **Rückfahrt** auf 0 V, danach eine Ruhepause bis zum nächsten Durchlauf.
 
+**Ohne Parameter aufgerufen zeigt das Skript nur seine Hilfe** (Ablauf, alle Parameter,
+Beispielaufrufe, Sicherheitshinweise) und schaltet nichts – ein versehentlicher Start
+kann also keine Spannung auf den Ausgang geben. Für den Start ist mindestens `--host`
+nötig:
+
 ```bash
 python variac_demo.py --host 192.168.0.155
 ```

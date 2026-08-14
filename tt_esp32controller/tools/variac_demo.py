@@ -293,9 +293,40 @@ def read_presets(status):
     return result
 
 
+EPILOG = """\
+Ablauf je Durchlauf:
+  1. Hochlauf in Stufen   15 / 35 / 60 / 85 / 100 % der Obergrenze, je gehalten
+  2. Presets              P1/P2/P3 per Direktwahl (ueber der Obergrenze: uebersprungen)
+  3. Feinregelung         kleine Sollwertspruenge (+/- 8 V), zeigt das Nachfuehren
+  4. Rueckfahrt           zurueck auf 0 V, danach Ruhepause
+
+Beispiele:
+  python variac_demo.py --host 192.168.0.155
+      Endlos-Demo bis 200 V, Strombegrenzung ein, Beenden mit Strg+C.
+
+  python variac_demo.py --host 192.168.0.155 --max 150 --hold 10 --pause 30
+      Ruhigerer Ablauf mit niedrigerer Spannung.
+
+  python variac_demo.py --host 192.168.0.155 --cycles 1 --dry-run
+      Ein Durchlauf zur Probe, Ausgang bleibt dabei AUS.
+
+Sicherheit:
+  - Obergrenze im Skript: {hard:.0f} V; --max kann nur darunter liegen.
+  - Temperaturwaechter: ab {pause:.0f} C pausieren bis {resume:.0f} C, ab {abort:.0f} C abbrechen.
+  - Bei Strg+C, Fehler oder Abbruch: 0 V, Ausgang AUS, Strombegrenzung EIN.
+  - Reisst die Netzwerkverbindung ab, kann das Skript nicht mehr abschalten -
+    dann muss am Geraet abgeschaltet werden.
+
+ACHTUNG: Mit --host startet die Vorfuehrung sofort und schaltet den Ausgang EIN.
+""".format(hard=HARD_MAX_V, pause=TEMP_PAUSE_C, resume=TEMP_RESUME_C, abort=TEMP_ABORT_C)
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Messe-Demo fuer den TWM Isolation Variac Controller.")
+        description="Messe-Demo fuer den TWM Isolation Variac Controller: faehrt eine "
+                    "Vorfuehr-Choreografie in Endlosschleife, bis Strg+C gedrueckt wird.",
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--host", default=DEFAULT_HOST,
                         help="IP oder Hostname (Standard: {})".format(DEFAULT_HOST))
     parser.add_argument("--max", type=float, default=DEFAULT_MAX_V,
@@ -317,6 +348,13 @@ def main():
                         help="Choreografie ohne eingeschalteten Ausgang vorfuehren")
     parser.add_argument("--timeout", type=float, default=5.0,
                         help="HTTP-Timeout pro Anfrage in Sekunden (Standard: 5)")
+
+    # Ohne Argumente nur die Hilfe zeigen: Ein versehentlicher Aufruf soll nicht
+    # sofort den Ausgang einschalten - der Start verlangt bewusst mindestens --host.
+    if len(sys.argv) == 1:
+        parser.print_help()
+        return 0
+
     args = parser.parse_args()
 
     if args.max <= 0 or args.max > HARD_MAX_V:

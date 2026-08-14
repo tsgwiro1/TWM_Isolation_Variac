@@ -24,6 +24,12 @@ Variac Controller** über dessen REST-API. Es gibt drei Bedienwege:
 |-------|-----------|---------------|
 | [`variac_run.py`](variac_run.py) | plattformübergreifend | Python 3 (nur Standardbibliothek) |
 
+**D) Messe-Demo** – unbeaufsichtigte Vorführung in Endlosschleife:
+
+| Datei | Plattform | Voraussetzung |
+|-------|-----------|---------------|
+| [`variac_demo.py`](variac_demo.py) | plattformübergreifend | Python 3 (nur Standardbibliothek) |
+
 Alle Werkzeuge benötigen nur Python 3 (Standardbibliothek) bzw. PowerShell – keine
 zusätzlichen Pakete.
 
@@ -218,6 +224,59 @@ Ausgang einschalten ...
 
 ---
 
+## Messe-Demo (`variac_demo.py`)
+
+Vorführung für den Messestand: läuft **ohne Rückfragen in Endlosschleife**, bis
+**Strg+C** gedrückt wird. Jeder Durchlauf besteht aus vier Phasen:
+
+1. **Hochlauf in Stufen** – 15 %, 35 %, 60 %, 85 %, 100 % der gewählten Obergrenze,
+   jede Stufe wird gehalten, damit das Publikum die Anzeige ablesen kann.
+2. **Presets per Direktwahl** – P1/P2/P3 werden über `recall_p*` angesprungen.
+   Presets **oberhalb der Obergrenze werden übersprungen**.
+3. **Feinregelung** – kleine Sollwertsprünge (±8 V) um 60 % der Obergrenze; zeigt,
+   wie die Regelung nachführt.
+4. **Rückfahrt** auf 0 V, danach eine Ruhepause bis zum nächsten Durchlauf.
+
+```bash
+python variac_demo.py --host 192.168.0.155
+```
+
+| Parameter | Bedeutung | Standard |
+|-----------|-----------|----------|
+| `--host` | IP oder Hostname des Controllers | `192.168.0.155` |
+| `--max` | Obergrenze der Demo in Volt (Skript lässt höchstens 230 zu) | `200` |
+| `--hold` | Haltezeit je Stufe in Sekunden | `6` |
+| `--pause` | Ruhepause zwischen zwei Durchläufen | `15` |
+| `--cycles` | Anzahl Durchläufe, `0` = endlos | `0` |
+| `--limit-off` | ohne Strombegrenzung fahren | aus (Limit **ein**) |
+| `--no-presets` | Preset-Phase auslassen | aus |
+| `--dry-run` | komplette Choreografie **ohne eingeschalteten Ausgang** | aus |
+
+Beispiel für einen ruhigeren Ablauf mit niedrigerer Spannung:
+
+```bash
+python variac_demo.py --host 192.168.0.155 --max 150 --hold 10 --pause 30
+```
+
+### Sicherheit
+
+- **Harte Obergrenze** im Skript: 230 V. `--max` kann nur darunter liegen.
+- **Temperaturwächter**: Ab 50 °C geht der Sollwert auf 0 und die Demo wartet, bis
+  das Gerät auf 45 °C abgekühlt ist; ab 58 °C bricht sie ganz ab. Gedacht für den
+  Dauerbetrieb über einen Messetag.
+- **Sicherer Zustand in jeder Lage**: Bei Strg+C, Fehler oder Abbruch werden Sollwert
+  auf 0 V, Ausgang **AUS** und Strombegrenzung **EIN** gesetzt – auch wenn der Abbruch
+  mitten in einer Anfahrt kommt.
+- **Bediensperre respektiert**: Läuft am Gerät gerade ein Update (HTTP 503 seit
+  V4.7.0), wartet die Demo, statt Befehle ins Leere zu schicken.
+- **Trockenlauf**: `--dry-run` führt den ganzen Ablauf ohne eingeschalteten Ausgang
+  vor – gut zum Prüfen der Choreografie vor dem Publikum.
+- **Grenze der Fernabschaltung**: Reißt die Netzwerkverbindung ab, kann das Skript
+  nichts mehr schalten. Es meldet das deutlich, aber **das Abschalten muss dann am
+  Gerät erfolgen** – der Variac bleibt bis dahin unter Spannung.
+
+---
+
 ## Verwendete API-Endpunkte
 
 Die Skripte nutzen die REST-API des Controllers **ab Firmware V4.0.0** (interaktive Doku:
@@ -231,3 +290,4 @@ Firmware (< V4.0.0, Aktionen noch per GET) eine frühere Version dieser Tools ve
 | Ausgang umschalten | `POST /api/command?action=toggle_output` |
 | Strombegrenzung umschalten | `POST /api/command?action=toggle_limit` |
 | Spannungsregelung umschalten | `POST /api/command?action=toggle_regulation` |
+| Preset abrufen (nur `variac_demo.py`) | `POST /api/command?action=recall_p1` … `recall_p3` |

@@ -7,6 +7,16 @@ ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version wird in `version.txt` gepflegt; der Build reicht sie an Firmware und
 Filesystem-Image weiter.
 
+## [V4.9.1] – in Arbeit
+
+### Geändert
+- **Regelabweichungsbalken ruhiger bei Messrauschen** (GitHub-#31): Die Anzeige (Balken **und** grosse
+  Ist-Spannung) läuft jetzt über einen geglätteten Wert (EMA-Tiefpass, Faktor `DISP_SMOOTH`
+  0.12 pro 10‑Hz-Frame ≈ 0.8 s Zeitkonstante) statt über den rohen Messwert, dazu eine
+  1‑px-Marker-Hysterese. Der Balken schwankt dadurch deutlich langsamer, bleibt aber
+  aussagekräftig. **Die Regelung selbst rechnet unverändert mit dem rohen Messwert** — die
+  Glättung betrifft ausschliesslich die Darstellung.
+
 ## [V4.9.0] – 2026-09-14
 
 ### Neu

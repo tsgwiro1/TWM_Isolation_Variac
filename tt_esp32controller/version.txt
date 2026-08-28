@@ -1,7 +1,7 @@
 # Versionsnummer der Controller-Firmware — die einzige Stelle, an der sie gepflegt
 # wird. Der Build (scripts/version.py) reicht sie als FW_VERSION an den Compiler
 # und als /version.json ins Filesystem-Image weiter.
-version = V4.9.0
+version = V4.9.1
 
 # Vom Build gepflegt, nicht von Hand ändern.
 # Stand von data/ zum Zeitpunkt der letzten Versionserhöhung. Weicht der Inhalt

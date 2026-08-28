@@ -51,6 +51,12 @@ static const uint16_t COL_BAROFF  = 0x2987;      // Balken-Track bei Ausgang aus
 #define DEV_ZONE_YELLOW  4.0f
 #define DEV_ZONE_MAX     5.0f
 #define DEV_MARK_MIN     0.3f // Variante B: unterhalb -> grüner Strich statt Mini-Füllung
+// Anzeige-Glättung (nur Balken + grosse Zahl, NICHT die Regelung): EMA-Tiefpass gegen
+// Messrauschen. Faktor pro Display-Frame (10 Hz); 0.12 => Zeitkonstante ~0.8 s. Kleiner = ruhiger.
+#define DISP_SMOOTH      0.12f
+// Marker-Hysterese: Balken erst neu zeichnen, wenn sich die Position um >= so viele px bewegt
+// (unterdrückt das letzte Mikro-Dithern im eingeschwungenen Zustand).
+#define BAR_MARK_HYST_PX 2
 // Sprite für den Balken (flackerfrei via Push). Deckt x=14..233, y=(BAR_Y-16)..(BAR_Y+9) ab
 // (ohne Rahmenrand x=12/13 & 234/235, ohne Zonen-Labels ab y=143).
 #define BAR_SPR_X   14
@@ -374,7 +380,13 @@ void updateDisplay() {
   bool out   = A_onoff->getState();
   bool limit = A_limit->getState();
   bool reg   = A_reg->getState();
-  int  volt  = (int)lroundf(received_rms_value);
+  // Anzeige-Glättung: EMA-Tiefpass NUR für die Anzeige (grosse Zahl + Balken). Die Regelung
+  // rechnet weiter mit dem rohen received_rms_value — hier geht es nur um ein ruhiges Bild.
+  static float vDisp = NAN;
+  float vRaw = received_rms_value;
+  if (isnan(vDisp)) vDisp = vRaw;                 // Erstwert übernehmen (kein Einschwingen von 0)
+  vDisp += DISP_SMOOTH * (vRaw - vDisp);
+  int  volt  = (int)lroundf(vDisp);
   uint8_t vcol = !out ? VCOL_GREY : (limit ? VCOL_YELLOW : VCOL_RED);
   bool danger = !limit;                          // Strombegrenzung aus -> Warnung (unabhängig vom Ausgang)
   bool blinkOn = ((millis() / 1000) % 2) == 0;   // hartes Blinken: 1 s an / 1 s aus
@@ -411,12 +423,16 @@ void updateDisplay() {
   }
 
   // --- Regelabweichungs-Balken (ersetzt die Zielspannungs-Zeile) ---
-  float devClamped = constrain(received_rms_value - setpoint_voltage, -DEV_ZONE_MAX, DEV_ZONE_MAX);
+  // Nutzt den geglätteten Anzeigewert (vDisp), damit der Balken zum grossen Wert passt und ruhig bleibt.
+  float devClamped = constrain(vDisp - setpoint_voltage, -DEV_ZONE_MAX, DEV_ZONE_MAX);
   float absDev = fabsf(devClamped);
   int   markerX = BAR_CX + (int)lroundf(devClamped * BAR_PXV);
   uint16_t zoneCol = (absDev <= DEV_ZONE_GREEN) ? COL_GREEN
                    : (absDev <= DEV_ZONE_YELLOW ? TFT_YELLOW : TFT_RED);
-  if (displayVariant != actDispValues.nVariant || markerX != actDispValues.nMarkerX ||
+  // Hysterese: eine Marker-Bewegung von 1 px löst kein Neuzeichnen aus (unterdrückt Rest-Dither).
+  // Farb-/Varianten-/Ausgangswechsel zeichnen weiterhin sofort neu.
+  bool markerMoved = abs(markerX - actDispValues.nMarkerX) >= BAR_MARK_HYST_PX;
+  if (displayVariant != actDispValues.nVariant || markerMoved ||
       zoneCol != actDispValues.nBarCol || (uint8_t)out != actDispValues.nBarOut) {
     actDispValues.nVariant = displayVariant;
     actDispValues.nMarkerX = markerX;

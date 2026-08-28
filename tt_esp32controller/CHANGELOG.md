@@ -6,6 +6,16 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MIN
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
 
+## [V4.8.2] – 2026-08-06
+
+### Geändert
+- **Regelabweichungsbalken ruhiger bei Messrauschen**: Die Anzeige (Balken **und** grosse
+  Ist-Spannung) läuft jetzt über einen geglätteten Wert (EMA-Tiefpass, Faktor `DISP_SMOOTH`
+  0.12 pro 10‑Hz-Frame ≈ 0.8 s Zeitkonstante) statt über den rohen Messwert, dazu eine
+  1‑px-Marker-Hysterese. Der Balken schwankt dadurch deutlich langsamer, bleibt aber
+  aussagekräftig. **Die Regelung selbst rechnet unverändert mit dem rohen Messwert** — die
+  Glättung betrifft ausschliesslich die Darstellung.
+
 ## [V4.8.1] – 2026-08-06
 
 ### Behoben

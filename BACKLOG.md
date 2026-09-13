@@ -9,7 +9,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete.
 
 ## Fortschritt
 
-**Stand:** 2026-08-06 · **Gesamt: 36 / 37 Punkte erledigt** · aktueller Release **V4.8.1**
+**Stand:** 2026-09-13 · **Gesamt: 36 / 37 Punkte erledigt** · aktueller Release **V4.8.2**
 · auf GitHub sind **alle Issues geschlossen**
 
 | Paket | Status | Fortschritt |
@@ -238,6 +238,39 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete.
   `documentation/Testanleitung-V4.3.1.md` gelöscht (Zweck erfüllt; Historie behält die Datei).
   Offen aus dem Testlauf bleiben nur die Tools-Nachtests #6/#7 bei Michael.
   Commits `e7b453f` … `ac64d35`, Tags `v4.4.0`–`v4.6.1`.
+- **2026-09-13 — Hardware-Dokumentation ins Repo, Versionsstempel, Release V4.8.2.**
+  Neuer Ordner `Hardware/` mit **Stückliste** und **Verdrahtung** des Geräts, dazu Schema,
+  Layout, Gerber und BOM der vier Prints, Datenblätter, CAD und 28 aufbereitete Fotos
+  (zugeschnitten, skaliert, Metadaten entfernt). Die Verdrahtung ist nach Ort im Gerät
+  gegliedert und trennt zwei Detailtiefen: die 230-V-Seite Litze für Litze mit Aderfarbe
+  und Querschnitt, die Niedervolt-Seite nur mit Stecker, Polzahl und Funktion. Ein
+  Übersichtsschema mit 16 nummerierten Stationen verbindet Zeichnung und Tabellen.
+  Die **drei Print-Modifikationen** liegen neu als eigene Dokumente vor — PE-Block der
+  Leistungsplatine auf die Netzteilspeisung umgewidmet, 12 V an `J6` des Controller-Prints
+  (vorher ein docx), Voltmeter-Link auf USART1 (vorher unter `tt_voltmeter/documentation`).
+  **Aufgeräumt:** `display-redesign/` und `Paket-L-LCD-Optimierung.md` als Planungsmaterial
+  für abgeschlossene Arbeit entfernt, `REVIEW.md` als überholte Momentaufnahme vom Juni;
+  das ZMPT101B-Dokument zu den Datenblättern verschoben. Personendaten aus einer STEP-Datei
+  und einem PDF entfernt.
+  **V4.8.2 — Versionsstempel für Firmware und Filesystem.** Beide werden getrennt geflasht
+  und konnten unbemerkt auseinanderlaufen: Eine Änderung an `data/` war von aussen nicht
+  erkennbar, weil die Nummer allein in der Firmware stand. Sie liegt jetzt in `version.txt`;
+  ein Pre-Build-Hook reicht sie an den Compiler und legt sie mit einem Inhalts-Hash über
+  `data/` ins Filesystem-Image. Drei Kontrollen laufen seither von selbst: der Build warnt
+  bei vergessener Versionserhöhung, das Gerät meldet beim Start einen Versatz (Log,
+  `/api/status` mit `fs_version`/`fs_content`/`fs_match`, Fusszeile), und nach einem
+  OTA-Upload prüft der Build-Rechner, ob das Gerät dem Stand im Repo entspricht. Die letzte
+  Prüfung bricht nie einen Build ab.
+  **Behoben:** `uploadfs` lief in "timed out", bevor die Übertragung begann — der
+  espota-Standard wartet 10 s, der ESP löscht bei einem 10-MB-Image aber zuerst die
+  Partition und startete danach per Watchdog neu. `upload_flags = --timeout=90` behebt es.
+  **Ausserdem:** Haftungsausschluss im README, in allen Hardware-Dokumenten und in der
+  Gerätedokumentation (`doc_usage.html`). README nennt neu den Versionsstand beider
+  Firmwares und verlinkt den OnePager. Voltmeter **V1.2.3** als abgeschlossen datiert und
+  erstmals getaggt (`voltmeter-v1.2.3`, mit Präfix, weil die bestehenden Tags `v4.x`
+  ausschliesslich den Controller bezeichnen).
+  Commits: `20896a9`, `d009373`, `2bcf78e`, `6aff95e`, `4629a6f`. Tags: `v4.8.2`,
+  `voltmeter-v1.2.3`.
 - **2026-08-06 — Stand aufgeräumt: alle GitHub-Issues geschlossen, Release V4.8.1.**
   Die zuletzt noch offenen Tools-Nachtests **#6/#7** sind bei Michael erledigt; auf GitHub
   ist damit **kein Issue mehr offen** (26 gesamt, 0 offen). Dazwischen zwei Releases:

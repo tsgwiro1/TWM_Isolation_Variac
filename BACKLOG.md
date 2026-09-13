@@ -1,6 +1,6 @@
 # Backlog – `tt_esp32controller` (+ `tt_voltmeter`)
 
-Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW.md`](REVIEW.md).
+Priorisierte Umsetzungsliste, gruppiert in Pakete.
 
 **Legende**
 - **Aufwand:** S = klein (Minuten–~1h), M = mittel, L = groß
@@ -75,10 +75,10 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 - [x] **I — Dokumentation aktualisieren**
   - [x] #24 Doku aktualisieren & vervollständigen
   - [x] #12 API-Doku Single-Source
-- [x] **L — LCD-Optimierung** *(Plan: [`Paket-L-LCD-Optimierung.md`](Paket-L-LCD-Optimierung.md); weitere Punkte können jederzeit dazukommen)*
+- [x] **L — LCD-Optimierung**
   - [x] #36 WLAN-Status als Icon auf dem TFT
   - [x] #37 Temperaturanzeige mit Icon, ohne Nachkommastellen
-- [x] **M — Display-Redesign** *(Plan/Mockups: [`display-redesign/`](tt_esp32controller/documentation/display-redesign/))*
+- [x] **M — Display-Redesign**
   - [x] #38 Normalbetrieb-Screen neu gestalten
 
 > Diese Checkliste ist die schnelle Abhak-Übersicht. Die Detailtabellen je Paket (unten)
@@ -247,8 +247,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
   farbcodiert, **Regelabweichungsbalken** (−5…+5 V) in zwei per Langdruck auf die
   Regelungstaste umschaltbaren Varianten (persistiert als `display.variant` im NVS),
   Warndreieck für fehlende Strombegrenzung, Schalter-Chips und Presets im Taster-Look,
-  eigener Font und generierte Icons. Rogers Rückmeldung zum Zwischenstand liegt als
-  `tt_esp32controller/documentation/display-redesign/Feedback-Roger-2026-07-29.md` im Repo.
+  eigener Font und generierte Icons.
   **V4.8.1 — GitHub-#27:** Über Dashboard bzw. `POST /api/command?action=toggle_regulation`
   eingeschaltete Regelung schaltete nur die LED, ohne den Feedforward anzustossen (reines
   `A_reg->toggle()` ohne `isRecallPreset` → `is_regulation_active` blieb false, der
@@ -417,7 +416,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 
 ## Paket-Reihenfolge (festgelegt)
 
-> Repo-Layout: **Mono-Repo** (`tt_esp32controller/` + `tt_voltmeter/`; projektspezifische Doku im jeweiligen Projektordner). Plandateien (`REVIEW.md`, `BACKLOG.md`) im Repo-Root. Migration (#25) zuerst.
+> Repo-Layout: **Mono-Repo** (`tt_esp32controller/` + `tt_voltmeter/`; projektspezifische Doku im jeweiligen Projektordner). Plandateien im Repo-Root. Migration (#25) zuerst.
 
 
 | Reihenfolge | Paket | Ziel | enthält IDs |
@@ -552,8 +551,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 ## Paket L — LCD-Optimierung
 
 > Sammelpaket, **abgeschlossen**: Die weitergehende Überarbeitung der Anzeige ist in
-> Paket M (Display-Redesign, V4.8.0) aufgegangen. Details und technischer Weg im Plan
-> [`Paket-L-LCD-Optimierung.md`](Paket-L-LCD-Optimierung.md).
+> Paket M (Display-Redesign, V4.8.0) aufgegangen. Die Planunterlage ist nach der
+> Umsetzung entfernt worden.
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|
@@ -565,8 +564,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete. Detail-Analyse siehe [`REVIEW
 ## Paket M — Display-Redesign
 
 > Umgesetzt auf dem Branch `feature/redesign-display` (Michael Tanner), gemerged und als
-> **V4.8.0** getaggt. Layout-Entwürfe, Mockups und Rückmeldung liegen in
-> [`tt_esp32controller/documentation/display-redesign/`](tt_esp32controller/documentation/display-redesign/).
+> **V4.8.0** getaggt. Die Entwurfsunterlagen sind nach der Umsetzung entfernt worden.
 
 | ID | Kategorie | Titel | Beschreibung | Aufwand | Status |
 |----|-----------|-------|--------------|---------|--------|

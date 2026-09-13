@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1220 1530" width="1220" height="1530" font-family="Helvetica, Arial, sans-serif">
+  <rect width="1220" height="1530" fill="#ffffff"/>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/>
+    </marker>
+  </defs>
+
+  <g stroke="#333" stroke-width="2.5">
+    <rect x="250" y="40"   width="420" height="76" rx="6" fill="#dcdcdc"/>
+    <rect x="790" y="40"   width="230" height="76" rx="6" fill="#dcdcdc"/>
+    <rect x="250" y="156"  width="420" height="76" rx="6" fill="#cbd9e8"/>
+    <rect x="250" y="272"  width="420" height="76" rx="6" fill="#dcdcdc"/>
+    <rect x="250" y="388"  width="420" height="76" rx="6" fill="#dcdcdc"/>
+    <rect x="790" y="388"  width="230" height="76" rx="6" fill="#dcdcdc"/>
+    <rect x="250" y="504"  width="420" height="76" rx="6" fill="#cbd9e8"/>
+    <rect x="250" y="620"  width="420" height="76" rx="6" fill="#e8d9c0"/>
+    <rect x="250" y="748"  width="420" height="76" rx="6" fill="#e8d9c0"/>
+    <rect x="790" y="748"  width="230" height="76" rx="6" fill="#dcdcdc"/>
+    <rect x="790" y="864"  width="230" height="76" rx="6" fill="#dcdcdc"/>
+    <rect x="250" y="864"  width="420" height="76" rx="6" fill="#cbd9e8"/>
+    <rect x="250" y="980"  width="420" height="76" rx="6" fill="#f0e27a"/>
+    <rect x="250" y="1096" width="420" height="76" rx="6" fill="#dcdcdc"/>
+    <rect x="250" y="1212" width="420" height="76" rx="6" fill="#dcdcdc"/>
+    <rect x="250" y="1328" width="420" height="76" rx="6" fill="#dcdcdc"/>
+  </g>
+
+  <g stroke="#333" stroke-width="2.5" fill="none" marker-end="url(#ar)">
+    <path d="M 460 116 V 152"/>
+    <path d="M 460 232 V 268"/>
+    <path d="M 460 348 V 384"/>
+    <path d="M 460 464 V 500"/>
+    <path d="M 460 580 V 616"/>
+    <path d="M 460 696 V 744"/>
+    <path d="M 460 824 V 860"/>
+    <path d="M 460 940 V 976"/>
+    <path d="M 460 1056 V 1092"/>
+    <path d="M 460 1172 V 1208"/>
+    <path d="M 460 1288 V 1324"/>
+    <path d="M 670 426 H 786"/>
+    <path d="M 670 78 H 786"/>
+    <path d="M 670 786 H 786"/>
+    <path d="M 670 812 H 730 V 902 H 786"/>
+  </g>
+
+  <path d="M 250 815 H 150 V 1390 H 246" fill="none" stroke="#333" stroke-width="2.5" stroke-dasharray="8 5" marker-end="url(#ar)"/>
+  <text transform="translate(138,1105) rotate(-90)" text-anchor="middle" font-size="14" fill="#444">Rückleiter A &#8594; S8 &#8594; S9 &#8594; Voltmeter &#8594; Ausgang N &#183; nicht geschaltet</text>
+
+  <line x1="150" y1="728" x2="1020" y2="728" stroke="#b03030" stroke-width="2" stroke-dasharray="10 7"/>
+  <text x="1020" y="721" text-anchor="end" font-size="14" fill="#b03030">galvanische Trennung — der Sekundärkreis ist netzgetrennt</text>
+
+  <g text-anchor="middle">
+    <g font-size="17" font-weight="bold" fill="#1a1a1a">
+      <text x="460" y="72">Netzeinspeisung</text>
+      <text x="905" y="72">Erdungspunkt</text>
+      <text x="905" y="420">Netzteil LRS-75-24</text>
+      <text x="460" y="188">Eingangsklemmen S19 / S20</text>
+      <text x="460" y="304">Leitungsschutzschalter PRI</text>
+      <text x="460" y="420">Hauptschalter, 2-polig</text>
+      <text x="460" y="536">Sanftanlauf R4 33 Ω, von K1 überbrückt</text>
+      <text x="460" y="652">Trenntransformator, Primärseite</text>
+      <text x="460" y="780">Trenntransformator, Sekundärseite</text>
+      <text x="905" y="780">Analoges Voltmeter</text>
+      <text x="905" y="896">AC-Voltmeter-Print</text>
+      <text x="460" y="896">Ausgangsrelais K3</text>
+      <text x="460" y="1012">Strombegrenzung, extern</text>
+      <text x="460" y="1128">Leitungsschutzschalter SEC</text>
+      <text x="460" y="1244">Amperemeter</text>
+      <text x="460" y="1360">Ausgang</text>
+    </g>
+    <g font-size="14" fill="#444">
+      <text x="460" y="96">Kaltgeräte-Einbaustecker IEC C14, Rückplatte</text>
+      <text x="905" y="96">Rückplatte, PE-Sammelpunkt</text>
+      <text x="905" y="444">an S14 und S17</text>
+      <text x="460" y="212">Leistungsplatine · Input L / Input N</text>
+      <text x="460" y="328">Frontplatte · einpolig, im Primärkreis</text>
+      <text x="460" y="444">Frontplatte · S16 → S14 (L) und S18 → S17 (N)</text>
+      <text x="460" y="560">Leistungsplatine · S14 → R4 → S15</text>
+      <text x="460" y="676">Klemmen 230 (braun) und 0 (blau)</text>
+      <text x="460" y="804">Klemme A (blau) und Schleifer S (violett) · E unbeschaltet</text>
+      <text x="905" y="804">zeigt die Schleiferspannung</text>
+      <text x="905" y="920">direkt an A und S, 0,25 mm²</text>
+      <text x="460" y="920">Leistungsplatine · S3 → Knoten X</text>
+      <text x="460" y="1036">gelbe T13-Steckdose S4 / S2 · von K2 überbrückt</text>
+      <text x="460" y="1152">Frontplatte · einpolig, im Ausgangspfad</text>
+      <text x="460" y="1268">Frontplatte · direkt im Ausgangsstrompfad</text>
+      <text x="460" y="1384">T13-Steckdose und Polklemmen N / PE / L, parallel</text>
+    </g>
+    <g font-size="13" fill="#555">
+      <text x="728" y="68">PE</text>
+      <text x="728" y="778">violett</text>
+    </g>
+  </g>
+
+  <g font-size="19" font-weight="bold" text-anchor="middle">
+    <circle cx="250" cy="78"   r="17" fill="#1a1a1a"/><text x="250" y="85"   fill="#fff">1</text>
+    <circle cx="1050" cy="78"  r="17" fill="#1a1a1a"/><text x="1050" y="85"  fill="#fff">2</text>
+    <circle cx="1050" cy="426" r="17" fill="#1a1a1a"/><text x="1050" y="433" fill="#fff">6</text>
+    <circle cx="250" cy="194"  r="17" fill="#1a1a1a"/><text x="250" y="201"  fill="#fff">3</text>
+    <circle cx="250" cy="310"  r="17" fill="#1a1a1a"/><text x="250" y="317"  fill="#fff">4</text>
+    <circle cx="250" cy="426"  r="17" fill="#1a1a1a"/><text x="250" y="433"  fill="#fff">5</text>
+    <circle cx="250" cy="542"  r="17" fill="#1a1a1a"/><text x="250" y="549"  fill="#fff">7</text>
+    <circle cx="250" cy="658"  r="17" fill="#1a1a1a"/><text x="250" y="665"  fill="#fff">8</text>
+    <circle cx="250" cy="786"  r="17" fill="#1a1a1a"/><text x="250" y="793"  fill="#fff">9</text>
+    <circle cx="1050" cy="786" r="17" fill="#1a1a1a"/><text x="1050" y="793" fill="#fff">10</text>
+    <circle cx="1050" cy="902" r="17" fill="#1a1a1a"/><text x="1050" y="909" fill="#fff">11</text>
+    <circle cx="250" cy="902"  r="17" fill="#1a1a1a"/><text x="250" y="909"  fill="#fff">12</text>
+    <circle cx="250" cy="1018" r="17" fill="#1a1a1a"/><text x="250" y="1025" fill="#fff">13</text>
+    <circle cx="250" cy="1134" r="17" fill="#1a1a1a"/><text x="250" y="1141" fill="#fff">14</text>
+    <circle cx="250" cy="1250" r="17" fill="#1a1a1a"/><text x="250" y="1257" fill="#fff">15</text>
+    <circle cx="250" cy="1366" r="17" fill="#1a1a1a"/><text x="250" y="1373" fill="#fff">16</text>
+  </g>
+
+  <g font-size="14" fill="#555">
+    <rect x="790" y="1444" width="24" height="16" fill="#cbd9e8" stroke="#333" stroke-width="1.5"/>
+    <text x="824" y="1457">auf der Leistungsplatine</text>
+    <rect x="790" y="1474" width="24" height="16" fill="#e8d9c0" stroke="#333" stroke-width="1.5"/>
+    <text x="824" y="1487">Transformator</text>
+  </g>
+</svg>

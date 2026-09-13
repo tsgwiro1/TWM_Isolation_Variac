@@ -19,9 +19,9 @@ Basis für die geschlossene Spannungsregelung.
 |------|--------|
 | `tt_esp32controller/` | Controller-Firmware (PlatformIO/Arduino), Web-Oberfläche (`data/`), Controller-Doku (inkl. Trinamic-Treiber, Hardware-Modifikationen) |
 | `tt_voltmeter/` | Voltmeter-Firmware (STM32) und Voltmeter-Doku |
+| `Hardware/` | [Stückliste](Hardware/Stueckliste.md), [Verdrahtung](Hardware/Verdrahtung.md), die drei Print-Modifikationen ([Leistungsplatine](Hardware/Modifikation-Leistungsplatine.md), [Controller](Hardware/Modifikation-Controller-Print.md), [AC-Voltmeter](Hardware/Modifikation-AC-Voltmeter-Print.md)), Schema/Layout/Gerber/BOM der vier Prints (`PCB/`), Datenblätter, CAD |
 
-Arbeitsstand und geplante Aufgaben:
-[`REVIEW.md`](REVIEW.md) (Analyse) und [`BACKLOG.md`](BACKLOG.md) (priorisierter Plan).
+Arbeitsstand und geplante Aufgaben: [`BACKLOG.md`](BACKLOG.md) (priorisierter Plan).
 
 ## Build & Flash (Controller)
 
@@ -116,14 +116,27 @@ Ergänzende Dokumente im Repo:
 |----------|--------|
 | [`tt_esp32controller/documentation/Status-LED.md`](tt_esp32controller/documentation/Status-LED.md) | Status-LED-Blinkmuster und Fehlerursachen |
 | [`tt_esp32controller/documentation/USB CDC.md`](tt_esp32controller/documentation/USB%20CDC.md) | USB-CDC-Konfiguration, Download-Mode |
-| `tt_esp32controller/documentation/Modifikation Controller Print.docx` | Hardware-Umbau am Controller-Print für das AC-Voltmeter (12-V-Speisung an J6) |
 | `tt_esp32controller/documentation/Trinamic_*.PNG` | Referenz-Einstellungen des Trinamic-Schrittmotortreibers |
 | [`tt_voltmeter/documentation/Link-Protokoll.md`](tt_voltmeter/documentation/Link-Protokoll.md) | Controller↔Voltmeter-Protokoll, Befehlssatz, FW-Update via Controller |
-| [`tt_voltmeter/documentation/Hardware-Umbau-USART1.md`](tt_voltmeter/documentation/Hardware-Umbau-USART1.md) | Verlegung des Controller-Links auf USART1 |
-| `tt_voltmeter/documentation/The ZMPT101B AC Voltage Sensor Module.docx` | Referenz zum Spannungssensor-Modul |
 
 Änderungshistorie je Firmware: [`tt_esp32controller/CHANGELOG.md`](tt_esp32controller/CHANGELOG.md)
 und [`tt_voltmeter/CHANGELOG.md`](tt_voltmeter/CHANGELOG.md).
+
+## Haftungsausschluss
+
+Dieses Repository beschreibt ein selbstgebautes Gerät, das am **230-V-Netz**
+betrieben wird und an seinem Ausgang bis 253 V führt. Die Unterlagen —
+Stückliste, Verdrahtung, Modifikationen, Schemas, Layouts und Firmware —
+dokumentieren ein konkretes Einzelstück. Sie sind ohne Gewähr auf Richtigkeit
+und Vollständigkeit.
+
+Wer danach baut, umbaut oder misst, tut das auf eigene Verantwortung und muss
+die dafür nötigen Kenntnisse mitbringen. Arbeiten an Netzspannung sind in der
+Schweiz wie in den meisten Ländern geregelt; die einschlägigen Vorschriften
+einzuhalten ist Sache dessen, der die Arbeit ausführt.
+
+Die Autoren übernehmen keine Haftung für Schäden an Personen oder Sachen, die
+aus der Nutzung dieser Unterlagen entstehen.
 
 ## Lizenz
 

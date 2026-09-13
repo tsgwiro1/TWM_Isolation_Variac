@@ -68,4 +68,3 @@
 ## Referenzen
 
 - [`BACKLOG.md`](BACKLOG.md) — Paket H, #11
-- [`REVIEW.md`](REVIEW.md) — Abschnitt 1.3 (Sicherheit) und O-1

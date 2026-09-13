@@ -103,4 +103,4 @@ geflasht → `GET_VERSION` lieferte danach die neue Version; Kalibrierung blieb 
 
 ## Referenzen
 - Backlog: [`../../BACKLOG.md`](../../BACKLOG.md) – Paket J (#27–#30).
-- Hardware-Umbau: [`Hardware-Umbau-USART1.md`](Hardware-Umbau-USART1.md).
+- Hardware-Umbau: [`Modifikation-AC-Voltmeter-Print.md`](../../Hardware/Modifikation-AC-Voltmeter-Print.md).

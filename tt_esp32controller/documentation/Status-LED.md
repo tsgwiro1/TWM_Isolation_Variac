@@ -29,7 +29,8 @@ die Zustände definiert `SystemState` in [`../src/state.h`](../src/state.h).
   ist falsch. Das Gerät hat deshalb ein eigenes, temporäres WLAN-Netzwerk namens
   **„TWM_IsolationVariac"** geöffnet (`STATE_WIFIMANAGER_AP`).
 - **Aktion:** Mit Smartphone oder PC mit diesem Netzwerk verbinden und im Portal die
-  korrekten WLAN-Zugangsdaten eingeben.
+  korrekten WLAN-Zugangsdaten eingeben. Nach dem Speichern startet der Controller einmal
+  neu und verbindet sich danach mit dem neuen WLAN.
 - **Nach 10 Minuten ohne Eingabe:** Das Portal schließt, das Funkmodul wird abgeschaltet
   und die LED kehrt zum Herzschlag zurück. Der Variac ist dann weiterhin voll bedienbar,
   aber **ohne Weboberfläche und ohne API**. Für einen erneuten Verbindungsversuch das

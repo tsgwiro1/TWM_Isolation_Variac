@@ -368,6 +368,7 @@ void setup() {
  * Verbindungsversuch mit den gespeicherten Zugangsdaten, bei Misserfolg das
  * Config-Portal (AP) bis zum Timeout. Klappt auch das nicht, schaltet der Task das
  * Funkmodul ab und beendet sich — der Variac läuft ohne Web/API einfach weiter.
+ * Wird im Portal ein WLAN gespeichert, startet das Gerät kontrolliert neu (GitHub-#29).
  * Ein neuer Verbindungsversuch erfordert bewusst einen Neustart; endloses
  * Weiterprobieren würde im Hintergrund Rechenzeit und Funk belegen, ohne dass am
  * Gerät jemand davon erfährt.
@@ -378,12 +379,39 @@ static void networkTask(void *parameter) {
   // Der WiFiManager muss den Task überleben, solange das Portal offen ist.
   static WiFiManager wm;
   wm.setConfigPortalTimeout(600);   // Portal nach 10 min schliessen
+  // GitHub-#30: Portal nicht blockierend betreiben. Im blockierenden Modus dreht der
+  // WiFiManager seine Schleife nur mit yield(), das Rechenzeit nur an Tasks gleicher oder
+  // höherer Priorität abgibt. Hält ein Client (Handy mit Captive-Portal) eine Verbindung
+  // offen, ohne zu senden, wartet der Webserver bis zu 5 s ohne Pause — der Idle-Task auf
+  // Core 0 kommt nicht zum Zug, und der Task-Watchdog (5 s) startet das Gerät neu, mitten
+  // in der Passworteingabe. Die eigene Schleife unten pausiert bei jedem Durchlauf.
+  wm.setConfigPortalBlocking(false);
   wm.setAPCallback([](WiFiManager *myWiFiManager) {
     if (currentSystemState != STATE_ERROR) currentSystemState = STATE_WIFIMANAGER_AP;
     logMessage(LOG_WARN, "WLAN: Connect failed - config portal open (AP 'TWM_IsolationVariac')");
   });
 
-  if (!wm.autoConnect("TWM_IsolationVariac")) {
+  bool connected = wm.autoConnect("TWM_IsolationVariac");
+
+  while (!connected && wm.getConfigPortalActive()) {
+    if (wm.process()) {
+      // GitHub-#29: Neues WLAN im Portal gespeichert und verbunden. Direkt danach blieben
+      // Webseite und API unerreichbar — der Webserver übernimmt Port 80 vom eben
+      // geschlossenen Portal nicht zuverlässig. Deshalb kontrolliert neu starten; danach
+      // verbindet sich das Gerät mit den gespeicherten Zugangsdaten direkt.
+      logMessage(LOG_WARN, "WLAN: New network saved via config portal - restarting to start web server and API");
+      stopWiperMove();
+      forceSafeState();
+      delay(500);          // Logger-Task: Queue leeren
+      logFlushToFile();    // Sammelpuffer sichern
+      LittleFS.end();      // Unmount = alles committet (siehe OTA onError)
+      delay(50);
+      ESP.restart();
+    }
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }
+
+  if (!connected) {
     // Weder Verbindung noch Konfiguration über das Portal: Funk komplett abschalten
     // und aufgeben. Die Bedienung am Gerät ist davon nicht betroffen.
     logMessage(LOG_ERROR, "WLAN: No connection, config portal timed out - continuing WITHOUT network (no web, no API). Restart the device to try again.");

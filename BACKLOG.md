@@ -9,8 +9,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete.
 
 ## Fortschritt
 
-**Stand:** 2026-09-13 · **Gesamt: 36 / 37 Punkte erledigt** · aktueller Release **V4.8.2**
-· auf GitHub sind **alle Issues geschlossen**
+**Stand:** 2026-09-13 · **Gesamt: 36 / 37 Punkte erledigt** · aktueller Release **V4.8.3**
+· auf GitHub: #29/#30 in V4.8.3 behoben, **#28** und **#31** offen
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -238,6 +238,20 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete.
   `documentation/Testanleitung-V4.3.1.md` gelöscht (Zweck erfüllt; Historie behält die Datei).
   Offen aus dem Testlauf bleiben nur die Tools-Nachtests #6/#7 bei Michael.
   Commits `e7b453f` … `ac64d35`, Tags `v4.4.0`–`v4.6.1`.
+- **2026-09-13 — V4.8.3: WLAN-Portal repariert (GitHub-#29, #30), am Gerät verifiziert.**
+  **#30 — Neustart während der Passworteingabe:** Mit einer Testfirmware (Portal erzwungen,
+  Diagnose-Task, serieller Mitschnitt) reproduziert. Ursache war der Task-Watchdog, nicht
+  der Portal-Timeout: `task_wdt: IDLE0`, laufender Task `Network`, Backtrace in
+  `WebServer::handleClient`. Der WiFiManager dreht seine blockierende Schleife nur mit
+  `yield()`; hält das Handy eine Verbindung offen, ohne zu senden, kommt der Idle-Task auf
+  Core 0 bis zu 5 s nicht zum Zug. Stack (5,4 KB frei) und Heap waren unauffällig.
+  Fix: Portal nicht blockierend in einer eigenen Schleife mit `vTaskDelay`. Nachtest: über
+  eine Minute Portal mit verbundenem Handy ohne Watchdog.
+  **#29 — Webseite/API nach WLAN-Wechsel tot:** Auf Rogers Vorgabe kein Weiterlaufen ohne
+  Neustart, sondern kontrollierter Neustart nach dem Speichern (sicherer Zustand, Log
+  sichern, `LittleFS.end()`). Nachtest: Speichern → Neustart → WLAN → Webseite und API
+  erreichbar; die Log-Zeile vor dem Neustart ist in der Datei erhalten.
+  Offen auf GitHub: **#28** (Hostname konfigurierbar) und **#31** (bei Michael).
 - **2026-09-13 — Hardware-Dokumentation ins Repo, Versionsstempel, Release V4.8.2.**
   Neuer Ordner `Hardware/` mit **Stückliste** und **Verdrahtung** des Geräts, dazu Schema,
   Layout, Gerber und BOM der vier Prints, Datenblätter, CAD und 28 aufbereitete Fotos

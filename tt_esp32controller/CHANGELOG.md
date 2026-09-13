@@ -7,6 +7,25 @@ ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version wird in `version.txt` gepflegt; der Build reicht sie an Firmware und
 Filesystem-Image weiter.
 
+## [V4.8.3] – 2026-09-13
+
+### Behoben
+- **Neustart während der WLAN-Einrichtung** (GitHub-#30). Im Config-Portal startete der
+  Controller neu, meist schon während der Passworteingabe. Ursache war nicht der
+  Portal-Timeout (10 min), sondern der Task-Watchdog: Der WiFiManager drehte seine
+  blockierende Schleife nur mit `yield()`, das Rechenzeit nur an Tasks gleicher oder
+  höherer Priorität abgibt. Hielt das Handy eine Verbindung offen, ohne zu senden, wartete
+  der Webserver bis zu 5 s ohne Pause — der Idle-Task auf Core 0 kam nicht zum Zug.
+  Das Portal läuft jetzt nicht blockierend in einer eigenen Schleife, die bei jedem
+  Durchlauf pausiert. Am Gerät nachgewiesen (`task_wdt: IDLE0`, Backtrace in
+  `WebServer::handleClient`) und nach dem Fix mit über einer Minute Portalbetrieb bei
+  verbundenem Handy bestätigt.
+- **Webseite und API nach WLAN-Wechsel nicht erreichbar** (GitHub-#29). Nach dem Speichern
+  eines neuen WLANs im Portal war der Controller verbunden, Webserver und API blieben aber
+  bis zum Aus- und Einschalten tot. Jetzt startet er nach dem Speichern selbst kontrolliert
+  neu — Ausgang in den sicheren Zustand, Log gesichert, Dateisystem geschlossen — und
+  verbindet sich danach direkt mit dem neuen WLAN.
+
 ## [V4.8.2] – 2026-09-13
 
 ### Neu

@@ -83,3 +83,6 @@ Testing/
 # macOS
 .DS_Store
 tt_esp32controller/tools/__pycache__
+
+# Vom Build erzeugt (scripts/version.py)
+tt_esp32controller/data/version.json

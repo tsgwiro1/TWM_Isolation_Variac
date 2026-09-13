@@ -431,7 +431,25 @@
         loadVoltmeterStatus();
         loadFwFileVersion();
         fetch('/api/status').then(function (r) { return r.json(); })
-            .then(function (st) { if (st.fw_version) $('fw-foot').textContent = st.fw_version; })
+            .then(function (st) { renderFwFoot(st); })
             .catch(function () {});
     });
 })();
+
+// Fusszeile: normal nur die Firmware-Version. Laufen Firmware und Filesystem
+// auseinander, steht es dort — und faellt farblich auf.
+function renderFwFoot(st) {
+    var el = $('fw-foot');
+    if (!el || !st || !st.fw_version) return;
+    if (st.fs_match === false) {
+        el.textContent = st.fw_version + ' \u00b7 Filesystem ' + (st.fs_version || 'unbekannt')
+                       + ' \u2014 St\u00e4nde weichen ab';
+        el.style.color = 'var(--warn)';
+        el.title = 'Firmware und Webseiten stammen aus verschiedenen Builds. '
+                 + 'upload und uploadfs zusammen ausf\u00fchren.';
+    } else {
+        el.textContent = st.fw_version;
+        el.style.color = '';
+        el.title = '';
+    }
+}

@@ -161,6 +161,7 @@ void setup() {
     currentSystemState = STATE_ERROR; // Signalisiere einen Fehler
   } else {
     logMessage(LOG_INFO, "SYSTEM: LittleFS mounted successfully.");
+    loadFilesystemStamp();   // meldet, wenn Firmware und Image auseinanderlaufen
   }
 
   initDisplayStruct();

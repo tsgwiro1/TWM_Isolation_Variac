@@ -4,7 +4,36 @@ Nennenswerte Änderungen an der Controller-Firmware (ESP32-S3).
 Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MINOR.PATCH),
 ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
-Die Version entspricht der `#define FW`-Zeichenkette in `src/state.h`.
+Die Version wird in `version.txt` gepflegt; der Build reicht sie an Firmware und
+Filesystem-Image weiter.
+
+## [V4.8.2] – 2026-09-13
+
+### Neu
+- **Firmware und Filesystem tragen denselben Versionsstempel.** Beide werden getrennt
+  geflasht und konnten bisher unbemerkt auseinanderlaufen: Eine Änderung an `data/` war
+  von aussen nicht erkennbar, weil die Versionsnummer allein in der Firmware stand.
+  Die Nummer liegt jetzt in `version.txt` — der einzigen Stelle, an der sie gepflegt wird.
+  Ein Pre-Build-Skript (`scripts/version.py`) reicht sie als `FW_VERSION` an den Compiler
+  und legt sie zusammen mit einem Inhalts-Hash über `data/` als `/version.json` ins
+  Filesystem-Image.
+- **Der Build warnt bei vergessener Versionserhöhung.** Ändert sich `data/`, ohne dass die
+  Version steigt, meldet das Skript den Unterschied mit altem und neuem Hash. Wird die
+  Version erhöht, stempelt es den neuen Stand still nach.
+- **Das Gerät meldet einen Versatz selbst.** Beim Start vergleicht es `/version.json` mit
+  der eigenen Version und schreibt bei Abweichung eine Warnung ins Log. `/api/status`
+  liefert dazu `fs_version`, `fs_content` und `fs_match`; die Fusszeile der Weboberfläche
+  zeigt im Normalfall nur die Firmware-Version und bei Versatz beide Stände in Warnfarbe.
+- **Haftungsausschluss in der Gerätedokumentation** (`doc_usage.html`): Hinweis auf
+  Eigenbau, 230-V-Betrieb, den netzgetrennten Sekundärkreis und den Ausschluss von
+  Gewähr und Haftung.
+
+### Behoben
+- **`uploadfs` brach vorzeitig ab.** Der espota-Standard wartet 10 s darauf, dass der ESP
+  die Einladung annimmt; bei einem rund 10 MB grossen Filesystem-Image löscht er zuerst
+  die Partition und braucht länger. Der Upload lief in "timed out", noch bevor die
+  Übertragung begann, und das Gerät startete anschliessend per Watchdog neu.
+  `upload_flags = --timeout=90` in `[env:esp32s3_ota]` behebt das; `esp32s3_sim` erbt es.
 
 ## [V4.8.1] – 2026-08-06
 

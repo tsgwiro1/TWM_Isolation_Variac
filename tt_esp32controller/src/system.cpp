@@ -3,9 +3,54 @@
 #include "system.h"
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <LittleFS.h>
+#include <ArduinoJson.h>
 #include "pins.h"
 #include "state.h"
 #include "logging.h"
+
+// --- Stand des Filesystem-Images -------------------------------------------
+// Firmware und Filesystem werden getrennt geflasht und koennen auseinanderlaufen.
+// Der Build stempelt beide aus derselben Quelle (version.txt), hier wird der
+// Stempel des Images gelesen und gegen den der Firmware gehalten.
+String fsVersion = "";
+String fsContent = "";
+// Fehlt der Stempel oder ist er unlesbar, ist der Stand des Images *unbekannt* —
+// und unbekannt ist nicht dasselbe wie "passt". Deshalb false, bis das Gegenteil
+// belegt ist; sonst gaebe die Fusszeile Entwarnung, ohne etwas zu wissen.
+bool   fsMatchesFirmware = false;
+
+void loadFilesystemStamp() {
+  fsVersion = "";
+  fsContent = "";
+  fsMatchesFirmware = false;
+
+  File f = LittleFS.open("/version.json", "r");
+  if (!f) {
+    logMessage(LOG_WARN, "SYSTEM: /version.json missing - filesystem build unknown.");
+    return;
+  }
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, f);
+  f.close();
+  if (err) {
+    logMessage(LOG_WARN, "SYSTEM: /version.json unreadable (%s).", err.c_str());
+    return;
+  }
+
+  fsVersion = (const char*)(doc["version"] | "");
+  fsContent = (const char*)(doc["content"] | "");
+  fsMatchesFirmware = (fsVersion == FW_VERSION);
+
+  if (fsMatchesFirmware) {
+    logMessage(LOG_INFO, "SYSTEM: Filesystem %s (%s)", fsVersion.c_str(), fsContent.c_str());
+  } else {
+    logMessage(LOG_WARN,
+               "SYSTEM: Firmware %s and filesystem %s are from different builds - "
+               "run 'upload' and 'uploadfs' together.",
+               FW_VERSION, fsVersion.c_str());
+  }
+}
 
 // Fan
 #define MINFANPWM 10

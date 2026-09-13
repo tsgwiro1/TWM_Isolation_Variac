@@ -5,6 +5,13 @@
 
 #include <Arduino.h>
 
+// Stand des Filesystem-Images, vom Build in /version.json gestempelt.
+// Leer, wenn die Datei fehlt oder unlesbar ist.
+extern String fsVersion;
+extern String fsContent;
+extern bool   fsMatchesFirmware;
+void loadFilesystemStamp();
+
 extern volatile float wiperTemp;
 extern volatile boolean tempSensorAvailable;
 

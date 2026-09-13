@@ -35,6 +35,10 @@ static String buildStatusJson() {
   doc["stepper_position"] = wiperPos;
   doc["is_hardware_ok"] = hardwareInitialized;
   doc["fw_version"] = FW;
+  // Stand des Filesystem-Images; fs_match ist false, wenn es nicht zur Firmware passt.
+  doc["fs_version"] = fsVersion;
+  doc["fs_content"] = fsContent;
+  doc["fs_match"] = fsMatchesFirmware;
   doc["log_dropped"] = logDroppedTotal();   // #23: still gezählte, wegen voller Queue verworfene Meldungen
 
   JsonObject states = doc["states"].to<JsonObject>();

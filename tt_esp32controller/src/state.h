@@ -5,11 +5,15 @@
 
 #include <Arduino.h>
 
-// Firmware-Version (entspricht dem CHANGELOG)
+// Firmware-Version. Der Wert kommt als FW_VERSION aus version.txt, gesetzt von
+// scripts/version.py beim Build — hier steht er bewusst nicht ein zweites Mal.
+#ifndef FW_VERSION
+#define FW_VERSION "unversioniert"
+#endif
 #ifdef SIM
-#define FW  "Firmware V4.8.1 (SIM)"
+#define FW  "Firmware " FW_VERSION " (SIM)"
 #else
-#define FW  "Firmware V4.8.1"
+#define FW  "Firmware " FW_VERSION
 #endif
 
 // System

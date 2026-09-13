@@ -88,7 +88,31 @@ pio device monitor          # 115200 Baud (USB-CDC)
 - **OTA-Passwort:** Optional in der Firmware aktivierbar; dann in `[env:esp32s3_ota]`
   unter `upload_flags` die Zeile `--auth=...` einkommentieren.
 - **Webseiten geändert?** Nach Änderungen in `data/` immer `uploadfs` ausführen –
-  ein reiner Firmware-Upload überträgt die Webseiten **nicht**.
+  ein reiner Firmware-Upload überträgt die Webseiten **nicht**. Der Build erinnert
+  daran (siehe unten).
+
+### Versionsstempel
+
+Die Versionsnummer der Controller-Firmware steht in
+[`tt_esp32controller/version.txt`](tt_esp32controller/version.txt) — dort und
+nirgends sonst. Der Build reicht sie an die Firmware weiter und legt sie zusammen
+mit einem Inhalts-Hash über `data/` als `/version.json` ins Filesystem-Image.
+
+Daraus ergeben sich drei Kontrollen, die ohne Zutun laufen:
+
+| Wann | Was gemeldet wird |
+|------|-------------------|
+| beim Bauen | `data/` hat sich geändert, ohne dass die Version erhöht wurde |
+| beim Start des Geräts | Firmware und Filesystem stammen aus verschiedenen Ständen (Log, `/api/status`, Fusszeile) |
+| nach einem OTA-Upload | das Gerät entspricht nicht dem Stand im Repo |
+
+Die letzte Prüfung läuft auf dem Build-Rechner, weil nur dort beide Seiten
+vorliegen. Sie bricht nie einen Build ab: Bei einem USB-Flash oder einem nicht
+erreichbaren Gerät gibt sie einen Hinweis aus und ist fertig.
+
+**Beim Ändern von `data/` oder `src/` also die Version in `version.txt` erhöhen**,
+danach `upload` **und** `uploadfs` ausführen — sonst laufen die beiden Stände auf
+dem Gerät auseinander, und es sagt es dir.
 
 ## Build & Flash (Voltmeter)
 

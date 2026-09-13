@@ -24,6 +24,12 @@ Filesystem-Image weiter.
   der eigenen Version und schreibt bei Abweichung eine Warnung ins Log. `/api/status`
   liefert dazu `fs_version`, `fs_content` und `fs_match`; die Fusszeile der Weboberfläche
   zeigt im Normalfall nur die Firmware-Version und bei Versatz beide Stände in Warnfarbe.
+- **Prüfung nach dem Upload** (`scripts/check_device.py`): Nach einem OTA-Upload
+  vergleicht der Build den Stand des Geräts mit dem im Repo und fordert zum fehlenden
+  `upload` bzw. `uploadfs` auf. Sie läuft auf dem Build-Rechner, weil nur dort beide
+  Seiten vorliegen — das Gerät kann nur seine innere Stimmigkeit prüfen. Und sie bricht
+  nie einen Build ab: Bei einem USB-Flash, einem nicht erreichbaren Gerät oder einem
+  Fehler in ihr selbst gibt sie einen Hinweis aus und ist fertig.
 - **Haftungsausschluss in der Gerätedokumentation** (`doc_usage.html`): Hinweis auf
   Eigenbau, 230-V-Betrieb, den netzgetrennten Sekundärkreis und den Ausschluss von
   Gewähr und Haftung.

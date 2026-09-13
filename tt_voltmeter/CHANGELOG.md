@@ -5,7 +5,7 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (MAJOR.MINOR.PATCH).
 Die Version entspricht der `#define FW`-Zeichenkette in `src/tt_voltmeter.ino`.
 
-## [V1.2.3] – in Entwicklung
+## [V1.2.3] – 2026-09-13
 
 ### Hinzugefügt
 - Link-Befehl `SET_OFFSET` (CMD 0x11): setzt den Spannungs-Offset direkt (Plausi −50…+50 V,

@@ -86,7 +86,7 @@ pio device monitor          # 115200 Baud (USB-CDC)
 - **Hostname/IP:** Findet dein Rechner `twm_variac.local` nicht (häufig unter Windows),
   in `platformio.ini` unter `[env:esp32s3_ota]` die feste IP als `upload_port` eintragen.
 - **OTA-Passwort:** Optional in der Firmware aktivierbar; dann in `[env:esp32s3_ota]`
-  `upload_flags = --auth=...` setzen.
+  unter `upload_flags` die Zeile `--auth=...` einkommentieren.
 - **Webseiten geändert?** Nach Änderungen in `data/` immer `uploadfs` ausführen –
   ein reiner Firmware-Upload überträgt die Webseiten **nicht**.
 

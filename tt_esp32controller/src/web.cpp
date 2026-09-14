@@ -39,6 +39,7 @@ static String buildStatusJson() {
   doc["fs_version"] = fsVersion;
   doc["fs_content"] = fsContent;
   doc["fs_match"] = fsMatchesFirmware;
+  doc["hostname"] = activeHostname;   // GitHub-#28: aktiver Name, nicht der gespeicherte
   doc["log_dropped"] = logDroppedTotal();   // #23: still gezählte, wegen voller Queue verworfene Meldungen
 
   JsonObject states = doc["states"].to<JsonObject>();

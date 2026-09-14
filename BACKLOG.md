@@ -9,8 +9,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete.
 
 ## Fortschritt
 
-**Stand:** 2026-09-13 · **Gesamt: 36 / 37 Punkte erledigt** · aktueller Release **V4.8.3**
-· auf GitHub: #29/#30 in V4.8.3 behoben, **#28** und **#31** offen
+**Stand:** 2026-09-14 · **Gesamt: 36 / 37 Punkte erledigt** · aktueller Release **V4.9.0**
+· auf GitHub: #29/#30 in V4.8.3 und #28 in V4.9.0 behoben, **#31** offen (bei Michael)
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -238,6 +238,21 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete.
   `documentation/Testanleitung-V4.3.1.md` gelöscht (Zweck erfüllt; Historie behält die Datei).
   Offen aus dem Testlauf bleiben nur die Tools-Nachtests #6/#7 bei Michael.
   Commits `e7b453f` … `ac64d35`, Tags `v4.4.0`–`v4.6.1`.
+- **2026-09-14 — V4.9.0: Hostname konfigurierbar (GitHub-#28), am Gerät verifiziert.**
+  Der Name für DHCP und mDNS steht als `network.hostname` in der Konfiguration (NVS) und
+  ist auf der Einstellungsseite im neuen Abschnitt „Netzwerk" änderbar; wirksam nach
+  einem Neustart. Validierung nach RFC 1123 (1–63 Zeichen a–z, 0–9, `-`). **Standard neu
+  `twm-variac` statt `twm_variac`** (Rogers Entscheid) — der Unterstrich ist als Hostname
+  nicht normgerecht. `/api/status` liefert den aktiven Namen als `hostname`; weicht er vom
+  gespeicherten ab, zeigt die Seite „Neustart nötig". API-Version 4.5.0; das Status-Schema
+  in `openapi.yaml` um die seit V4.8.2 fehlenden `fs_*`-Felder ergänzt.
+  **Nachtest:** Update per OTA (Firmware an den alten, Filesystem an den neuen Namen);
+  fünf ungültige Namen per API abgelehnt, gültiger gespeichert ohne Nebenwirkung auf die
+  Presets; Umbenennung über die Seite auf `twm-variac-test` mit Hinweis, Neustart, Gerät
+  unter dem neuen Namen erreichbar und per mDNS angekündigt, zurück auf `twm-variac`.
+  **Stolperstein am Mac:** Nach einem Namenswechsel hält macOS die fehlgeschlagene
+  Auflösung fest; `dns-sd -G v4 <name>.local` löst sie.
+  Offen auf GitHub nur noch **#31** (bei Michael). Paket H erhält eine spätere Version.
 - **2026-09-13 — V4.8.3: WLAN-Portal repariert (GitHub-#29, #30), am Gerät verifiziert.**
   **#30 — Neustart während der Passworteingabe:** Mit einer Testfirmware (Portal erzwungen,
   Diagnose-Task, serieller Mitschnitt) reproduziert. Ursache war der Task-Watchdog, nicht

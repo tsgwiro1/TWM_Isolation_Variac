@@ -7,6 +7,26 @@ ab V3.2.0. Frühere Tags (V3.13 usw.) folgten der alten Zählweise.
 Die Version wird in `version.txt` gepflegt; der Build reicht sie an Firmware und
 Filesystem-Image weiter.
 
+## [V4.9.0] – 2026-09-14
+
+### Neu
+- **Hostname konfigurierbar** (GitHub-#28). Der Name für DHCP und mDNS war fest im Code.
+  Er steht jetzt als `network.hostname` in der Konfiguration (NVS), ist auf der
+  Einstellungsseite im neuen Abschnitt „Netzwerk" änderbar und gilt nach einem Neustart.
+  Erlaubt sind 1–63 Zeichen aus a–z, 0–9 und `-` (RFC 1123). `/api/status` liefert den
+  aktiven Namen als `hostname`; weicht er vom gespeicherten ab, meldet die
+  Einstellungsseite „Neustart nötig". API-Version 4.5.0.
+
+### Geändert
+- **Standard-Hostname `twm-variac` statt `twm_variac`.** Der Unterstrich ist als Hostname
+  nicht normgerecht und wird als DHCP-Name nicht von jedem Router angenommen. Geräte ohne
+  gespeicherten Namen sind nach dem Update unter **`http://twm-variac.local/`** erreichbar;
+  `upload_port` in `platformio.ini` ist entsprechend angepasst.
+
+### Doku
+- `openapi.yaml`: Status-Schema um die seit V4.8.2 gelieferten Felder `fs_version`,
+  `fs_content` und `fs_match` ergänzt.
+
 ## [V4.8.3] – 2026-09-13
 
 ### Behoben

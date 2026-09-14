@@ -25,6 +25,9 @@ extern volatile bool requestEnterSettingsMode;
 // Regelabweichungs-Balken: umschaltbare Darstellungs-Variante (0 = A: Zonen+Pfeil, 1 = B: Füllbalken).
 // Wird per Langdruck auf die Regelungstaste umgeschaltet und im NVS (Config) persistiert.
 extern volatile uint8_t displayVariant;
+// GitHub-#28: Hostname, mit dem das Netzwerk tatsächlich aufgebaut wurde (ohne ".local").
+// Vom networkTask einmal gesetzt, bevor der Webserver startet; danach nur gelesen.
+extern char activeHostname[64];
 // GitHub-#18: Sperrt den displayUpdateTask, solange der "Homing..."-Screen steht.
 // isHomingActive() allein reicht nicht: dessen Flag setzt erst homing() selbst, der
 // Moduswechsel steht aber schon davor — in diesem Fenster hat der Display-Task den

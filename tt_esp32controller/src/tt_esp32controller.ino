@@ -69,7 +69,6 @@ using namespace fs;
 
 // System
 uint32_t lastStackCheck = 0;
-const char* hostname = "twm_variac";
 
 static void networkTask(void *parameter);
 
@@ -374,7 +373,10 @@ void setup() {
  * Gerät jemand davon erfährt.
  */
 static void networkTask(void *parameter) {
-  WiFi.setHostname(hostname);   // Name, der im Router angezeigt wird
+  // GitHub-#28: Hostname aus der Konfiguration; gilt für DHCP (Name im Router) und mDNS.
+  // Einmal beim Start übernommen — eine Änderung wirkt deshalb erst nach einem Neustart.
+  strlcpy(activeHostname, configHostname().c_str(), sizeof(activeHostname));
+  WiFi.setHostname(activeHostname);   // Name, der im Router angezeigt wird
 
   // Der WiFiManager muss den Task überleben, solange das Portal offen ist.
   static WiFiManager wm;
@@ -435,7 +437,7 @@ static void networkTask(void *parameter) {
   // --- OTA (Over-the-Air) Konfiguration ---
 
   // Hostname für den Netzwerk-Port in der Arduino IDE und den Zugang via mDNS
-  ArduinoOTA.setHostname(hostname);
+  ArduinoOTA.setHostname(activeHostname);
 
   // Optional aber empfohlen: Passwort für den Upload setzen
   // ArduinoOTA.setPassword("dein_sicheres_passwort");
@@ -506,7 +508,7 @@ static void networkTask(void *parameter) {
   ArduinoOTA.begin();
   otaReady = true;   // ab jetzt darf loop() ArduinoOTA.handle() aufrufen
 
-  logMessage(LOG_INFO, "SYSTEM: OTA & mDNS ready. Access at http://%s.local/", hostname);
+  logMessage(LOG_INFO, "SYSTEM: OTA & mDNS ready. Access at http://%s.local/", activeHostname);
   logMessage(LOG_INFO, "SYSTEM: IP address: %s", WiFi.localIP().toString().c_str());
 
   // Aufgabe erledigt — der Task wird nicht mehr gebraucht (ArduinoOTA.handle() läuft

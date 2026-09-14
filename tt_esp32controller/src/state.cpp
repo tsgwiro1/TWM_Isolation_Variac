@@ -7,6 +7,7 @@ volatile bool hardwareInitialized = false;
 volatile SystemMode currentMode = MODE_NORMAL; // Standardmässig im Normalbetrieb starten
 volatile bool requestEnterSettingsMode = false;
 volatile uint8_t displayVariant = 0;   // Regelabweichungs-Balken: 0 = Variante A (Zonen+Pfeil), 1 = B (Füllbalken)
+char activeHostname[64] = "";
 volatile bool homingScreenActive = false;
 volatile SystemState currentSystemState = STATE_STARTING;
 

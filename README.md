@@ -13,7 +13,7 @@ Das **Voltmeter** (`tt_voltmeter/`, STM32F103) misst die Ausgangsspannung als ec
 (ZMPT101B-Sensor) und liefert ihn laufend über eine serielle Verbindung an den Controller — die
 Basis für die geschlossene Spannungsregelung.
 
-**Stand:** Controller-Firmware **V4.8.3** (Git-Tag `v4.8.3`) · Voltmeter-Firmware **V1.2.3**.
+**Stand:** Controller-Firmware **V4.9.0** (Git-Tag `v4.9.0`) · Voltmeter-Firmware **V1.2.3**.
 
 Das Projekt auf einer Seite: [`TWM-Isolation-Variac-OnePager.pdf`](TWM-Isolation-Variac-OnePager.pdf).
 
@@ -57,8 +57,9 @@ pio run -e esp32s3_usb -t uploadfs    # Webseiten (data/)
 > [`tt_esp32controller/documentation/USB CDC.md`](tt_esp32controller/documentation/USB%20CDC.md).
 
 Danach WLAN einrichten: Das Gerät öffnet beim ersten Start den Access Point
-`TWM_IsolationVariac` (WiFiManager). Dort das Heim-WLAN hinterlegen. Nach dem Speichern startet das Gerät
-einmal neu und ist anschließend unter `http://twm_variac.local/` erreichbar.
+`TWM_IsolationVariac` (WiFiManager). Dort das Heim-WLAN hinterlegen. Nach dem Speichern
+startet das Gerät einmal neu und ist anschließend unter `http://twm-variac.local/`
+erreichbar. Der Name lässt sich in den Einstellungen ändern.
 
 > **Der Variac startet immer, auch ohne WLAN.** Seit V4.4.0 wird das Netz erst nach der
 > Hardware aufgebaut: Ein Verbindungsversuch, bei Misserfolg das Konfigurationsportal,
@@ -83,8 +84,9 @@ pio device monitor          # 115200 Baud (USB-CDC)
 
 ### Hinweise
 
-- **Hostname/IP:** Findet dein Rechner `twm_variac.local` nicht (häufig unter Windows),
-  in `platformio.ini` unter `[env:esp32s3_ota]` die feste IP als `upload_port` eintragen.
+- **Hostname/IP:** `upload_port` in `[env:esp32s3_ota]` muss zum Hostname des Geräts
+  passen (Standard `twm-variac.local`, änderbar in den Einstellungen). Findet dein Rechner
+  den Namen nicht (häufig unter Windows), dort die feste IP eintragen.
 - **OTA-Passwort:** Optional in der Firmware aktivierbar; dann in `[env:esp32s3_ota]`
   unter `upload_flags` die Zeile `--auth=...` einkommentieren.
 - **Webseiten geändert?** Nach Änderungen in `data/` immer `uploadfs` ausführen –
@@ -133,7 +135,7 @@ Befehle und Kalibrierung läuft über die native **USB-CDC** (PA11/PA12). Detail
 ## Dokumentation
 
 Die **Bedienungs-, Einstellungs- und API-Dokumentation** liegt auf dem Gerät selbst und ist
-im Webinterface verlinkt (`http://twm_variac.local/doc_usage.html`): Bedienung inkl.
+im Webinterface verlinkt (`http://twm-variac.local/doc_usage.html`): Bedienung inkl.
 Status-LED-Blinkcodes, interaktive API-Referenz (aus
 [`openapi.yaml`](tt_esp32controller/data/openapi.yaml) — der Single Source of Truth für die
 REST-/WebSocket-API) sowie Systemeinstellungen und Kalibrierung.

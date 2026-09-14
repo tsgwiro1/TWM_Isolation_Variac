@@ -27,6 +27,40 @@
 #define DEFAULT_REG_UNDERSHOOT_V  5.0f
 #define DEFAULT_DEBUG true
 #define DEFAULT_DISPLAY_VARIANT 0
+#define DEFAULT_HOSTNAME "twm-variac"
+
+// GitHub-#28: Hostname für DHCP und mDNS (<name>.local). Wird nur beim Aufbau des
+// Netzwerks gelesen und gilt deshalb erst nach einem Neustart. Geschrieben aus dem
+// Web-Task, gelesen beim Speichern auch aus dem Input-Task — daher unter Mutex.
+static char cfgHostname[HOSTNAME_MAX_LEN + 1] = DEFAULT_HOSTNAME;
+static portMUX_TYPE hostnameMux = portMUX_INITIALIZER_UNLOCKED;
+
+String configHostname() {
+  char copy[HOSTNAME_MAX_LEN + 1];
+  portENTER_CRITICAL(&hostnameMux);
+  strlcpy(copy, cfgHostname, sizeof(copy));
+  portEXIT_CRITICAL(&hostnameMux);
+  return String(copy);
+}
+
+static void setConfigHostname(const char* name) {
+  portENTER_CRITICAL(&hostnameMux);
+  strlcpy(cfgHostname, name, sizeof(cfgHostname));
+  portEXIT_CRITICAL(&hostnameMux);
+}
+
+// RFC 1123: 1–63 Zeichen aus a–z, 0–9 und '-', nicht mit '-' beginnend oder endend.
+// Kein Unterstrich — mDNS nimmt ihn zwar hin, als DHCP-Hostname lehnen ihn manche Router ab.
+static bool isValidHostname(const char* s) {
+  size_t n = strlen(s);
+  if (n < 1 || n > HOSTNAME_MAX_LEN) return false;
+  if (s[0] == '-' || s[n - 1] == '-') return false;
+  for (size_t i = 0; i < n; i++) {
+    char c = s[i];
+    if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')) return false;
+  }
+  return true;
+}
 
 // Liefert den rohen Config-JSON-String aus dem NVS (leer, wenn keiner existiert).
 String configRawJson() {
@@ -58,6 +92,7 @@ void applyDefaultConfiguration() {
     reg_undershoot_v = DEFAULT_REG_UNDERSHOOT_V;
     debugEnabled = DEFAULT_DEBUG;
     displayVariant = DEFAULT_DISPLAY_VARIANT;
+    setConfigHostname(DEFAULT_HOSTNAME);
     if (hardwareInitialized) {
       A_p1->setValuePreset(DEFAULT_VOLTAGE_PRESET);
       A_p2->setValuePreset(DEFAULT_VOLTAGE_PRESET);
@@ -86,6 +121,8 @@ String applyAndValidateConfig(JsonObject doc) {
   uint32_t tempRegSettle     = reg_settle_ms;
   float    tempRegUndershoot = reg_undershoot_v;
   uint8_t  tempVariant       = displayVariant;
+  char     tempHostname[HOSTNAME_MAX_LEN + 1];
+  strlcpy(tempHostname, configHostname().c_str(), sizeof(tempHostname));
 
   bool calibrationHasErrors = false;
 
@@ -242,6 +279,19 @@ String applyAndValidateConfig(JsonObject doc) {
     }
   }
 
+  // --- Netzwerk validieren (GitHub-#28; optional, wirksam nach Neustart) ---
+  if (!doc["network"].isNull()) {
+    JsonObject network = doc["network"];
+    if (!network["hostname"].isNull()) {
+      const char* val = network["hostname"].is<const char*>() ? network["hostname"].as<const char*>() : nullptr;
+      if (val == nullptr || !isValidHostname(val)) {
+        errors["network_hostname"] = "must be 1..63 characters a-z, 0-9 or '-', not starting or ending with '-'";
+      } else {
+        strlcpy(tempHostname, val, sizeof(tempHostname));
+      }
+    }
+  }
+
   // --- Finale Entscheidung ---
   if (errors.size() == 0) {
     // KEINE FEHLER: Wende die validierten Werte auf die globalen Variablen an.
@@ -258,6 +308,10 @@ String applyAndValidateConfig(JsonObject doc) {
     reg_settle_ms    = tempRegSettle;
     reg_undershoot_v = tempRegUndershoot;
     displayVariant   = tempVariant;
+    if (configHostname() != tempHostname) {
+      setConfigHostname(tempHostname);
+      logMessage(LOG_INFO, "Hostname set to '%s' - takes effect after restart.", tempHostname);
+    }
 
     // Wende die validierten Presets an
     if (!doc["presets"].isNull() && hardwareInitialized) {
@@ -375,6 +429,8 @@ void saveConfiguration() {
   doc["regulation"]["undershoot_v"] = serialized(String(reg_undershoot_v, 1));
 
   doc["display"]["variant"] = displayVariant;
+
+  doc["network"]["hostname"] = configHostname();
 
   doc["calibration"]["min_pos"] = minWiperPos;
   doc["calibration"]["max_pos"] = maxWiperPos;

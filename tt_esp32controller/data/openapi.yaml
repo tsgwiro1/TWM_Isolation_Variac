@@ -25,7 +25,7 @@ info:
     `{"status":"error","message":"Locked: update in progress"}`. Lesende Routen bleiben
     erreichbar. Hinweis: Während eines OTA-Uploads ruht zusätzlich der 500-ms-Status-Push,
     weil die Hauptschleife den Upload abwickelt; nach dem Update startet das Gerät neu.
-  version: "4.4.0"
+  version: "4.5.0"
 # Relative Server-URL (GitHub-#5): "TRY" geht damit immer an den Host, über den
 # die Doku-Seite geöffnet wurde (IP oder mDNS-Name) — same-origin, kein CORS.
 servers:
@@ -60,6 +60,10 @@ paths:
                   stepper_position: { type: integer, description: "Aktuelle Stepper-Position [Schritte]" }
                   is_hardware_ok:   { type: boolean }
                   fw_version:       { type: string }
+                  fs_version:       { type: string, description: "Version des Filesystem-Images (aus /version.json)" }
+                  fs_content:       { type: string, description: "Inhalts-Hash des Filesystem-Images" }
+                  fs_match:         { type: boolean, description: "false, wenn Firmware und Filesystem aus verschiedenen Builds stammen" }
+                  hostname:         { type: string, description: "Aktiver Hostname ohne .local (#28) — nach einer Änderung in der Konfiguration erst nach einem Neustart gleich network.hostname" }
                   log_dropped:      { type: integer, description: "Seit dem Start wegen voller Log-Queue verworfene Meldungen (Diagnose; im Normalbetrieb 0)" }
                   states:
                     type: object
@@ -450,6 +454,17 @@ components:
     Config:
       type: object
       properties:
+        network:
+          type: object
+          description: Netzwerk (#28). Änderungen gelten erst nach einem Neustart.
+          properties:
+            hostname:
+              type: string
+              minLength: 1
+              maxLength: 63
+              pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+              default: twm-variac
+              description: "Hostname für DHCP und mDNS, erreichbar als <hostname>.local"
         system:
           type: object
           properties:

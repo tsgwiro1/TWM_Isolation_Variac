@@ -18,4 +18,9 @@ boolean loadConfiguration();
 // Liefert den rohen Config-JSON-String aus dem NVS (leer, wenn keiner existiert).
 String configRawJson();
 
+// GitHub-#28: Konfigurierter Hostname (ohne ".local"). Gilt erst nach einem Neustart;
+// der tatsächlich verwendete steht in activeHostname (state.h).
+#define HOSTNAME_MAX_LEN 63
+String configHostname();
+
 #endif // CONFIG_H

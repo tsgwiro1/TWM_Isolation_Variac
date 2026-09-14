@@ -5,6 +5,10 @@
     'use strict';
 
     var dirty = false;
+    // GitHub-#28: gespeicherter (Konfiguration) und aktiver Hostname (/api/status).
+    // Weichen sie ab, ist der neue Name gespeichert, gilt aber erst nach einem Neustart.
+    var savedHostname = null;
+    var activeHostname = null;
 
     // ---------- Statuszeilen ----------
     function statusMsg(text, ok) {
@@ -46,10 +50,29 @@
         b.textContent = 'Speichern & Anwenden';
     }
 
+    // ---------- Hostname-Hinweis (GitHub-#28) ----------
+    function normHostname(v) { return String(v || '').trim().toLowerCase(); }
+    function renderHostnameHint() {
+        var hint = $('hostname-hint');
+        if (!hint || savedHostname == null) return;
+        if (activeHostname && savedHostname !== activeHostname) {
+            hint.textContent = 'Neustart n\u00f6tig: aktiv ist noch \u201e' + activeHostname
+                             + '\u201c, danach erreichbar als http://' + savedHostname + '.local/';
+            hint.style.color = 'var(--warn)';
+        } else {
+            hint.textContent = 'Erreichbar als http://' + savedHostname + '.local/ \u2014 '
+                             + 'ein neuer Name wird erst nach einem Neustart wirksam.';
+            hint.style.color = '';
+        }
+    }
+
     // ---------- Konfiguration laden/speichern ----------
     function loadSettings() {
         return fetch('/api/config').then(function (r) { return r.json(); })
             .then(function (data) {
+                savedHostname = normHostname(data.network && data.network.hostname) || 'twm-variac';
+                $('hostname').value = savedHostname;
+                renderHostnameHint();
                 $('debug_enabled').classList.toggle('on', !!(data.system && data.system.debug_enabled));
                 var reg = data.regulation || {};
                 $('reg_deadband_v').value = (reg.deadband_v != null) ? reg.deadband_v : 1.0;
@@ -107,6 +130,7 @@
 
     function buildConfig() {
         return {
+            network: { hostname: normHostname($('hostname').value) },
             system: { debug_enabled: $('debug_enabled').classList.contains('on') },
             regulation: {
                 deadband_v: parseFloat($('reg_deadband_v').value),
@@ -152,6 +176,9 @@
         postConfig(buildConfig(), function (ok, msg) {
             statusMsg(msg, ok);
             if (ok) {
+                savedHostname = normHostname($('hostname').value);
+                $('hostname').value = savedHostname;
+                renderHostnameHint();
                 markClean();
                 setTimeout(function () { if (!dirty) statusMsg(''); }, 3000);
             }
@@ -323,7 +350,7 @@
         initHeader();
 
         // Dirty-Tracking für alle Konfig-Felder
-        ['reg_deadband_v', 'reg_damping', 'reg_settle_ms', 'reg_undershoot_v',
+        ['hostname', 'reg_deadband_v', 'reg_damping', 'reg_settle_ms', 'reg_undershoot_v',
          'min_pos', 'max_pos', 'min_voltage', 'max_voltage', 'p1', 'p2', 'p3'
         ].forEach(function (id) { $(id).addEventListener('input', markDirty); });
 
@@ -431,7 +458,11 @@
         loadVoltmeterStatus();
         loadFwFileVersion();
         fetch('/api/status').then(function (r) { return r.json(); })
-            .then(function (st) { renderFwFoot(st); })
+            .then(function (st) {
+                renderFwFoot(st);
+                activeHostname = st.hostname || null;
+                renderHostnameHint();
+            })
             .catch(function () {});
     });
 })();

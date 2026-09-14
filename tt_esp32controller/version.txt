@@ -1,10 +1,10 @@
 # Versionsnummer der Controller-Firmware — die einzige Stelle, an der sie gepflegt
 # wird. Der Build (scripts/version.py) reicht sie als FW_VERSION an den Compiler
 # und als /version.json ins Filesystem-Image weiter.
-version = V4.8.3
+version = V4.9.0
 
 # Vom Build gepflegt, nicht von Hand ändern.
 # Stand von data/ zum Zeitpunkt der letzten Versionserhöhung. Weicht der Inhalt
 # von data/ davon ab, während die Version gleich geblieben ist, warnt der Build.
-stamped_version = V4.8.3
-stamped_hash = 691f1e3dedf7
+stamped_version = V4.9.0
+stamped_hash = ec8ecfdece6d

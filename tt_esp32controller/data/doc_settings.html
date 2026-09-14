@@ -115,6 +115,11 @@
             <li><strong>Regelung: Anfahr-Marge (V):</strong> Die schnelle Grob-Anfahrt stoppt um diese Marge vor dem Ziel (beim Hochfahren darunter, beim Runterfahren darüber); die restliche Differenz schließen die Fein-Korrekturen — verhindert Überschwingen.</li>
         </ul>
 
+        <p><strong>Netzwerk</strong></p>
+        <ul>
+            <li><strong>Hostname:</strong> Name, unter dem der Controller im Netz erscheint — im Browser als <code>http://&lt;hostname&gt;.local/</code> und im Router als Gerätename. Standard ist <code>twm-variac</code>. Erlaubt sind 1–63 Zeichen aus Kleinbuchstaben, Ziffern und Bindestrich, nicht am Anfang oder Ende. Anders als die übrigen Werte wird der Name <strong>erst nach einem Neustart</strong> wirksam; bis dahin zeigt die Seite den Hinweis &bdquo;Neustart nötig&ldquo;. Wer per OTA flasht, trägt den neuen Namen auch in <code>platformio.ini</code> als <code>upload_port</code> ein.</li>
+        </ul>
+
         <p><strong>Kalibrierung</strong></p>
         <ul>
             <li><strong>Min./Max. Position (Schritte)</strong> und <strong>Spannung bei Min./Max. Pos. (V):</strong> Die vier Stützwerte der Endpunkt-Kalibrierung (siehe oben). Die Hardware-Kalibrierung (Methode 1) füllt sie automatisch; für die Software-Kalibrierung (Methode 2) können sie hier direkt bearbeitet werden.</li>
@@ -133,7 +138,7 @@
 
         <p><strong>Konfiguration sichern</strong></p>
         <ul>
-            <li><strong>Konfig. herunterladen:</strong> Speichert die komplette Konfiguration (System, Regelung, Kalibrierung, Presets) als JSON-Datei — als Backup vor Experimenten oder Firmware-Umstellungen.</li>
+            <li><strong>Konfig. herunterladen:</strong> Speichert die komplette Konfiguration (Netzwerk, System, Regelung, Kalibrierung, Presets) als JSON-Datei — als Backup vor Experimenten oder Firmware-Umstellungen.</li>
             <li><strong>Konfig. hochladen:</strong> Stellt eine gesicherte JSON-Konfiguration wieder her; die Werte werden validiert und sofort angewendet.</li>
         </ul>
 

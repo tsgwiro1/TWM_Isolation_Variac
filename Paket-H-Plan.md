@@ -1,12 +1,17 @@
 # Paket H — Sicherheit (#11): Umsetzungsplan
 
-**Stand:** 2026-08-06 · Status: **geplant, nicht gestartet** (laut Absprache „optional/später")
+**Stand:** 2026-09-14 · Status: **geplant, nicht gestartet** (laut Absprache „optional/später")
 — das einzige noch offene Paket im [`BACKLOG.md`](BACKLOG.md).
 
 > Dieses Dokument hält den abgestimmten Plan fest, damit Paket H zu einem späteren
-> Zeitpunkt ohne neue Analyse umgesetzt werden kann. Beim Start: nächste
-> MINOR-Version setzen (bei Stand V4.8.1 → **V4.9.0**; V4.8.0 ist inzwischen durch das
-> Display-Redesign vergeben) und die offenen Entscheidungen (unten) einholen.
+> Zeitpunkt ohne neue Analyse umgesetzt werden kann. Beim Start die offenen
+> Entscheidungen (unten) einholen und danach die Version setzen — die dann nächste freie
+> der passenden Stufe:
+> - **MAJOR**, wenn bestehende API-Clients (Skripte, curl, Tools) ohne Zugangsdaten nicht
+>   mehr funktionieren — das ist der Fall, sobald `/api/*` hinter Basic-Auth liegt
+>   (Entscheidung 1, Block B). Gleiche Regel wie beim API-Umbau zu V4.0.0.
+> - **MINOR**, wenn bestehende Clients unverändert weiterlaufen (z. B. nur OTA- und
+>   AP-Passwort, Block A).
 
 ## Ist-Zustand (Sicherheitslücken)
 

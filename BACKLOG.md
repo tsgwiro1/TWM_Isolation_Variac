@@ -252,7 +252,9 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete.
   unter dem neuen Namen erreichbar und per mDNS angekündigt, zurück auf `twm-variac`.
   **Stolperstein am Mac:** Nach einem Namenswechsel hält macOS die fehlgeschlagene
   Auflösung fest; `dns-sd -G v4 <name>.local` löst sie.
-  Offen auf GitHub nur noch **#31** (bei Michael). Paket H erhält eine spätere Version.
+  Lösungskommentar auf GitHub-#28 eingetragen (Issue schliesst Roger). Offen auf GitHub nur
+  noch **#31** (bei Michael).
+  Commit `80f9a1c`, Tag `v4.9.0`.
 - **2026-09-13 — V4.8.3: WLAN-Portal repariert (GitHub-#29, #30), am Gerät verifiziert.**
   **#30 — Neustart während der Passworteingabe:** Mit einer Testfirmware (Portal erzwungen,
   Diagnose-Task, serieller Mitschnitt) reproduziert. Ursache war der Task-Watchdog, nicht
@@ -266,7 +268,7 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete.
   Neustart, sondern kontrollierter Neustart nach dem Speichern (sicherer Zustand, Log
   sichern, `LittleFS.end()`). Nachtest: Speichern → Neustart → WLAN → Webseite und API
   erreichbar; die Log-Zeile vor dem Neustart ist in der Datei erhalten.
-  Offen auf GitHub: **#28** (Hostname konfigurierbar) und **#31** (bei Michael).
+  Lösungskommentare auf GitHub-#29 und #30 eingetragen. Commit `5450304`, Tag `v4.8.3`.
 - **2026-09-13 — Hardware-Dokumentation ins Repo, Versionsstempel, Release V4.8.2.**
   Neuer Ordner `Hardware/` mit **Stückliste** und **Verdrahtung** des Geräts, dazu Schema,
   Layout, Gerber und BOM der vier Prints, Datenblätter, CAD und 28 aufbereitete Fotos

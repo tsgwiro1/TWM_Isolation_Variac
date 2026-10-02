@@ -11,10 +11,11 @@ Filesystem-Image weiter.
 
 ### Geändert
 - **Regelabweichungsbalken ruhiger bei Messrauschen** (GitHub-#31): Die Anzeige (Balken **und** grosse
-  Ist-Spannung) läuft jetzt über einen geglätteten Wert (EMA-Tiefpass, Faktor `DISP_SMOOTH`
-  0.12 pro 10‑Hz-Frame ≈ 0.8 s Zeitkonstante) statt über den rohen Messwert, dazu eine
-  1‑px-Marker-Hysterese. Der Balken schwankt dadurch deutlich langsamer, bleibt aber
-  aussagekräftig. **Die Regelung selbst rechnet unverändert mit dem rohen Messwert** — die
+  Ist-Spannung) läuft jetzt über einen geglätteten Wert statt über den rohen Messwert,
+  dazu eine 1‑px-Marker-Hysterese. Der Tiefpass ist progressiv: Abweichungen bis 0.3 V
+  (Messrauschen) glättet er stark (≈ 1.2 s), ab 1.5 V folgt die Anzeige praktisch sofort
+  (≈ 0.1 s), dazwischen gleitend. Der Balken ist dadurch im eingeschwungenen Zustand
+  ruhig, reagiert auf Sollwertsprünge aber ohne spürbare Verzögerung. **Die Regelung selbst rechnet unverändert mit dem rohen Messwert** — die
   Glättung betrifft ausschliesslich die Darstellung.
 
 ## [V4.9.0] – 2026-09-14

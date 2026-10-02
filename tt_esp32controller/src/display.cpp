@@ -51,9 +51,14 @@ static const uint16_t COL_BAROFF  = 0x2987;      // Balken-Track bei Ausgang aus
 #define DEV_ZONE_YELLOW  4.0f
 #define DEV_ZONE_MAX     5.0f
 #define DEV_MARK_MIN     0.3f // Variante B: unterhalb -> grüner Strich statt Mini-Füllung
-// Anzeige-Glättung (nur Balken + grosse Zahl, NICHT die Regelung): EMA-Tiefpass gegen
-// Messrauschen. Faktor pro Display-Frame (10 Hz); 0.12 => Zeitkonstante ~0.8 s. Kleiner = ruhiger.
-#define DISP_SMOOTH      0.12f
+// Anzeige-Glättung (nur Balken + grosse Zahl, NICHT die Regelung): progressiver EMA-Tiefpass.
+// Der Faktor pro Display-Frame (10 Hz) wächst mit der Differenz Rohwert <-> Anzeigewert:
+// bis DISP_ERR_LO (Messrauschen) stark glätten, ab DISP_ERR_HI (echte Änderung) praktisch
+// sofort folgen, dazwischen linear. 0.08 => ~1.2 s Zeitkonstante, 0.6 => ~0.1 s.
+#define DISP_ALPHA_MIN   0.08f
+#define DISP_ALPHA_MAX   0.60f
+#define DISP_ERR_LO      0.3f   // V
+#define DISP_ERR_HI      1.5f   // V
 // Marker-Hysterese: Balken erst neu zeichnen, wenn sich die Position um >= so viele px bewegt
 // (unterdrückt das letzte Mikro-Dithern im eingeschwungenen Zustand).
 #define BAR_MARK_HYST_PX 2
@@ -380,12 +385,16 @@ void updateDisplay() {
   bool out   = A_onoff->getState();
   bool limit = A_limit->getState();
   bool reg   = A_reg->getState();
-  // Anzeige-Glättung: EMA-Tiefpass NUR für die Anzeige (grosse Zahl + Balken). Die Regelung
-  // rechnet weiter mit dem rohen received_rms_value — hier geht es nur um ein ruhiges Bild.
+  // Anzeige-Glättung: progressiver EMA-Tiefpass NUR für die Anzeige (grosse Zahl + Balken).
+  // Kleine Differenzen (Rauschen) werden stark gedämpft, grosse (Sollwertsprung, Ein/Aus,
+  // Rückkehr aus dem Einstellmenü) übernimmt die Anzeige fast sofort. Die Regelung rechnet
+  // weiter mit dem rohen received_rms_value — hier geht es nur um ein ruhiges Bild.
   static float vDisp = NAN;
   float vRaw = received_rms_value;
   if (isnan(vDisp)) vDisp = vRaw;                 // Erstwert übernehmen (kein Einschwingen von 0)
-  vDisp += DISP_SMOOTH * (vRaw - vDisp);
+  float err = vRaw - vDisp;
+  float t = constrain((fabsf(err) - DISP_ERR_LO) / (DISP_ERR_HI - DISP_ERR_LO), 0.0f, 1.0f);
+  vDisp += (DISP_ALPHA_MIN + t * (DISP_ALPHA_MAX - DISP_ALPHA_MIN)) * err;
   int  volt  = (int)lroundf(vDisp);
   uint8_t vcol = !out ? VCOL_GREY : (limit ? VCOL_YELLOW : VCOL_RED);
   bool danger = !limit;                          // Strombegrenzung aus -> Warnung (unabhängig vom Ausgang)

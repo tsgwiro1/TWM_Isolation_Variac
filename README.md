@@ -13,7 +13,7 @@ Das **Voltmeter** (`tt_voltmeter/`, STM32F103) misst die Ausgangsspannung als ec
 (ZMPT101B-Sensor) und liefert ihn laufend über eine serielle Verbindung an den Controller — die
 Basis für die geschlossene Spannungsregelung.
 
-**Stand:** Controller-Firmware **V4.9.0** (Git-Tag `v4.9.0`) · Voltmeter-Firmware **V1.2.3**.
+**Stand:** Controller-Firmware **V4.9.1** (Git-Tag `v4.9.1`) · Voltmeter-Firmware **V1.2.3**.
 
 Das Projekt auf einer Seite: [`TWM-Isolation-Variac-OnePager.pdf`](TWM-Isolation-Variac-OnePager.pdf).
 

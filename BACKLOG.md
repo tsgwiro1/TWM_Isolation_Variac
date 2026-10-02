@@ -10,7 +10,8 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete.
 ## Fortschritt
 
 **Stand:** 2026-10-02 · **Gesamt: 36 / 37 Punkte erledigt** · aktueller Release **V4.9.1**
-· auf GitHub: #29/#30 in V4.8.3, #28 in V4.9.0 und #31 in V4.9.1 behoben
+· auf GitHub: #29/#30 in V4.8.3, #28 in V4.9.0 und #31 in V4.9.1 behoben — **keine offenen
+Issues** · offen nur noch Paket H (optional)
 
 | Paket | Status | Fortschritt |
 |-------|--------|-------------|
@@ -249,7 +250,9 @@ Priorisierte Umsetzungsliste, gruppiert in Pakete.
   von Roger am Gerät abgenommen. **Stolperstein:** Nach dem Update auf macOS 27 fehlte
   Rosetta; `mklittlefs` aus PlatformIO ist x86_64 → `uploadfs` scheiterte mit „Bad CPU
   type", behoben mit `softwareupdate --install-rosetta`.
-  Commits `6d544d3` (Michael), `414b093`, Tag `v4.9.1`.
+  Commits `6d544d3` (Michael), `414b093`, Release `5334264`, Tag `v4.9.1`.
+  Lösungskommentar auf GitHub-#31 (erstmals per `gh`), Issue von Roger geschlossen,
+  `feature/bar-smoothing` lokal und auf GitHub gelöscht. Auf GitHub ist kein Issue mehr offen.
 - **2026-09-14 — V4.9.0: Hostname konfigurierbar (GitHub-#28), am Gerät verifiziert.**
   Der Name für DHCP und mDNS steht als `network.hostname` in der Konfiguration (NVS) und
   ist auf der Einstellungsseite im neuen Abschnitt „Netzwerk" änderbar; wirksam nach
